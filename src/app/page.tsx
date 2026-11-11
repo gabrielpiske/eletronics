@@ -6,6 +6,7 @@ import Link from "next/link";
 import { MINIGAMES_CATALOG } from "@/data/electronicsData";
 import { checkRoomExists, joinRoom } from "@/lib/roomService";
 import { isFirebaseConfigured } from "@/lib/firebase";
+import { Footer } from "@/components/Footer";
 import {
   Cpu,
   Play,
@@ -260,10 +261,7 @@ export default function HomePage() {
       </main>
 
       {/* Rodapé */}
-      <footer className="border-t border-slate-800/70 py-4 text-center text-xs text-slate-500">
-        SENAI — Aprendizagem Industrial de Eletrônico de Manutenção Industrial •
-        UC: Técnicas de Manutenção Eletrônica
-      </footer>
+      <Footer />
     </div>
   );
 }

@@ -16,6 +16,7 @@ import { CircuitRadarGame } from "@/components/minigames/CircuitRadarGame";
 import { ResistorBuilderGame } from "@/components/minigames/ResistorBuilderGame";
 import { BenchMatchGame } from "@/components/minigames/BenchMatchGame";
 import { SmokeDetectiveGame } from "@/components/minigames/SmokeDetectiveGame";
+import { Footer } from "@/components/Footer";
 import {
   Trophy,
   Clock,
@@ -367,6 +368,7 @@ export default function PlayRoomPage() {
           </div>
         )}
       </main>
+      <Footer />
     </div>
   );
 }

@@ -21,6 +21,7 @@ import {
   recordPlayerAction,
 } from "@/lib/roomService";
 import { db, isFirebaseConfigured } from "@/lib/firebase";
+import { Footer } from "@/components/Footer";
 import { ref, set } from "firebase/database";
 import {
   Tv,
@@ -807,6 +808,7 @@ function HostContent() {
           </div>
         )}
       </main>
+      <Footer />
     </div>
   );
 }

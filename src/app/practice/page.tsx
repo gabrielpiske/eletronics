@@ -15,6 +15,7 @@ import { CircuitRadarGame } from "@/components/minigames/CircuitRadarGame";
 import { ResistorBuilderGame } from "@/components/minigames/ResistorBuilderGame";
 import { BenchMatchGame } from "@/components/minigames/BenchMatchGame";
 import { SmokeDetectiveGame } from "@/components/minigames/SmokeDetectiveGame";
+import { Footer } from "@/components/Footer";
 import {
   ArrowLeft,
   BookOpen,
@@ -244,6 +245,7 @@ function PracticeContent() {
           </div>
         )}
       </main>
+      <Footer />
     </div>
   );
 }
