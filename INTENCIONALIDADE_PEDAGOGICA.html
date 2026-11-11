@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Intencionalidade Pedagógica — Arena Eletrônica SENAI</title>
+  <style>
+    :root {
+      --senai-blue: #0047b6;
+      --senai-blue-dark: #002f7a;
+      --senai-cyan: #0ea5e9;
+      --senai-amber: #d97706;
+      --senai-emerald: #059669;
+      --bg-page: #f1f5f9;
+      --bg-card: #ffffff;
+      --text-main: #0f172a;
+      --text-muted: #475569;
+      --border-color: #e2e8f0;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+      background-color: var(--bg-page);
+      color: var(--text-main);
+      line-height: 1.6;
+      padding: 2rem 1rem;
+    }
+
+    .container {
+      max-width: 1060px;
+      margin: 0 auto;
+      background: var(--bg-card);
+      border-radius: 20px;
+      box-shadow: 0 20px 50px rgba(15, 23, 42, 0.08);
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+    }
+
+    /* Barra de Ações no Topo */
+    .top-bar {
+      background: #0b1120;
+      color: #f8fafc;
+      padding: 0.75rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+      font-size: 0.85rem;
+    }
+
+    .top-bar a {
+      color: #38bdf8;
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    .btn-print {
+      background: linear-gradient(135deg, #0ea5e9, #2563eb);
+      color: #ffffff;
+      border: none;
+      padding: 0.5rem 1.1rem;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 0.82rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: transform 0.15s ease, opacity 0.15s ease;
+    }
+
+    .btn-print:hover {
+      opacity: 0.92;
+      transform: translateY(-1px);
+    }
+
+    /* Cabeçalho Institucional SENAI */
+    header.hero {
+      background: linear-gradient(135deg, var(--senai-blue-dark) 0%, var(--senai-blue) 60%, #0284c7 100%);
+      color: #ffffff;
+      padding: 2.75rem 2.5rem;
+      position: relative;
+    }
+
+    .senai-badge {
+      display: inline-block;
+      background: rgba(255, 255, 255, 0.16);
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      padding: 0.3rem 0.85rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 0.9rem;
+    }
+
+    header.hero h1 {
+      font-size: 2rem;
+      font-weight: 900;
+      line-height: 1.2;
+      margin-bottom: 0.5rem;
+    }
+
+    header.hero p.subtitle {
+      font-size: 1.05rem;
+      color: #e0f2fe;
+      max-width: 820px;
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 0.85rem;
+      margin-top: 1.75rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.22);
+    }
+
+    .meta-item {
+      background: rgba(15, 23, 42, 0.28);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 12px;
+      padding: 0.75rem 1rem;
+    }
+
+    .meta-item span {
+      display: block;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #bae6fd;
+      font-weight: 700;
+    }
+
+    .meta-item strong {
+      font-size: 0.92rem;
+      color: #ffffff;
+    }
+
+    .meta-item a {
+      color: #fde047;
+      text-decoration: underline;
+    }
+
+    /* Corpo do Documento */
+    main {
+      padding: 2.5rem;
+    }
+
+    section {
+      margin-bottom: 2.75rem;
+    }
+
+    h2.section-title {
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: var(--senai-blue-dark);
+      border-left: 5px solid var(--senai-blue);
+      padding-left: 0.85rem;
+      margin-bottom: 1.1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    p {
+      color: var(--text-muted);
+      margin-bottom: 0.9rem;
+      font-size: 0.96rem;
+    }
+
+    blockquote.competencia-box {
+      background: #f0f9ff;
+      border-left: 5px solid var(--senai-cyan);
+      padding: 1.1rem 1.35rem;
+      border-radius: 0 12px 12px 0;
+      color: #0c4a6e;
+      font-weight: 600;
+      font-style: italic;
+      margin: 1rem 0 1.35rem 0;
+    }
+
+    /* Tabelas */
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 12px;
+      border: 1px solid var(--border-color);
+      margin-top: 0.75rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+      background: #ffffff;
+    }
+
+    th {
+      background: #f8fafc;
+      color: #1e293b;
+      font-weight: 800;
+      text-align: left;
+      padding: 0.85rem 1rem;
+      border-bottom: 2px solid var(--border-color);
+    }
+
+    td {
+      padding: 0.8rem 1rem;
+      border-bottom: 1px solid var(--border-color);
+      color: #334155;
+      vertical-align: top;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:nth-child(even) td {
+      background: #fcfdff;
+    }
+
+    .text-center {
+      text-align: center;
+    }
+
+    .check-badge {
+      display: inline-block;
+      background: #dcfce7;
+      color: #15803d;
+      font-weight: 800;
+      padding: 0.15rem 0.5rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+    }
+
+    /* Cards de Arquitetura da Plataforma */
+    .arch-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.1rem;
+      margin-top: 1rem;
+    }
+
+    .arch-card {
+      background: #f8fafc;
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      padding: 1.25rem;
+    }
+
+    .arch-card h3 {
+      font-size: 1.02rem;
+      color: #0f172a;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .arch-card p {
+      font-size: 0.88rem;
+      margin-bottom: 0.5rem;
+    }
+
+    /* Cards dos 5 Minigames */
+    .minigame-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1.35rem;
+      margin-top: 1.2rem;
+    }
+
+    .minigame-card {
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      overflow: hidden;
+      background: #ffffff;
+      box-shadow: 0 4px 15px rgba(15, 23, 42, 0.03);
+    }
+
+    .minigame-header {
+      padding: 1rem 1.35rem;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .mg-1 { background: linear-gradient(90deg, #0284c7, #2563eb); }
+    .mg-2 { background: linear-gradient(90deg, #059669, #0d9488); }
+    .mg-3 { background: linear-gradient(90deg, #d97706, #ea580c); }
+    .mg-4 { background: linear-gradient(90deg, #7c3aed, #6d28d9); }
+    .mg-5 { background: linear-gradient(90deg, #db2777, #be185d); }
+
+    .minigame-header h3 {
+      font-size: 1.15rem;
+      font-weight: 800;
+    }
+
+    .minigame-tag {
+      background: rgba(255, 255, 255, 0.22);
+      padding: 0.22rem 0.7rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .minigame-body {
+      padding: 1.35rem;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1rem;
+    }
+
+    @media (min-width: 768px) {
+      .minigame-body {
+        grid-template-columns: 1.35fr 1fr;
+      }
+    }
+
+    .minigame-body h4 {
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--senai-blue);
+      margin-bottom: 0.4rem;
+      font-weight: 800;
+    }
+
+    .minigame-body ul {
+      padding-left: 1.2rem;
+      color: var(--text-muted);
+      font-size: 0.88rem;
+    }
+
+    .minigame-body li {
+      margin-bottom: 0.35rem;
+    }
+
+    .cap-box {
+      background: #f8fafc;
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1rem;
+    }
+
+    .pill-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-top: 0.4rem;
+      margin-bottom: 0.85rem;
+    }
+
+    .pill {
+      background: #e0f2fe;
+      color: #0369a1;
+      font-size: 0.76rem;
+      font-weight: 700;
+      padding: 0.22rem 0.6rem;
+      border-radius: 6px;
+    }
+
+    /* Roteiro de Aula */
+    .steps-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .step-card {
+      background: #f8fafc;
+      border-top: 4px solid var(--senai-blue);
+      border-radius: 12px;
+      padding: 1.2rem;
+      border-left: 1px solid var(--border-color);
+      border-right: 1px solid var(--border-color);
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .step-card span.step-num {
+      display: inline-block;
+      background: var(--senai-blue);
+      color: #ffffff;
+      font-size: 0.72rem;
+      font-weight: 800;
+      padding: 0.2rem 0.6rem;
+      border-radius: 999px;
+      margin-bottom: 0.5rem;
+    }
+
+    .step-card h3 {
+      font-size: 1rem;
+      margin-bottom: 0.4rem;
+      color: #0f172a;
+    }
+
+    /* Rodapé */
+    footer.doc-footer {
+      background: #0b1120;
+      color: #94a3b8;
+      padding: 1.5rem 2.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+      font-size: 0.85rem;
+    }
+
+    footer.doc-footer a {
+      color: #38bdf8;
+      font-weight: 800;
+      text-decoration: underline;
+    }
+
+    @media print {
+      body {
+        background: #ffffff;
+        padding: 0;
+      }
+      .container {
+        box-shadow: none;
+        border: none;
+        max-width: 100%;
+      }
+      .top-bar {
+        display: none;
+      }
+      .minigame-card, .step-card, .arch-card, table {
+        break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Barra de Utilidades -->
+    <div class="top-bar">
+      <div>
+        <strong>SENAI/SC — Timbó</strong> • Documento Técnico-Pedagógico (MSEP)
+      </div>
+      <div>
+        <button class="btn-print" onclick="window.print()">
+          🖨️ Imprimir / Salvar em PDF
+        </button>
+      </div>
+    </div>
+
+    <!-- Cabeçalho Institucional -->
+    <header class="hero">
+      <span class="senai-badge">Metodologia SENAI de Educação Profissional (MSEP)</span>
+      <h1>Intencionalidade Pedagógica — Arena Eletrônica SENAI</h1>
+      <p class="subtitle">
+        Fundamentação metodológica e correlação curricular da plataforma gamificada interativa com as Capacidades Técnicas, Socioemocionais e Eixos da BNCC do Projeto de Curso.
+      </p>
+
+      <div class="meta-grid">
+        <div class="meta-item">
+          <span>Curso (860h)</span>
+          <strong>Aprendizagem Industrial de Eletrônico de Manutenção Industrial</strong>
+        </div>
+        <div class="meta-item">
+          <span>Unidade Curricular Foco (120h)</span>
+          <strong>Técnicas de Manutenção Eletrônica (50h Teoria / 70h Prática)</strong>
+        </div>
+        <div class="meta-item">
+          <span>Cód. CONAP / CBO</span>
+          <strong>CONAP 488 • CBO 9511-05 (Nível 2)</strong>
+        </div>
+        <div class="meta-item">
+          <span>Docente / Autor</span>
+          <strong><a href="https://piske.online/" target="_blank" rel="noopener noreferrer">Gabriel Piske (piske.online)</a></strong>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <!-- 1. Contextualização -->
+      <section>
+        <h2 class="section-title">1. Contextualização e Justificativa Pedagógica</h2>
+        <p>
+          Na <strong>Metodologia SENAI de Educação Profissional (MSEP)</strong>, a prática pedagógica é compreendida como um conjunto integrado de ações didático-pedagógicas que articulam <strong>capacidades técnicas, básicas e socioemocionais</strong> a situações reais e desafiadoras do mundo do trabalho.
+        </p>
+        <p>
+          Durante a Unidade Curricular de <strong>Técnicas de Manutenção Eletrônica (120h)</strong>, o jovem aprendiz precisa transitar rapidamente entre a documentação técnica (diagramas esquemáticos, listas de materiais, <em>datasheets</em> e simbologias normatizadas) e a intervenção física na placa de circuito impresso (inspeção visual, medição com multímetro, soldagem e substituição de componentes PTH e SMD).
+        </p>
+        <p>
+          A plataforma <strong>Arena Eletrônica SENAI</strong> atua na <strong>automatização cognitiva do reconhecimento de simbologias, grandezas e funções básicas dos componentes</strong>. Quando o aluno reconhece instantaneamente um símbolo esquemático, sua letra designadora na PCI (<code>R</code>, <code>C</code>, <code>L</code>, <code>D</code>, <code>Q</code>, <code>F</code>, <code>U</code>, <code>GND</code>) e sua função primordial, ele reduz a carga cognitiva durante a prática de bancada, diminuindo erros operacionais, curtos-circuitos acidentais e danos a instrumentos de medição.
+        </p>
+      </section>
+
+      <!-- 2. Perfil Profissional -->
+      <section>
+        <h2 class="section-title">2. Alinhamento com o Perfil Profissional de Conclusão (Anexo I)</h2>
+        <p>A plataforma sustenta diretamente o alcance da <strong>Competência Geral do Curso</strong>:</p>
+        <blockquote class="competencia-box">
+          "Atuar nos processos de montagem e manutenção dos circuitos eletrônicos de baixa complexidade, considerando a legislação, normas, padrões e requisitos técnicos de qualidade, saúde, segurança e de meio ambiente."
+        </blockquote>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 38%;">Função / Subfunção (Anexo I do Projeto de Curso)</th>
+                <th>Padrões de Desempenho Atendidos pela Plataforma</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Função 1 — Subfunção:</strong><br>Montar circuitos eletrônicos de baixa complexidade</td>
+                <td>
+                  • Considerando o diagrama do circuito eletrônico;<br>
+                  • Considerando as especificações técnicas dos componentes e insumos contidas em manuais e catálogos do fabricante.
+                </td>
+              </tr>
+              <tr>
+                <td><strong>Função 2 — Subfunção:</strong><br>Manter sistemas eletrônicos</td>
+                <td>
+                  • Considerando o projeto e documentações técnicas dos sistemas eletrônicos;<br>
+                  • Considerando os requisitos da demanda e histórico sobre o funcionamento do sistema eletrônico;<br>
+                  • Considerando os procedimentos técnicos de manutenção e proteção dos sistemas eletrônicos.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 3. Intencionalidade de Cada Parte da Plataforma -->
+      <section>
+        <h2 class="section-title">3. Intencionalidade Pedagógica da Arquitetura da Plataforma</h2>
+        <div class="arch-grid">
+          <div class="arch-card">
+            <h3>📌 Acesso Rápido via PIN e QR Code (<code>/play/[pin]</code>)</h3>
+            <p>
+              <strong>Intencionalidade:</strong> Eliminar tempos mortos de aula (cadastros longos, senhas esquecidas ou instalações pesadas) e promover <strong>engajamento coletivo imediato</strong> pelo celular ou computador do laboratório.
+            </p>
+            <p>
+              <strong>Vínculo Curricular:</strong> Gestão do tempo, organização do ambiente de aprendizagem e uso produtivo de ferramentas de TIC.
+            </p>
+          </div>
+
+          <div class="arch-card">
+            <h3>📊 Painel Docente com Ranking & CSV (<code>/host</code>)</h3>
+            <p>
+              <strong>Intencionalidade:</strong> Transformar a revisão teórica em uma <strong>Avaliação Formativa e Diagnóstica em Tempo Real</strong>. O professor pode hospedar <strong>qualquer um dos 5 minigames isoladamente</strong>, acompanhar os acertos/erros ao vivo e exportar a planilha <code>.CSV</code> como evidência pedagógica.
+            </p>
+            <p>
+              <strong>Vínculo Curricular:</strong> Tomada de decisão baseada em evidências e intervenção pedagógica imediata.
+            </p>
+          </div>
+
+          <div class="arch-card">
+            <h3>📖 Guia Visual & Bancada Solo (<code>/practice</code>)</h3>
+            <p>
+              <strong>Intencionalidade:</strong> Promover a <strong>Autogestão da Aprendizagem e Acessibilidade</strong>. O estudante pode consultar o catálogo dos 20 símbolos essenciais e treinar qualquer minigame individualmente no seu próprio ritmo antes da avaliação.
+            </p>
+            <p>
+              <strong>Vínculo Curricular:</strong> Atendimento aos diferentes ritmos de aprendizagem e protagonismo discente.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. Os 5 Minigames -->
+      <section>
+        <h2 class="section-title">4. Intencionalidade Pedagógica de Cada Desafio / Minigame</h2>
+        <p>
+          Em vez de perguntas engessadas de múltipla escolha, cada um dos <strong>5 Minigames</strong> trabalha uma mecânica cognitiva e psicomotora diferente, mapeada às Capacidades Técnicas da UC <strong>Técnicas de Manutenção Eletrônica</strong>:
+        </p>
+
+        <div class="minigame-list">
+          <!-- MG 1 -->
+          <div class="minigame-card">
+            <div class="minigame-header mg-1">
+              <h3>🏭 Minigame 1: Esteira Maluca de Componentes</h3>
+              <span class="minigame-tag">Arcade de Classificação & Identificação</span>
+            </div>
+            <div class="minigame-body">
+              <div>
+                <h4>Intencionalidade Pedagógica & Mecânica</h4>
+                <ul>
+                  <li><strong>O Desafio:</strong> Símbolos eletrônicos passam sobre uma esteira industrial em movimento. O aluno classifica rapidamente cada peça na caixa correta — alternando entre <em>Família Tecnológica</em> (Passivos, Semicondutores, Proteção/Energia) e identificação de <em>Nome + Letra na Placa</em> (<code>R</code>, <code>C</code>, <code>L</code>, <code>D</code>, <code>Q</code>, <code>F</code>).</li>
+                  <li><strong>Objetivo Cognitivo:</strong> Desenvolver o <strong>automatismo visual</strong> para triagem de componentes e conferência de Lista de Materiais (BOM), evitando trocas de peças na bancada.</li>
+                  <li><strong>Feedback Formativo:</strong> Cada acerto ou "curto-circuito" exibe na hora a função básica e a unidade de medida da peça.</li>
+                </ul>
+              </div>
+              <div class="cap-box">
+                <h4>Capacidades Técnicas (Anexo II)</h4>
+                <div class="pill-list">
+                  <span class="pill">Identificar componentes eletrônicos</span>
+                  <span class="pill">Identificar a simbologia</span>
+                  <span class="pill">Avaliar características</span>
+                </div>
+                <h4>Conhecimentos Mobilizados</h4>
+                <p style="margin:0; font-size:0.84rem;">1.1 Características PTH/SMD • 2.1 Interpretação de esquemas • 6.2 Lista de Materiais (BOM).</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- MG 2 -->
+          <div class="minigame-card">
+            <div class="minigame-header mg-2">
+              <h3>🔍 Minigame 2: Radar do Circuito</h3>
+              <span class="minigame-tag">Leitura Espacial de Diagrama Esquemático</span>
+            </div>
+            <div class="minigame-body">
+              <div>
+                <h4>Intencionalidade Pedagógica & Mecânica</h4>
+                <ul>
+                  <li><strong>O Desafio:</strong> O aluno visualiza um <strong>esquema elétrico completo</strong> (fonte regulada + acionamento por sensor de luz com <code>F1</code>, <code>T1</code>, <code>D1</code>, <code>C1</code>, <code>ZD1</code>, <code>SW1</code>, <code>LDR1</code>, <code>Q1</code>, <code>R1</code>, <code>LED1</code> e <code>GND</code>) e precisa tocar diretamente sobre o símbolo solicitado pelo Radar de Manutenção.</li>
+                  <li><strong>Objetivo Cognitivo:</strong> Superar a barreira entre conhecer o símbolo solto e <strong>encontrá-lo dentro de uma malha elétrica interconectada</strong>, desenvolvendo visão sistêmica de blocos funcionais (Entrada, Proteção, Retificação, Filtro, Controle e Saída).</li>
+                </ul>
+              </div>
+              <div class="cap-box">
+                <h4>Capacidades Técnicas (Anexo II)</h4>
+                <div class="pill-list">
+                  <span class="pill">Interpretar diagramas esquemáticos</span>
+                  <span class="pill">Aplicar técnicas de análise de circuitos</span>
+                  <span class="pill">Localizar defeitos</span>
+                </div>
+                <h4>Conhecimentos Mobilizados</h4>
+                <p style="margin:0; font-size:0.84rem;">2.1 Interpretação de esquemas eletrônicos • 4.3 Comparação com esquema eletrônico • 4.5 Análise de funcionamento.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- MG 3 -->
+          <div class="minigame-card">
+            <div class="minigame-header mg-3">
+              <h3>🎨 Minigame 3: Oficina do Resistor</h3>
+              <span class="minigame-tag">Construção Prática de Código de Cores</span>
+            </div>
+            <div class="minigame-body">
+              <div>
+                <h4>Intencionalidade Pedagógica & Mecânica</h4>
+                <ul>
+                  <li><strong>O Desafio:</strong> A partir de uma Ordem de Serviço contextualizada (ex: <em>"Monte um resistor de 1 kΩ para polarizar a base do transistor"</em>), o aluno toca diretamente nas 3 faixas de um resistor em branco para pintá-las até atingir o valor ôhmico no multímetro virtual.</li>
+                  <li><strong>Objetivo Cognitivo:</strong> Aprendizagem ativa (<em>learning by doing</em>) da tabela de cores e múltiplos ($\Omega$, $\text{k}\Omega$, $\text{M}\Omega$), vinculando cada valor a uma aplicação real de montagem e substituição de componentes.</li>
+                </ul>
+              </div>
+              <div class="cap-box">
+                <h4>Capacidades Técnicas (Anexo II)</h4>
+                <div class="pill-list">
+                  <span class="pill">Avaliar características dos componentes</span>
+                  <span class="pill">Interpretar tabelas e códigos</span>
+                  <span class="pill">Realizar medições básicas</span>
+                  <span class="pill">Substituir componentes</span>
+                </div>
+                <h4>Conhecimentos Mobilizados</h4>
+                <p style="margin:0; font-size:0.84rem;">3.1 Multímetro • 4.2 Teste de resistência ôhmica • 6.1 Dados técnicos e tabelas.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- MG 4 -->
+          <div class="minigame-card">
+            <div class="minigame-header mg-4">
+              <h3>⚡ Minigame 4: Conexão de Bancada</h3>
+              <span class="minigame-tag">Associação Símbolo ↔ Letra & Função</span>
+            </div>
+            <div class="minigame-body">
+              <div>
+                <h4>Intencionalidade Pedagógica & Mecânica</h4>
+                <ul>
+                  <li><strong>O Desafio:</strong> Um painel com 12 terminais exige que o aluno conecte cada um dos 6 símbolos esquemáticos ao seu respectivo par de <em>Designador na Placa + Nome + Função Básica</em> para avançar a níveis superiores de placas.</li>
+                  <li><strong>Objetivo Cognitivo:</strong> Fixar a tríade <strong>Símbolo $\leftrightarrow$ Letra na Placa $\leftrightarrow$ Função Física</strong> e desenvolver disciplina de conferência prévia (evitando conexões impulsivas que geram "curto-circuito").</li>
+                </ul>
+              </div>
+              <div class="cap-box">
+                <h4>Capacidades Técnicas (Anexo II)</h4>
+                <div class="pill-list">
+                  <span class="pill">Identificar a simbologia</span>
+                  <span class="pill">Identificar componentes</span>
+                  <span class="pill">Interpretar esquemas eletrônicos</span>
+                </div>
+                <h4>Conhecimentos Mobilizados</h4>
+                <p style="margin:0; font-size:0.84rem;">2.1 Interpretação de esquemas • 4.6 Inspeção visual • 6.2 Lista de Materiais.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- MG 5 -->
+          <div class="minigame-card">
+            <div class="minigame-header mg-5">
+              <h3>🕵️ Minigame 5: Símbolo sob Fumaça</h3>
+              <span class="minigame-tag">Dedução Técnica por Pistas Progressivas</span>
+            </div>
+            <div class="minigame-body">
+              <div>
+                <h4>Intencionalidade Pedagógica & Mecânica</h4>
+                <ul>
+                  <li><strong>O Desafio:</strong> Um símbolo começa encoberto na fumaça e ganha nitidez em 3 estágios enquanto 3 pistas técnicas são reveladas (letra na placa, unidade, polaridade, teste de continuidade/BIP no multímetro ou cuidados de segurança). Quanto antes o aluno deduzir a peça, maior a pontuação.</li>
+                  <li><strong>Objetivo Cognitivo:</strong> Estimular o <strong>raciocínio hipotético-dedutivo e a postura investigativa</strong> típicos do diagnóstico de defeitos na manutenção industrial.</li>
+                </ul>
+              </div>
+              <div class="cap-box">
+                <h4>Capacidades Técnicas (Anexo II)</h4>
+                <div class="pill-list">
+                  <span class="pill">Aplicar técnicas de localização de defeito</span>
+                  <span class="pill">Utilizar instrumentos de medida</span>
+                  <span class="pill">Aplicar normas de segurança</span>
+                </div>
+                <h4>Conhecimentos Mobilizados</h4>
+                <p style="margin:0; font-size:0.84rem;">3.1 Multímetro • 4.1 Teste de continuidade • 5.1 Normas de segurança aplicáveis à manutenção.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 5. Capacidades Socioemocionais e BNCC -->
+      <section>
+        <h2 class="section-title">5. Capacidades Socioemocionais e Eixos Estruturantes da BNCC</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 38%;">Dimensão Socioemocional / Eixo BNCC (Projeto de Curso)</th>
+                <th>Como é Desenvolvida Durante os Jogos</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Aprendizagem Ativa e Autogestão</strong></td>
+                <td>Protagonismo do estudante ao interagir com os desafios, usar o feedback imediato de erro/acerto para corrigir rotas e praticar no modo <em>Treino Solo</em>.</td>
+              </tr>
+              <tr>
+                <td><strong>Inteligência Emocional e Autocontrole</strong></td>
+                <td>Manutenção da concentração, precisão e equilíbrio emocional sob cronômetro, evitando cliques impulsivos após sofrer um "curto-circuito".</td>
+              </tr>
+              <tr>
+                <td><strong>Pensamento Crítico e Resolução de Problemas</strong></td>
+                <td>Análise de pistas técnicas progressivas no <em>Símbolo sob Fumaça</em> e localização funcional de componentes no <em>Radar do Circuito</em>.</td>
+              </tr>
+              <tr>
+                <td><strong>Eixo BNCC: Investigação Científica</strong></td>
+                <td>Formulação e validação rápida de hipóteses diagnósticas a partir de evidências técnicas de bancada (unidades, polaridade e comportamento elétrico).</td>
+              </tr>
+              <tr>
+                <td><strong>Eixo BNCC: Mediação Sociocultural e Trabalho em Equipe</strong></td>
+                <td>Competição saudável em sala de aula, respeito às regras, troca de dicas entre pares durante o <em>debriefing</em> de cada rodada e celebração coletiva.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 6. Matriz de Rastreabilidade -->
+      <section>
+        <h2 class="section-title">6. Matriz de Rastreabilidade Pedagógica (UC × Minigames)</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Capacidade Técnica (UC: Técnicas de Manutenção Eletrônica)</th>
+                <th class="text-center">🏭 MG1<br>Esteira</th>
+                <th class="text-center">🔍 MG2<br>Radar</th>
+                <th class="text-center">🎨 MG3<br>Resistor</th>
+                <th class="text-center">⚡ MG4<br>Conexão</th>
+                <th class="text-center">🕵️ MG5<br>Detetive</th>
+                <th class="text-center">📖 Guia<br>Solo</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Identificar componentes eletrônicos</strong></td>
+                <td class="text-center"><span class="check-badge">✓</span></td>
+                <td class="text-center"><span class="check-badge">✓</span></td>
+                <td class="text-center"><span class="check-badge">✓</span></td>
+                <td class="text-center"><span class="check-badge">✓</span></td>
+                <td class="text-center"><span class="check-badge">✓</span></td>
+                <td class="text-center"><span class="check-badge">✓</span></td>
+              </tr>
+              <tr>
+                <td><strong>Identificar a simbologia de componentes eletrônicos</strong></td>
+                <td class="text-center"><span class="check-badge">✓</span></td>
+                <td class="text-center"><span class="check-badge">✓</span></td>
+                <td class="text-center">—</td>
+                <td class="text-center"><span class="check-badge">✓</span></td>
+                <td class="text-center"><span class="check-badge">✓</span></td>
+                <td class="text-center"><span class="check-badge">✓</span></td>
+              </tr>
+              <tr>
+                <td><strong>Avaliar as características dos componentes eletrônicos</strong></td>
+                <td class="text-center"><span class="check-badge">✓</span></td>
+                <td class="text-center">—</td>
+                <td class="text-center"><span class="check-badge">✓</span></td>
+                <td class="text-center"><span class="check-badge">✓</span></td>
+                <td class="text-center"><span class="check-badge">✓</span></td>
+                <td class="text-center"><span class="check-badge">✓</span></td>
+              </tr>
+              <tr>
+                <td><strong>Interpretar diagramas esquemáticos eletrônicos</strong></td>
+                <td class="text-center">—</td>
+                <td class="text-center"><span class="check-badge">✓</span></td>
+                <td class="text-center">—</td>
+                <td class="text-center"><span class="check-badge">✓</span></td>
+                <td class="text-center">—</td>
+                <td class="text-center"><span class="check-badge">✓</span></td>
+              </tr>
+              <tr>
+                <td><strong>Aplicar técnicas de análise de circuitos</strong></td>
+                <td class="text-center">—</td>
+                <td class="text-center"><span class="check-badge">✓</span></td>
+                <td class="text-center">—</td>
+                <td class="text-center"><span class="check-badge">✓</span></td>
+                <td class="text-center"><span class="check-badge">✓</span></td>
+                <td class="text-center">—</td>
+              </tr>
+              <tr>
+                <td><strong>Aplicar técnicas de localização de defeito</strong></td>
+                <td class="text-center">—</td>
+                <td class="text-center"><span class="check-badge">✓</span></td>
+                <td class="text-center">—</td>
+                <td class="text-center">—</td>
+                <td class="text-center"><span class="check-badge">✓</span></td>
+                <td class="text-center">—</td>
+              </tr>
+              <tr>
+                <td><strong>Interpretar tabelas, códigos e listas de materiais (BOM)</strong></td>
+                <td class="text-center"><span class="check-badge">✓</span></td>
+                <td class="text-center">—</td>
+                <td class="text-center"><span class="check-badge">✓</span></td>
+                <td class="text-center"><span class="check-badge">✓</span></td>
+                <td class="text-center">—</td>
+                <td class="text-center"><span class="check-badge">✓</span></td>
+              </tr>
+              <tr>
+                <td><strong>Utilizar instrumentos e realizar medições básicas</strong></td>
+                <td class="text-center">—</td>
+                <td class="text-center">—</td>
+                <td class="text-center"><span class="check-badge">✓</span></td>
+                <td class="text-center">—</td>
+                <td class="text-center"><span class="check-badge">✓</span></td>
+                <td class="text-center">—</td>
+              </tr>
+              <tr>
+                <td><strong>Substituir componentes defeituosos (especificação correta)</strong></td>
+                <td class="text-center">—</td>
+                <td class="text-center">—</td>
+                <td class="text-center"><span class="check-badge">✓</span></td>
+                <td class="text-center">—</td>
+                <td class="text-center">—</td>
+                <td class="text-center">—</td>
+              </tr>
+              <tr>
+                <td><strong>Aplicar normas de saúde e segurança no trabalho</strong></td>
+                <td class="text-center">—</td>
+                <td class="text-center"><span class="check-badge">✓</span></td>
+                <td class="text-center">—</td>
+                <td class="text-center">—</td>
+                <td class="text-center"><span class="check-badge">✓</span></td>
+                <td class="text-center">—</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 7. Sugestão de Roteiro em Aula -->
+      <section style="margin-bottom: 1rem;">
+        <h2 class="section-title">7. Roteiro Sugerido para Aplicação Docente em Sala / Laboratório</h2>
+        <div class="steps-grid">
+          <div class="step-card">
+            <span class="step-num">Momento 1 • Início da Aula (10 min)</span>
+            <h3>Aquecimento e Diagnóstico</h3>
+            <p>
+              Hospedar via PIN o <strong>Minigame 1 (Esteira Maluca)</strong> ou o <strong>Minigame 4 (Conexão de Bancada)</strong> por 2 minutos para ativar os conhecimentos prévios da turma antes da explicação ou prática.
+            </p>
+          </div>
+
+          <div class="step-card">
+            <span class="step-num">Momento 2 • Pré-Laboratório (15 min)</span>
+            <h3>Preparação para a Bancada</h3>
+            <p>
+              Rodar o <strong>Minigame 2 (Radar do Circuito)</strong> e o <strong>Minigame 3 (Oficina do Resistor)</strong> imediatamente antes de entregar as placas e ferros de solda, garantindo leitura segura do esquema e dos resistores.
+            </p>
+          </div>
+
+          <div class="step-card">
+            <span class="step-num">Momento 3 • Fechamento (10 min)</span>
+            <h3>Consolidação e Registro (.CSV)</h3>
+            <p>
+              Executar o <strong>Minigame 5 (Símbolo sob Fumaça)</strong> como síntese final da aula, baixar o relatório <code>.CSV</code> da turma no painel do professor e comentar os componentes que geraram mais dúvidas.
+            </p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Rodapé -->
+    <footer class="doc-footer">
+      <div>
+        SENAI/SC — Timbó • Aprendizagem Industrial de Eletrônico de Manutenção Industrial • UC: Técnicas de Manutenção Eletrônica
+      </div>
+      <div>
+        Desenvolvido por <a href="https://piske.online/" target="_blank" rel="noopener noreferrer">Gabriel Piske</a>
+      </div>
+    </footer>
+  </div>
+</body>
+</html>
