@@ -257,20 +257,29 @@ function HostContent() {
             </h1>
           </div>
 
-          {room && (
-            <div className="flex items-center gap-2">
-              <span className="px-3 py-1.5 rounded-md bg-[#0C0E12] border border-[#2A303C] text-xs font-mono text-zinc-300 flex items-center gap-1.5">
-                <Users className="w-3.5 h-3.5 text-amber-400" />
-                {sortedPlayers.length} conectados
-              </span>
-              <button
-                onClick={() => setRoom(null)}
-                className="px-3 py-1.5 rounded-md bg-[#1E2229] hover:bg-[#262B34] border border-[#2E3540] text-xs font-semibold text-zinc-300"
-              >
-                Nova Sala
-              </button>
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            <Link
+              href="/leaderboard"
+              className="px-3 py-1.5 rounded-md bg-[#0C0E12] hover:bg-[#14181F] border border-[#2A303C] text-xs font-mono font-bold text-[#F59E0B] flex items-center gap-1.5"
+            >
+              <Trophy className="w-3.5 h-3.5 text-[#F59E0B]" />
+              <span>Ranking Global</span>
+            </Link>
+            {room && (
+              <>
+                <span className="px-3 py-1.5 rounded-md bg-[#0C0E12] border border-[#2A303C] text-xs font-mono text-zinc-300 flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-amber-400" />
+                  {sortedPlayers.length} conectados
+                </span>
+                <button
+                  onClick={() => setRoom(null)}
+                  className="px-3 py-1.5 rounded-md bg-[#1E2229] hover:bg-[#262B34] border border-[#2E3540] text-xs font-semibold text-zinc-300"
+                >
+                  Nova Sala
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </header>
 

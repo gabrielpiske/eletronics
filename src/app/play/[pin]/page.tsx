@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { MINIGAMES_CATALOG } from "@/data/electronicsData";
@@ -11,13 +11,26 @@ import {
   subscribeToRoom,
   recordPlayerAction,
 } from "@/lib/roomService";
+import {
+  subscribeToActiveProfile,
+  recordCompletedMatch,
+} from "@/lib/profileService";
+import { ACHIEVEMENTS_CATALOG } from "@/data/achievementsData";
 import { ConveyorGame } from "@/components/minigames/ConveyorGame";
 import { CircuitRadarGame } from "@/components/minigames/CircuitRadarGame";
 import { ResistorBuilderGame } from "@/components/minigames/ResistorBuilderGame";
 import { BenchMatchGame } from "@/components/minigames/BenchMatchGame";
 import { SmokeDetectiveGame } from "@/components/minigames/SmokeDetectiveGame";
 import { Footer } from "@/components/Footer";
-import { Trophy, Clock, ArrowLeft, Play, Radio } from "lucide-react";
+import {
+  Trophy,
+  Clock,
+  ArrowLeft,
+  Play,
+  Radio,
+  Award,
+  CheckCircle2,
+} from "lucide-react";
 
 const AVATARS = ["⚡", "🔧", "🤖", "🔋", "💡", "🛠️", "📟", "🚀"];
 
@@ -33,6 +46,12 @@ export default function PlayRoomPage() {
   const [hasJoined, setHasJoined] = useState<boolean>(false);
   const [remainingSec, setRemainingSec] = useState<number>(0);
   const [lastScoreDelta, setLastScoreDelta] = useState<number | null>(null);
+  const [matchSummary, setMatchSummary] = useState<{
+    xpEarned: number;
+    unlockedIds: string[];
+  } | null>(null);
+
+  const recordedRoundRef = useRef<string | null>(null);
 
   useEffect(() => {
     const pid = getOrCreatePlayerId();
@@ -45,6 +64,14 @@ export default function PlayRoomPage() {
       joinRoom(pin, savedName, savedAvatar || AVATARS[0])
         .then(() => setHasJoined(true))
         .catch(() => {});
+    } else {
+      const unsub = subscribeToActiveProfile((prof) => {
+        if (prof) {
+          setNickname((prev) => prev || prof.displayName);
+          setAvatar(prof.avatar || AVATARS[0]);
+        }
+      });
+      return () => unsub();
     }
   }, [pin]);
 
@@ -63,6 +90,7 @@ export default function PlayRoomPage() {
 
   useEffect(() => {
     if (!room || room.status !== "PLAYING" || !room.endsAt) return;
+    setMatchSummary(null);
     const tick = () => {
       const diff = Math.max(0, Math.ceil((room.endsAt! - Date.now()) / 1000));
       setRemainingSec(diff);
@@ -71,6 +99,37 @@ export default function PlayRoomPage() {
     const interval = setInterval(tick, 500);
     return () => clearInterval(interval);
   }, [room]);
+
+  // Automatically record match XP, history & achievements when the round finishes
+  useEffect(() => {
+    if (!room || room.status !== "FINISHED" || !playerId) return;
+    const myPlayer = room.players?.[playerId];
+    if (!myPlayer) return;
+
+    const roundKey = `${room.pin}_${room.minigameId}_${room.startedAt || 0}`;
+    if (recordedRoundRef.current === roundKey) return;
+    recordedRoundRef.current = roundKey;
+
+    const currentMeta =
+      MINIGAMES_CATALOG.find((g) => g.id === room.minigameId) ||
+      MINIGAMES_CATALOG[0];
+
+    recordCompletedMatch({
+      mode: "room",
+      roomPin: room.pin,
+      gameId: room.minigameId,
+      gameTitle: currentMeta.title,
+      score: myPlayer.score || 0,
+      hits: myPlayer.hits || 0,
+      misses: myPlayer.misses || 0,
+      maxStreak: myPlayer.maxStreak || 0,
+    }).then((res) => {
+      setMatchSummary({
+        xpEarned: res.xpEarned,
+        unlockedIds: res.newlyUnlockedAchievements,
+      });
+    });
+  }, [room, playerId]);
 
   const handleManualJoin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -358,6 +417,54 @@ export default function PlayRoomPage() {
                   {myPlayer?.maxStreak || 0}x
                 </span>
               </div>
+            </div>
+
+            {/* Resumo de XP e Conquistas Sincronizados no Perfil */}
+            {matchSummary && (
+              <div className="mt-4 p-3 rounded-md bg-[#12241D] border border-emerald-500/40 text-left">
+                <div className="flex items-center justify-between text-xs font-mono font-bold text-emerald-300">
+                  <span className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    XP Sincronizado no Perfil:
+                  </span>
+                  <span className="text-[#F59E0B]">
+                    +{matchSummary.xpEarned} XP
+                  </span>
+                </div>
+                {matchSummary.unlockedIds.length > 0 && (
+                  <div className="mt-2 pt-2 border-t border-emerald-500/30 space-y-1">
+                    <span className="text-[11px] font-bold text-[#F59E0B] flex items-center gap-1">
+                      <Award className="w-3.5 h-3.5" /> Conquistas Desbloqueadas:
+                    </span>
+                    {matchSummary.unlockedIds.map((id) => {
+                      const ach = ACHIEVEMENTS_CATALOG.find((a) => a.id === id);
+                      return (
+                        <div
+                          key={id}
+                          className="text-xs font-mono text-white bg-[#0C0E12] px-2 py-1 rounded border border-[#2A303C]"
+                        >
+                          {ach ? `${ach.title} (+${ach.xpReward} XP)` : id}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-2 mt-4">
+              <Link
+                href="/profile"
+                className="py-2 px-3 rounded-md bg-[#0C0E12] hover:bg-[#14181F] border border-[#2A303C] text-xs font-mono font-bold text-zinc-200"
+              >
+                Meu Perfil & XP
+              </Link>
+              <Link
+                href="/leaderboard"
+                className="py-2 px-3 rounded-md bg-[#0047B6] hover:bg-[#0057E0] text-xs font-mono font-bold text-white"
+              >
+                Ranking Global
+              </Link>
             </div>
 
             <p className="text-xs font-mono text-zinc-500 mt-4">

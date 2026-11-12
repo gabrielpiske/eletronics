@@ -1,12 +1,18 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { checkRoomExists, joinRoom } from "@/lib/roomService";
 import { isFirebaseConfigured } from "@/lib/firebase";
+import {
+  UserProfile,
+  subscribeToActiveProfile,
+} from "@/lib/profileService";
+import { getRankInfoByXp } from "@/data/achievementsData";
+import Navbar from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
-import { Cpu, Tv, BookOpen, ArrowRight } from "lucide-react";
+import { ArrowRight, Award, Trophy, UserCheck } from "lucide-react";
 
 const AVATARS = ["⚡", "🔧", "🤖", "🔋", "💡", "🛠️", "📟", "🚀"];
 
@@ -17,6 +23,18 @@ export default function HomePage() {
   const [avatar, setAvatar] = useState(AVATARS[0]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+
+  useEffect(() => {
+    const unsub = subscribeToActiveProfile((prof) => {
+      setProfile(prof);
+      if (prof) {
+        setNickname((prev) => (prev ? prev : prof.displayName));
+        setAvatar(prof.avatar || AVATARS[0]);
+      }
+    });
+    return () => unsub();
+  }, []);
 
   const handleJoinWithPin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,53 +69,53 @@ export default function HomePage() {
     }
   };
 
+  const rankInfo = profile ? getRankInfoByXp(profile.totalXp) : null;
+
   return (
     <div className="min-h-screen flex flex-col justify-between bg-[#111317] text-zinc-100">
-      {/* Barra Superior Institucional & Técnica */}
-      <header className="w-full border-b border-[#242933] bg-[#16191E]">
-        <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="px-2.5 py-1 rounded bg-[#0047B6] text-white font-mono font-extrabold text-xs tracking-widest flex items-center gap-1.5">
-              <Cpu className="w-3.5 h-3.5" />
-              SENAI
-            </div>
-            <div className="h-4 w-px bg-[#2A303C] hidden sm:block" />
-            <span className="text-sm sm:text-base font-bold text-zinc-100 tracking-tight">
-              Arena Eletrônica
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Link
-              href="/practice"
-              className="px-3 py-2 rounded-md bg-[#1E2229] hover:bg-[#262B34] border border-[#2E3540] text-xs font-semibold text-zinc-200 flex items-center gap-1.5 transition-colors"
-            >
-              <BookOpen className="w-3.5 h-3.5 text-amber-400" />
-              <span>Catálogo & Treino</span>
-            </Link>
-            <Link
-              href="/host"
-              className="px-3.5 py-2 rounded-md bg-[#0047B6] hover:bg-[#0056DB] text-xs font-semibold text-white flex items-center gap-1.5 transition-colors"
-            >
-              <Tv className="w-3.5 h-3.5" />
-              <span>Professor (Host)</span>
-            </Link>
-          </div>
-        </div>
-      </header>
+      <Navbar />
 
       {/* Área Central: Terminal Direto de Entrada por PIN */}
-      <main className="flex-1 flex items-center justify-center px-4 py-8">
+      <main className="flex-1 flex flex-col items-center justify-center px-4 py-8 gap-4">
         <div className="w-full max-w-md bg-[#181B20] border border-[#2A303C] rounded-lg shadow-2xl overflow-hidden">
           {/* Topo do Módulo estilo Instrumento */}
           <div className="bg-[#13161A] border-b border-[#242933] px-5 py-3 flex items-center justify-between">
             <span className="font-mono text-[11px] uppercase tracking-wider text-zinc-400 font-semibold">
-              TERMINAL DE BANCADA • ACESSO
+              TERMINAL DE BANCADA • ACESSO PIN
             </span>
             <span className="inline-flex items-center gap-1.5 font-mono text-[11px] text-emerald-400">
               <span className="w-2 h-2 rounded-full bg-emerald-500" />
               {isFirebaseConfigured ? "ONLINE" : "SYNC LOCAL"}
             </span>
+          </div>
+
+          {/* Status de Vínculo Google / XP */}
+          <div className="px-6 pt-4">
+            {profile && rankInfo ? (
+              <div className="flex items-center justify-between px-3 py-2 rounded-md bg-[#0C0E12] border border-[#0057E0]/50 text-xs">
+                <div className="flex items-center gap-2 min-w-0">
+                  <UserCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span className="truncate text-zinc-200 font-semibold">
+                    Google: {profile.displayName}
+                  </span>
+                </div>
+                <span className="font-mono text-[11px] font-bold text-[#F59E0B] shrink-0">
+                  NV {rankInfo.currentTier.level} • {profile.totalXp} XP
+                </span>
+              </div>
+            ) : (
+              <Link
+                href="/profile"
+                className="flex items-center justify-between px-3 py-2 rounded-md bg-[#0C0E12] hover:bg-[#14181F] border border-[#2A303C] text-xs transition-colors"
+              >
+                <span className="text-zinc-300 font-medium">
+                  Vincular Conta Google (Salvar XP & Conquistas)
+                </span>
+                <span className="font-mono text-[11px] font-bold text-[#F59E0B]">
+                  Conectar →
+                </span>
+              </Link>
+            )}
           </div>
 
           <form onSubmit={handleJoinWithPin} className="p-6 flex flex-col gap-5">
@@ -175,6 +193,30 @@ export default function HomePage() {
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>
+        </div>
+
+        {/* Atalhos Rápidos V2.0 */}
+        <div className="w-full max-w-md grid grid-cols-2 gap-3">
+          <Link
+            href="/leaderboard"
+            className="bg-[#181B20] hover:bg-[#1E2229] border border-[#2A303C] rounded-md px-3.5 py-2.5 flex items-center justify-between text-xs font-semibold text-zinc-200 transition-colors"
+          >
+            <span className="flex items-center gap-2">
+              <Trophy className="w-4 h-4 text-[#F59E0B]" />
+              <span>Ranking Global</span>
+            </span>
+            <span className="font-mono text-[10px] text-zinc-400">VER →</span>
+          </Link>
+          <Link
+            href="/profile"
+            className="bg-[#181B20] hover:bg-[#1E2229] border border-[#2A303C] rounded-md px-3.5 py-2.5 flex items-center justify-between text-xs font-semibold text-zinc-200 transition-colors"
+          >
+            <span className="flex items-center gap-2">
+              <Award className="w-4 h-4 text-[#0057E0]" />
+              <span>Perfil & Conquistas</span>
+            </span>
+            <span className="font-mono text-[10px] text-zinc-400">12 ACH →</span>
+          </Link>
         </div>
       </main>
 

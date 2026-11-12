@@ -1,16 +1,17 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { ElectronicComponentItem } from "@/data/electronicsData";
 import {
-  ELECTRONIC_COMPONENTS,
-  ElectronicComponentItem,
-} from "@/data/electronicsData";
+  DetectiveCase,
+  generateProceduralDetectiveCase,
+} from "@/lib/challengeGenerator";
 import { ElectronicSymbolSVG } from "@/components/ElectronicSymbolSVG";
 import {
   usePenaltySystem,
   PenaltyBanner,
 } from "@/components/minigames/PenaltySystem";
-import { Eye, CheckCircle2, Lock } from "lucide-react";
+import { Eye, CheckCircle2, Lock, Cpu } from "lucide-react";
 
 interface SmokeDetectiveGameProps {
   onScoreAction: (
@@ -24,16 +25,18 @@ interface SmokeDetectiveGameProps {
 export const SmokeDetectiveGame: React.FC<SmokeDetectiveGameProps> = ({
   onScoreAction,
 }) => {
-  const [target, setTarget] = useState<ElectronicComponentItem>(
-    () => ELECTRONIC_COMPONENTS[0]
+  const [detectiveCase, setDetectiveCase] = useState<DetectiveCase>(() =>
+    generateProceduralDetectiveCase()
   );
-  const [candidates, setCandidates] = useState<ElectronicComponentItem[]>([]);
   const [clueStage, setClueStage] = useState<1 | 2 | 3>(1);
   const [solvedCount, setSolvedCount] = useState<number>(0);
+  const [aiLoading, setAiLoading] = useState<boolean>(false);
   const [resultFeedback, setResultFeedback] = useState<{
     ok: boolean;
     message: string;
   } | null>(null);
+
+  const recentTargetIdsRef = useRef<string[]>([]);
 
   const {
     isLocked,
@@ -53,27 +56,44 @@ export const SmokeDetectiveGame: React.FC<SmokeDetectiveGameProps> = ({
     setResultFeedback(null);
   });
 
-  const nextMystery = useCallback(() => {
-    const pickedTarget =
-      ELECTRONIC_COMPONENTS[
-        Math.floor(Math.random() * ELECTRONIC_COMPONENTS.length)
-      ];
-    const distractors = ELECTRONIC_COMPONENTS.filter(
-      (c) => c.id !== pickedTarget.id
-    )
-      .sort(() => Math.random() - 0.5)
-      .slice(0, 5);
+  const nextMystery = useCallback(async (preferAi = false) => {
+    const baseCase = generateProceduralDetectiveCase(recentTargetIdsRef.current);
+    recentTargetIdsRef.current = [
+      baseCase.target.id,
+      ...recentTargetIdsRef.current,
+    ].slice(0, 6);
 
-    setTarget(pickedTarget);
-    setCandidates(
-      [pickedTarget, ...distractors].sort(() => Math.random() - 0.5)
-    );
+    setDetectiveCase(baseCase);
     setClueStage(1);
     setResultFeedback(null);
+
+    if (preferAi) {
+      setAiLoading(true);
+      try {
+        const res = await fetch("/api/ai-challenge", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "detective",
+            recentTargetIds: recentTargetIdsRef.current.slice(1),
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.caseData?.target) {
+            setDetectiveCase(data.caseData);
+          }
+        }
+      } catch {
+        // Keep procedural fallback seamlessly
+      } finally {
+        setAiLoading(false);
+      }
+    }
   }, []);
 
   useEffect(() => {
-    nextMystery();
+    nextMystery(false);
   }, [nextMystery]);
 
   useEffect(() => {
@@ -85,6 +105,7 @@ export const SmokeDetectiveGame: React.FC<SmokeDetectiveGameProps> = ({
   }, [clueStage, resultFeedback, isLocked]);
 
   const potentialPoints = clueStage === 1 ? 300 : clueStage === 2 ? 200 : 120;
+  const target = detectiveCase.target;
 
   const handleGuess = (chosen: ElectronicComponentItem) => {
     if (!guardClick() || isLocked || resultFeedback) return;
@@ -106,7 +127,7 @@ export const SmokeDetectiveGame: React.FC<SmokeDetectiveGameProps> = ({
       );
 
       setTimeout(() => {
-        nextMystery();
+        nextMystery(nextSolved % 2 === 1);
       }, 950);
     } else {
       setClueStage(3);
@@ -117,7 +138,7 @@ export const SmokeDetectiveGame: React.FC<SmokeDetectiveGameProps> = ({
       );
 
       setTimeout(() => {
-        nextMystery();
+        nextMystery(false);
       }, delayMs);
     }
   };
@@ -130,11 +151,20 @@ export const SmokeDetectiveGame: React.FC<SmokeDetectiveGameProps> = ({
       {/* Cabeçalho Técnico */}
       <div className="bg-[#181B20] border border-[#2A303C] rounded-lg px-4 py-3 flex items-center justify-between flex-wrap gap-2">
         <div>
-          <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 block">
-            DIAGNÓSTICO POR PISTAS • CASO #{solvedCount + 1}
-          </span>
-          <h3 className="text-sm sm:text-base font-bold text-white">
-            Identifique o componente pelas características técnicas
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400">
+              LAUDO DE BANCADA • CASO #{solvedCount + 1}
+            </span>
+            <span className="font-mono text-[9px] uppercase px-1.5 py-0.5 rounded bg-[#0C0E12] border border-[#2A303C] text-[#38BDF8]">
+              {aiLoading
+                ? "SINCRONIZANDO IA..."
+                : detectiveCase.source === "ai"
+                ? "MOTOR GEMINI IA"
+                : "MOTOR PROCEDURAL V2"}
+            </span>
+          </div>
+          <h3 className="text-sm sm:text-base font-bold text-white mt-0.5">
+            {detectiveCase.contextHeader}
           </h3>
         </div>
 
@@ -153,6 +183,15 @@ export const SmokeDetectiveGame: React.FC<SmokeDetectiveGameProps> = ({
               <Eye className="w-3.5 h-3.5 text-amber-400" /> +Pista
             </button>
           )}
+          <button
+            type="button"
+            disabled={isLocked || aiLoading}
+            onClick={() => nextMystery(true)}
+            title="Solicitar novo caso dinâmico via IA / Motor Procedural"
+            className="text-xs font-mono font-semibold px-2.5 py-1 rounded bg-[#0047B6]/30 hover:bg-[#0047B6]/50 text-blue-200 border border-[#0057E0]/50 flex items-center gap-1"
+          >
+            <Cpu className="w-3.5 h-3.5 text-[#F59E0B]" /> Novo Laudo IA
+          </button>
         </div>
       </div>
 
@@ -207,7 +246,9 @@ export const SmokeDetectiveGame: React.FC<SmokeDetectiveGameProps> = ({
                 <span className="font-mono font-bold text-amber-400 mr-1.5">
                   #{idx + 1}:
                 </span>
-                {unlocked ? target.clues[idx] : "Aguardando leitura..."}
+                {unlocked
+                  ? detectiveCase.clues[idx]
+                  : "Aguardando leitura de telemetria..."}
               </div>
             );
           })}
@@ -223,7 +264,7 @@ export const SmokeDetectiveGame: React.FC<SmokeDetectiveGameProps> = ({
 
       {/* Candidatos */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-        {candidates.map((cand) => (
+        {detectiveCase.candidates.map((cand) => (
           <button
             key={cand.id}
             type="button"
