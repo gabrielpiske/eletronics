@@ -50,6 +50,27 @@ export interface GameRoom {
 const LOCAL_STORAGE_PREFIX = "senai_arena_room_";
 const CHANNEL_NAME = "senai_arena_sync_channel";
 
+async function withDbTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs = 2800
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error("FIREBASE_DB_TIMEOUT"));
+    }, timeoutMs);
+
+    promise
+      .then((val) => {
+        clearTimeout(timer);
+        resolve(val);
+      })
+      .catch((err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
+  });
+}
+
 function notifyLocalChange(pin: string) {
   if (typeof window === "undefined") return;
   try {
@@ -74,7 +95,10 @@ function getLocalRoom(pin: string): GameRoom | null {
 
 function saveLocalRoom(room: GameRoom) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(`${LOCAL_STORAGE_PREFIX}${room.pin}`, JSON.stringify(room));
+  localStorage.setItem(
+    `${LOCAL_STORAGE_PREFIX}${room.pin}`,
+    JSON.stringify(room)
+  );
   notifyLocalChange(room.pin);
 }
 
@@ -110,10 +134,14 @@ export async function createRoom(
     events: {},
   };
 
+  saveLocalRoom(newRoom);
+
   if (isFirebaseConfigured && db) {
-    await set(ref(db, `rooms/${pin}`), newRoom);
-  } else {
-    saveLocalRoom(newRoom);
+    try {
+      await withDbTimeout(set(ref(db, `rooms/${pin}`), newRoom));
+    } catch {
+      // Usa fallback local se o Realtime Database demorar ou bloquear
+    }
   }
   return newRoom;
 }
@@ -122,12 +150,19 @@ export async function checkRoomExists(pin: string): Promise<boolean> {
   const cleanPin = pin.trim();
   if (!cleanPin) return false;
 
-  if (isFirebaseConfigured && db) {
-    const snap = await get(ref(db, `rooms/${cleanPin}`));
-    return snap.exists();
-  } else {
-    return getLocalRoom(cleanPin) !== null;
+  if (getLocalRoom(cleanPin) !== null) {
+    return true;
   }
+
+  if (isFirebaseConfigured && db) {
+    try {
+      const snap = await withDbTimeout(get(ref(db, `rooms/${cleanPin}`)));
+      return snap.exists();
+    } catch {
+      return getLocalRoom(cleanPin) !== null;
+    }
+  }
+  return false;
 }
 
 export async function joinRoom(
@@ -152,70 +187,93 @@ export async function joinRoom(
     updatedAt: Date.now(),
   };
 
-  if (isFirebaseConfigured && db) {
-    const existingSnap = await get(ref(db, `rooms/${cleanPin}/players/${playerId}`));
-    if (existingSnap.exists()) {
-      const existing = existingSnap.val() as PlayerState;
-      const updated = {
-        ...existing,
-        name: playerState.name,
-        avatar: playerState.avatar,
-        updatedAt: Date.now(),
-      };
-      await update(ref(db, `rooms/${cleanPin}/players/${playerId}`), updated);
-      return updated;
+  const localRoom = getLocalRoom(cleanPin);
+  if (localRoom) {
+    localRoom.players = localRoom.players || {};
+    if (localRoom.players[playerId]) {
+      localRoom.players[playerId].name = playerState.name;
+      localRoom.players[playerId].avatar = playerState.avatar;
+    } else {
+      localRoom.players[playerId] = playerState;
     }
-    await set(ref(db, `rooms/${cleanPin}/players/${playerId}`), playerState);
-    return playerState;
-  } else {
-    const room = getLocalRoom(cleanPin);
-    if (!room) {
-      throw new Error("Sala não encontrada.");
-    }
-    room.players = room.players || {};
-    if (room.players[playerId]) {
-      room.players[playerId].name = playerState.name;
-      room.players[playerId].avatar = playerState.avatar;
-      saveLocalRoom(room);
-      return room.players[playerId];
-    }
-    room.players[playerId] = playerState;
-    saveLocalRoom(room);
-    return playerState;
+    saveLocalRoom(localRoom);
   }
+
+  if (isFirebaseConfigured && db) {
+    try {
+      const existingSnap = await withDbTimeout(
+        get(ref(db, `rooms/${cleanPin}/players/${playerId}`))
+      );
+      if (existingSnap.exists()) {
+        const existing = existingSnap.val() as PlayerState;
+        const updated = {
+          ...existing,
+          name: playerState.name,
+          avatar: playerState.avatar,
+          updatedAt: Date.now(),
+        };
+        await withDbTimeout(
+          update(ref(db, `rooms/${cleanPin}/players/${playerId}`), updated)
+        );
+        return updated;
+      }
+      await withDbTimeout(
+        set(ref(db, `rooms/${cleanPin}/players/${playerId}`), playerState)
+      );
+      return playerState;
+    } catch {
+      // Fallback para local já salvo acima
+    }
+  }
+
+  return playerState;
 }
 
 export async function startRoomGame(pin: string): Promise<void> {
   const now = Date.now();
+  const localRoom = getLocalRoom(pin);
+  if (localRoom) {
+    localRoom.status = "PLAYING";
+    localRoom.startedAt = now;
+    localRoom.endsAt = now + localRoom.durationSec * 1000;
+    saveLocalRoom(localRoom);
+  }
+
   if (isFirebaseConfigured && db) {
-    const snap = await get(ref(db, `rooms/${pin}`));
-    if (!snap.exists()) return;
-    const room = snap.val() as GameRoom;
-    await update(ref(db, `rooms/${pin}`), {
-      status: "PLAYING",
-      startedAt: now,
-      endsAt: now + room.durationSec * 1000,
-    });
-  } else {
-    const room = getLocalRoom(pin);
-    if (!room) return;
-    room.status = "PLAYING";
-    room.startedAt = now;
-    room.endsAt = now + room.durationSec * 1000;
-    saveLocalRoom(room);
+    try {
+      const snap = await withDbTimeout(get(ref(db, `rooms/${pin}`)));
+      if (!snap.exists()) return;
+      const room = snap.val() as GameRoom;
+      await withDbTimeout(
+        update(ref(db, `rooms/${pin}`), {
+          status: "PLAYING",
+          startedAt: now,
+          endsAt: now + room.durationSec * 1000,
+        })
+      );
+    } catch {
+      // Fallback local já aplicado
+    }
   }
 }
 
 export async function finishRoomGame(pin: string): Promise<void> {
+  const localRoom = getLocalRoom(pin);
+  if (localRoom) {
+    localRoom.status = "FINISHED";
+    saveLocalRoom(localRoom);
+  }
+
   if (isFirebaseConfigured && db) {
-    await update(ref(db, `rooms/${pin}`), {
-      status: "FINISHED",
-    });
-  } else {
-    const room = getLocalRoom(pin);
-    if (!room) return;
-    room.status = "FINISHED";
-    saveLocalRoom(room);
+    try {
+      await withDbTimeout(
+        update(ref(db, `rooms/${pin}`), {
+          status: "FINISHED",
+        })
+      );
+    } catch {
+      // Fallback local já aplicado
+    }
   }
 }
 
@@ -225,66 +283,73 @@ export async function switchMinigameInRoom(
   durationSec: number,
   resetScores: boolean = false
 ): Promise<void> {
-  if (isFirebaseConfigured && db) {
-    const snap = await get(ref(db, `rooms/${pin}`));
-    if (!snap.exists()) return;
-    const room = snap.val() as GameRoom;
-    const players = room.players || {};
-    if (resetScores) {
-      Object.keys(players).forEach((pid) => {
-        players[pid] = {
-          ...players[pid],
-          score: 0,
-          streak: 0,
-          maxStreak: 0,
-          hits: 0,
-          misses: 0,
-          level: 1,
-          lastAction: "Pronto para o próximo desafio!",
-        };
-      });
-    } else {
-      Object.keys(players).forEach((pid) => {
-        players[pid] = {
-          ...players[pid],
-          streak: 0,
-          level: 1,
-          lastAction: "Novo minigame selecionado!",
-        };
-      });
-    }
-    await update(ref(db, `rooms/${pin}`), {
-      minigameId: newMinigameId,
-      durationSec,
-      status: "LOBBY",
-      startedAt: null,
-      endsAt: null,
-      players,
-      events: {},
-    });
-  } else {
-    const room = getLocalRoom(pin);
-    if (!room) return;
-    room.minigameId = newMinigameId;
-    room.durationSec = durationSec;
-    room.status = "LOBBY";
-    room.startedAt = null;
-    room.endsAt = null;
-    room.events = {};
-    if (room.players) {
-      Object.keys(room.players).forEach((pid) => {
+  const localRoom = getLocalRoom(pin);
+  if (localRoom) {
+    localRoom.minigameId = newMinigameId;
+    localRoom.durationSec = durationSec;
+    localRoom.status = "LOBBY";
+    localRoom.startedAt = null;
+    localRoom.endsAt = null;
+    localRoom.events = {};
+    if (localRoom.players) {
+      Object.keys(localRoom.players).forEach((pid) => {
         if (resetScores) {
-          room.players![pid].score = 0;
-          room.players![pid].hits = 0;
-          room.players![pid].misses = 0;
-          room.players![pid].maxStreak = 0;
+          localRoom.players![pid].score = 0;
+          localRoom.players![pid].hits = 0;
+          localRoom.players![pid].misses = 0;
+          localRoom.players![pid].maxStreak = 0;
         }
-        room.players![pid].streak = 0;
-        room.players![pid].level = 1;
-        room.players![pid].lastAction = "Pronto!";
+        localRoom.players![pid].streak = 0;
+        localRoom.players![pid].level = 1;
+        localRoom.players![pid].lastAction = "Pronto!";
       });
     }
-    saveLocalRoom(room);
+    saveLocalRoom(localRoom);
+  }
+
+  if (isFirebaseConfigured && db) {
+    try {
+      const snap = await withDbTimeout(get(ref(db, `rooms/${pin}`)));
+      if (!snap.exists()) return;
+      const room = snap.val() as GameRoom;
+      const players = room.players || {};
+      if (resetScores) {
+        Object.keys(players).forEach((pid) => {
+          players[pid] = {
+            ...players[pid],
+            score: 0,
+            streak: 0,
+            maxStreak: 0,
+            hits: 0,
+            misses: 0,
+            level: 1,
+            lastAction: "Pronto para o próximo desafio!",
+          };
+        });
+      } else {
+        Object.keys(players).forEach((pid) => {
+          players[pid] = {
+            ...players[pid],
+            streak: 0,
+            level: 1,
+            lastAction: "Novo minigame selecionado!",
+          };
+        });
+      }
+      await withDbTimeout(
+        update(ref(db, `rooms/${pin}`), {
+          minigameId: newMinigameId,
+          durationSec,
+          status: "LOBBY",
+          startedAt: null,
+          endsAt: null,
+          players,
+          events: {},
+        })
+      );
+    } catch {
+      // Fallback local já aplicado
+    }
   }
 }
 
@@ -298,15 +363,13 @@ export async function recordPlayerAction(
 ): Promise<void> {
   const now = Date.now();
 
-  if (isFirebaseConfigured && db) {
-    const playerRef = ref(db, `rooms/${pin}/players/${playerId}`);
-    const snap = await get(playerRef);
-    if (!snap.exists()) return;
-    const p = snap.val() as PlayerState;
-
+  const localRoom = getLocalRoom(pin);
+  if (localRoom && localRoom.players && localRoom.players[playerId]) {
+    const p = localRoom.players[playerId];
     const newStreak = isHit ? (p.streak || 0) + 1 : 0;
     const newMaxStreak = Math.max(p.maxStreak || 0, newStreak);
-    const updatedPlayer: PlayerState = {
+
+    localRoom.players[playerId] = {
       ...p,
       score: Math.max(0, (p.score || 0) + deltaScore),
       streak: newStreak,
@@ -318,54 +381,9 @@ export async function recordPlayerAction(
       updatedAt: now,
     };
 
-    await set(playerRef, updatedPlayer);
-
-    // Registra evento no feed ao vivo para o telão do professor
-    if (isHit && (newStreak >= 3 || deltaScore >= 200 || (newLevel && newLevel > (p.level || 1)))) {
-      const evRef = push(ref(db, `rooms/${pin}/events`));
-      const ev: RoomEvent = {
-        id: evRef.key || String(now),
-        playerName: p.name,
-        avatar: p.avatar,
-        message: actionMessage,
-        type: newLevel && newLevel > (p.level || 1) ? "level" : newStreak >= 3 ? "streak" : "hit",
-        timestamp: now,
-      };
-      await set(evRef, ev);
-    } else if (!isHit) {
-      const evRef = push(ref(db, `rooms/${pin}/events`));
-      const ev: RoomEvent = {
-        id: evRef.key || String(now),
-        playerName: p.name,
-        avatar: p.avatar,
-        message: actionMessage,
-        type: "short_circuit",
-        timestamp: now,
-      };
-      await set(evRef, ev);
-    }
-  } else {
-    const room = getLocalRoom(pin);
-    if (!room || !room.players || !room.players[playerId]) return;
-    const p = room.players[playerId];
-    const newStreak = isHit ? (p.streak || 0) + 1 : 0;
-    const newMaxStreak = Math.max(p.maxStreak || 0, newStreak);
-
-    room.players[playerId] = {
-      ...p,
-      score: Math.max(0, (p.score || 0) + deltaScore),
-      streak: newStreak,
-      maxStreak: newMaxStreak,
-      hits: isHit ? (p.hits || 0) + 1 : p.hits || 0,
-      misses: !isHit ? (p.misses || 0) + 1 : p.misses || 0,
-      level: newLevel ?? p.level ?? 1,
-      lastAction: actionMessage,
-      updatedAt: now,
-    };
-
-    room.events = room.events || {};
+    localRoom.events = localRoom.events || {};
     const evId = "ev_" + now + "_" + Math.random().toString(36).slice(2, 6);
-    room.events[evId] = {
+    localRoom.events[evId] = {
       id: evId,
       playerName: p.name,
       avatar: p.avatar,
@@ -380,7 +398,68 @@ export async function recordPlayerAction(
       timestamp: now,
     };
 
-    saveLocalRoom(room);
+    saveLocalRoom(localRoom);
+  }
+
+  if (isFirebaseConfigured && db) {
+    try {
+      const playerRef = ref(db, `rooms/${pin}/players/${playerId}`);
+      const snap = await withDbTimeout(get(playerRef), 2000);
+      if (!snap.exists()) return;
+      const p = snap.val() as PlayerState;
+
+      const newStreak = isHit ? (p.streak || 0) + 1 : 0;
+      const newMaxStreak = Math.max(p.maxStreak || 0, newStreak);
+      const updatedPlayer: PlayerState = {
+        ...p,
+        score: Math.max(0, (p.score || 0) + deltaScore),
+        streak: newStreak,
+        maxStreak: newMaxStreak,
+        hits: isHit ? (p.hits || 0) + 1 : p.hits || 0,
+        misses: !isHit ? (p.misses || 0) + 1 : p.misses || 0,
+        level: newLevel ?? p.level ?? 1,
+        lastAction: actionMessage,
+        updatedAt: now,
+      };
+
+      await withDbTimeout(set(playerRef, updatedPlayer), 2000);
+
+      if (
+        isHit &&
+        (newStreak >= 3 ||
+          deltaScore >= 200 ||
+          (newLevel && newLevel > (p.level || 1)))
+      ) {
+        const evRef = push(ref(db, `rooms/${pin}/events`));
+        const ev: RoomEvent = {
+          id: evRef.key || String(now),
+          playerName: p.name,
+          avatar: p.avatar,
+          message: actionMessage,
+          type:
+            newLevel && newLevel > (p.level || 1)
+              ? "level"
+              : newStreak >= 3
+              ? "streak"
+              : "hit",
+          timestamp: now,
+        };
+        await withDbTimeout(set(evRef, ev), 2000);
+      } else if (!isHit) {
+        const evRef = push(ref(db, `rooms/${pin}/events`));
+        const ev: RoomEvent = {
+          id: evRef.key || String(now),
+          playerName: p.name,
+          avatar: p.avatar,
+          message: actionMessage,
+          type: "short_circuit",
+          timestamp: now,
+        };
+        await withDbTimeout(set(evRef, ev), 2000);
+      }
+    } catch {
+      // Fallback local já atualizado
+    }
   }
 }
 
@@ -391,46 +470,56 @@ export function subscribeToRoom(
   const cleanPin = pin.trim();
 
   if (isFirebaseConfigured && db) {
-    const roomRef = ref(db, `rooms/${cleanPin}`);
-    const listener = onValue(roomRef, (snapshot) => {
-      if (snapshot.exists()) {
-        callback(snapshot.val() as GameRoom);
-      } else {
-        callback(null);
-      }
-    });
-    return () => off(roomRef, "value", listener);
-  } else {
-    // Modo Local com sincronização instantânea entre abas
-    const load = () => {
-      callback(getLocalRoom(cleanPin));
-    };
-    load();
-
-    let channel: BroadcastChannel | null = null;
     try {
-      channel = new BroadcastChannel(CHANNEL_NAME);
-      channel.onmessage = (event) => {
-        if (event.data?.pin === cleanPin) {
-          load();
+      const roomRef = ref(db, `rooms/${cleanPin}`);
+      const listener = onValue(
+        roomRef,
+        (snapshot) => {
+          if (snapshot.exists()) {
+            callback(snapshot.val() as GameRoom);
+          } else {
+            callback(getLocalRoom(cleanPin));
+          }
+        },
+        () => {
+          callback(getLocalRoom(cleanPin));
         }
-      };
+      );
+      return () => off(roomRef, "value", listener);
     } catch {
-      // Fallback
+      // Fallback abaixo
     }
+  }
 
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === `${LOCAL_STORAGE_PREFIX}${cleanPin}`) {
+  // Modo Local com sincronização instantânea entre abas
+  const load = () => {
+    callback(getLocalRoom(cleanPin));
+  };
+  load();
+
+  let channel: BroadcastChannel | null = null;
+  try {
+    channel = new BroadcastChannel(CHANNEL_NAME);
+    channel.onmessage = (event) => {
+      if (event.data?.pin === cleanPin) {
         load();
       }
     };
-    window.addEventListener("storage", onStorage);
-    const interval = setInterval(load, 1000);
-
-    return () => {
-      if (channel) channel.close();
-      window.removeEventListener("storage", onStorage);
-      clearInterval(interval);
-    };
+  } catch {
+    // Fallback
   }
+
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === `${LOCAL_STORAGE_PREFIX}${cleanPin}`) {
+      load();
+    }
+  };
+  window.addEventListener("storage", onStorage);
+  const interval = setInterval(load, 1000);
+
+  return () => {
+    if (channel) channel.close();
+    window.removeEventListener("storage", onStorage);
+    clearInterval(interval);
+  };
 }

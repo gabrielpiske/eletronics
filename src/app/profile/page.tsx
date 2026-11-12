@@ -9,6 +9,7 @@ import {
   signInWithGoogleAccount,
   signInWithQuickGoogleSimulation,
   signOutCurrentProfile,
+  formatGoogleAuthError,
 } from "@/lib/profileService";
 import {
   ACHIEVEMENTS_CATALOG,
@@ -17,6 +18,7 @@ import {
 } from "@/data/achievementsData";
 import { AVATARS } from "@/data/electronicsData";
 import {
+  AlertTriangle,
   Award,
   CheckCircle2,
   Clock,
@@ -37,6 +39,8 @@ export default function ProfilePage() {
   const [simName, setSimName] = useState("");
   const [simEmail, setSimEmail] = useState("");
   const [simAvatar, setSimAvatar] = useState(AVATARS[0]);
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authErrorMsg, setAuthErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
     const unsub = subscribeToActiveProfile((prof) => {
@@ -45,10 +49,28 @@ export default function ProfilePage() {
     return () => unsub();
   }, []);
 
-  const handleQuickLogin = (e: React.FormEvent) => {
+  const handleGoogleOAuthClick = async () => {
+    setAuthLoading(true);
+    setAuthErrorMsg(null);
+    try {
+      await signInWithGoogleAccount();
+    } catch (err) {
+      setAuthErrorMsg(formatGoogleAuthError(err));
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleQuickLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!simName.trim()) return;
-    signInWithQuickGoogleSimulation(simName, simEmail, simAvatar);
+    setAuthLoading(true);
+    setAuthErrorMsg(null);
+    try {
+      await signInWithQuickGoogleSimulation(simName, simEmail, simAvatar);
+    } finally {
+      setAuthLoading(false);
+    }
   };
 
   const rankInfo = profile ? getRankInfoByXp(profile.totalXp) : null;
@@ -86,10 +108,18 @@ export default function ProfilePage() {
                   histórico completo.
                 </p>
 
+                {authErrorMsg && (
+                  <div className="mb-4 p-3 rounded-md bg-amber-950/70 border border-amber-500/50 text-amber-200 text-xs flex items-start gap-2 leading-relaxed">
+                    <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                    <span>{authErrorMsg}</span>
+                  </div>
+                )}
+
                 <button
                   type="button"
-                  onClick={() => signInWithGoogleAccount()}
-                  className="w-full py-3 px-4 rounded-md bg-white hover:bg-slate-100 text-slate-900 font-bold text-xs flex items-center justify-center gap-2.5 transition-colors mb-4 shadow"
+                  disabled={authLoading}
+                  onClick={handleGoogleOAuthClick}
+                  className="w-full py-3 px-4 rounded-md bg-white hover:bg-slate-100 disabled:opacity-60 text-slate-900 font-bold text-xs flex items-center justify-center gap-2.5 transition-colors mb-4 shadow"
                 >
                   <svg className="w-4 h-4" viewBox="0 0 24 24">
                     <path
@@ -109,7 +139,11 @@ export default function ProfilePage() {
                       d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.99 3.14c.95-2.85 3.6-4.96 6.72-4.96z"
                     />
                   </svg>
-                  <span>Entrar com Google (OAuth Popup)</span>
+                  <span>
+                    {authLoading
+                      ? "Conectando ao Google..."
+                      : "Entrar com Google (OAuth Popup)"}
+                  </span>
                 </button>
 
                 <div className="relative flex py-2 items-center mb-4">

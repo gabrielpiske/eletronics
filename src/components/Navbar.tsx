@@ -14,6 +14,7 @@ import {
   X,
   Award,
   Radio,
+  AlertTriangle,
 } from "lucide-react";
 import {
   UserProfile,
@@ -21,6 +22,7 @@ import {
   signInWithGoogleAccount,
   signInWithQuickGoogleSimulation,
   signOutCurrentProfile,
+  formatGoogleAuthError,
 } from "@/lib/profileService";
 import { getRankInfoByXp } from "@/data/achievementsData";
 import { AVATARS } from "@/data/electronicsData";
@@ -33,6 +35,7 @@ export default function Navbar() {
   const [simEmail, setSimEmail] = useState("");
   const [simAvatar, setSimAvatar] = useState(AVATARS[0]);
   const [authLoading, setAuthLoading] = useState(false);
+  const [authErrorMsg, setAuthErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
     const unsub = subscribeToActiveProfile((prof) => {
@@ -43,27 +46,33 @@ export default function Navbar() {
 
   const handleGoogleLogin = async () => {
     setAuthLoading(true);
+    setAuthErrorMsg(null);
     try {
       const signed = await signInWithGoogleAccount();
       if (signed) {
         setShowAuthModal(false);
-      } else {
-        setShowAuthModal(true);
       }
-    } catch {
+    } catch (err) {
+      setAuthErrorMsg(formatGoogleAuthError(err));
       setShowAuthModal(true);
     } finally {
       setAuthLoading(false);
     }
   };
 
-  const handleQuickGoogleSubmit = (e: React.FormEvent) => {
+  const handleQuickGoogleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!simName.trim()) return;
-    signInWithQuickGoogleSimulation(simName, simEmail, simAvatar);
-    setShowAuthModal(false);
-    setSimName("");
-    setSimEmail("");
+    setAuthLoading(true);
+    setAuthErrorMsg(null);
+    try {
+      await signInWithQuickGoogleSimulation(simName, simEmail, simAvatar);
+      setShowAuthModal(false);
+      setSimName("");
+      setSimEmail("");
+    } finally {
+      setAuthLoading(false);
+    }
   };
 
   const rankInfo = profile ? getRankInfoByXp(profile.totalXp) : null;
@@ -161,7 +170,10 @@ export default function Navbar() {
               </div>
             ) : (
               <button
-                onClick={() => setShowAuthModal(true)}
+                onClick={() => {
+                  setAuthErrorMsg(null);
+                  setShowAuthModal(true);
+                }}
                 className="inline-flex items-center gap-2 px-3.5 py-2 rounded-md bg-[#0047B6] hover:bg-[#0057E0] text-white text-xs font-bold border border-[#0057E0] transition-colors"
               >
                 <LogIn className="w-3.5 h-3.5 text-[#F59E0B]" />
@@ -226,12 +238,19 @@ export default function Navbar() {
                 <strong className="text-[#F59E0B]">Ranking Global SENAI</strong>.
               </p>
 
+              {authErrorMsg && (
+                <div className="mb-4 p-3 rounded-md bg-amber-950/70 border border-amber-500/50 text-amber-200 text-xs flex items-start gap-2 leading-relaxed">
+                  <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                  <span>{authErrorMsg}</span>
+                </div>
+              )}
+
               {/* Official Firebase Google OAuth Button */}
               <button
                 type="button"
                 onClick={handleGoogleLogin}
                 disabled={authLoading}
-                className="w-full py-3 px-4 rounded-md bg-white hover:bg-slate-100 text-slate-900 font-bold text-xs flex items-center justify-center gap-2.5 transition-colors mb-4 shadow"
+                className="w-full py-3 px-4 rounded-md bg-white hover:bg-slate-100 disabled:opacity-60 text-slate-900 font-bold text-xs flex items-center justify-center gap-2.5 transition-colors mb-4 shadow"
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24">
                   <path
@@ -319,7 +338,8 @@ export default function Navbar() {
 
                 <button
                   type="submit"
-                  className="w-full py-2.5 rounded-md bg-[#0047B6] hover:bg-[#0057E0] text-white font-bold text-xs uppercase tracking-wider transition-colors"
+                  disabled={authLoading}
+                  className="w-full py-2.5 rounded-md bg-[#0047B6] hover:bg-[#0057E0] disabled:opacity-60 text-white font-bold text-xs uppercase tracking-wider transition-colors"
                 >
                   Vincular Conta & Iniciar Perfil
                 </button>

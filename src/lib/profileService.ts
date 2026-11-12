@@ -1,6 +1,12 @@
 "use client";
 
-import { db, auth, googleProvider, isFirebaseConfigured } from "@/lib/firebase";
+import {
+  db,
+  auth,
+  googleProvider,
+  isFirebaseConfigured,
+  isFirebaseAuthConfigured,
+} from "@/lib/firebase";
 import {
   signInWithPopup,
   signOut as firebaseSignOut,
@@ -41,7 +47,75 @@ const LOCAL_ACTIVE_USER_KEY = "senai_arena_v2_active_uid";
 const LOCAL_USERS_DB_KEY = "senai_arena_v2_users_db";
 const PROFILE_EVENT_NAME = "senai_profile_updated";
 
-function normalizeProfile(raw: Partial<UserProfile> & { uid: string }): UserProfile {
+/**
+ * Executa uma Promise do Firebase com timeout estrito para impedir que
+ * problemas de URL/Regras/Rede do Realtime Database travem a interface.
+ */
+async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs = 2800
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error("FIREBASE_TIMEOUT"));
+    }, timeoutMs);
+
+    promise
+      .then((val) => {
+        clearTimeout(timer);
+        resolve(val);
+      })
+      .catch((err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
+  });
+}
+
+export function formatGoogleAuthError(err: unknown): string {
+  const code =
+    typeof err === "object" && err !== null && "code" in err
+      ? String((err as { code?: unknown }).code)
+      : "";
+  const msg =
+    typeof err === "object" && err !== null && "message" in err
+      ? String((err as { message?: unknown }).message)
+      : "";
+
+  if (code.includes("auth/unauthorized-domain")) {
+    const host =
+      typeof window !== "undefined" ? window.location.hostname : "seu-dominio";
+    return `Domínio não autorizado no Firebase Auth. No Firebase Console, vá em Authentication → Settings → Authorized domains e adicione: ${host}`;
+  }
+  if (
+    code.includes("auth/operation-not-allowed") ||
+    code.includes("auth/configuration-not-found")
+  ) {
+    return "O login com Google ainda não foi ativado no projeto Firebase. No Firebase Console, vá em Authentication → Sign-in method → Google → Ativar (Enable).";
+  }
+  if (code.includes("auth/invalid-api-key") || msg.includes("api-key")) {
+    return "A variável NEXT_PUBLIC_FIREBASE_API_KEY está incorreta ou inválida. Verifique as variáveis de ambiente e faça um Redeploy.";
+  }
+  if (code.includes("auth/popup-blocked")) {
+    return "O navegador bloqueou a janela popup do Google. Permita popups para este site e tente novamente.";
+  }
+  if (
+    code.includes("auth/popup-closed-by-user") ||
+    code.includes("auth/cancelled-popup-request")
+  ) {
+    return "A janela de login do Google foi fechada antes de concluir a autenticação.";
+  }
+  if (!isFirebaseAuthConfigured) {
+    return "As variáveis NEXT_PUBLIC_FIREBASE_API_KEY e NEXT_PUBLIC_FIREBASE_PROJECT_ID ainda não foram detectadas. Se você acabou de adicioná-las na Vercel, faça um Redeploy.";
+  }
+  return `Não foi possível autenticar via Google OAuth (${
+    code || "erro de configuração"
+  }). Você pode usar o Acesso Rápido Educacional abaixo.`;
+}
+
+function normalizeProfile(
+  raw: Partial<UserProfile> & { uid: string }
+): UserProfile {
   const xpVal = raw.totalXp ?? raw.xp ?? 0;
   const rank = getRankInfoByXp(xpVal);
   const matchesVal = raw.matchesPlayed ?? raw.totalMatches ?? 0;
@@ -51,15 +125,17 @@ function normalizeProfile(raw: Partial<UserProfile> & { uid: string }): UserProf
       ? raw.unlockedAchievements
       : Object.keys(achMap);
 
-  const normalizedMatches: MatchRecord[] = (raw.recentMatches || []).map((m) => ({
-    ...m,
-    timestamp: m.timestamp || m.playedAt || Date.now(),
-    playedAt: m.playedAt || m.timestamp || Date.now(),
-    minigameTitle: m.minigameTitle || m.gameTitle || "Minigame",
-    gameTitle: m.gameTitle || m.minigameTitle || "Minigame",
-    accuracyPct: m.accuracyPct ?? m.accuracy ?? 0,
-    accuracy: m.accuracy ?? m.accuracyPct ?? 0,
-  }));
+  const normalizedMatches: MatchRecord[] = (raw.recentMatches || []).map(
+    (m) => ({
+      ...m,
+      timestamp: m.timestamp || m.playedAt || Date.now(),
+      playedAt: m.playedAt || m.timestamp || Date.now(),
+      minigameTitle: m.minigameTitle || m.gameTitle || "Minigame",
+      gameTitle: m.gameTitle || m.minigameTitle || "Minigame",
+      accuracyPct: m.accuracyPct ?? m.accuracy ?? 0,
+      accuracy: m.accuracy ?? m.accuracyPct ?? 0,
+    })
+  );
 
   return {
     uid: raw.uid,
@@ -194,10 +270,20 @@ function getLocalUsersMap(): Record<string, UserProfile> {
   return parsed;
 }
 
-function saveLocalUsersMap(map: Record<string, UserProfile>) {
+/**
+ * Salva o mapa local de usuários.
+ * IMPORTANTE: emitEvent só deve ser true em ações explícitas de escrita
+ * (nunca dentro de leituras/listeners) para evitar loops infinitos de eventos.
+ */
+function saveLocalUsersMap(
+  map: Record<string, UserProfile>,
+  emitEvent = false
+) {
   if (typeof window === "undefined") return;
   localStorage.setItem(LOCAL_USERS_DB_KEY, JSON.stringify(map));
-  window.dispatchEvent(new CustomEvent(PROFILE_EVENT_NAME));
+  if (emitEvent) {
+    window.dispatchEvent(new CustomEvent(PROFILE_EVENT_NAME));
+  }
 }
 
 function createInitialProfile(
@@ -234,23 +320,23 @@ export async function getOrLoadUserProfile(
   uid: string,
   defaults?: Partial<UserProfile>
 ): Promise<UserProfile> {
+  const localMap = getLocalUsersMap();
+
   if (isFirebaseConfigured && db) {
     try {
-      const snap = await get(ref(db, `users/${uid}`));
+      const snap = await withTimeout(get(ref(db, `users/${uid}`)), 2500);
       if (snap.exists()) {
         const remote = snap.val() as UserProfile;
         const normalized = normalizeProfile({ ...remote, uid });
-        const map = getLocalUsersMap();
-        map[uid] = normalized;
-        saveLocalUsersMap(map);
+        localMap[uid] = normalized;
+        saveLocalUsersMap(localMap, false); // NÃO emite evento durante leitura!
         return normalized;
       }
     } catch {
-      // Fallback para local
+      // Fallback imediato para local caso o Realtime Database demore ou não tenha regras publicadas
     }
   }
 
-  const localMap = getLocalUsersMap();
   if (localMap[uid]) {
     return normalizeProfile(localMap[uid]);
   }
@@ -265,14 +351,11 @@ export async function getOrLoadUserProfile(
   );
 
   localMap[uid] = created;
-  saveLocalUsersMap(localMap);
+  saveLocalUsersMap(localMap, false);
 
   if (isFirebaseConfigured && db) {
-    try {
-      await set(ref(db, `users/${uid}`), created);
-    } catch {
-      // Ignora erro de rede
-    }
+    // Sincroniza em background sem bloquear a UI
+    withTimeout(set(ref(db, `users/${uid}`), created), 2500).catch(() => {});
   }
 
   return created;
@@ -286,7 +369,7 @@ export async function saveUserProfile(profile: UserProfile): Promise<void> {
 
   const localMap = getLocalUsersMap();
   localMap[updated.uid] = updated;
-  saveLocalUsersMap(localMap);
+  saveLocalUsersMap(localMap, true); // Emite evento apenas em escrita explícita
 
   if (typeof window !== "undefined") {
     sessionStorage.setItem("senai_arena_nickname", updated.displayName);
@@ -294,39 +377,38 @@ export async function saveUserProfile(profile: UserProfile): Promise<void> {
   }
 
   if (isFirebaseConfigured && db) {
-    try {
-      await set(ref(db, `users/${updated.uid}`), updated);
-    } catch {
-      // Fallback local já salvo
-    }
+    // Salva no Firebase com timeout curto para nunca travar a tela do aluno
+    await withTimeout(set(ref(db, `users/${updated.uid}`), updated), 2500).catch(
+      () => {}
+    );
   }
 }
 
-export async function signInWithGoogleAccount(): Promise<UserProfile | null> {
-  if (isFirebaseConfigured && auth && googleProvider) {
-    const cred = await signInWithPopup(auth, googleProvider);
-    const u = cred.user;
-    if (typeof window !== "undefined") {
-      localStorage.setItem(LOCAL_ACTIVE_USER_KEY, u.uid);
-    }
-    const profile = await getOrLoadUserProfile(u.uid, {
-      displayName: u.displayName || u.email?.split("@")[0] || "Aluno SENAI",
-      email: u.email || "",
-      photoURL: u.photoURL || "",
-      avatar: "⚡",
-      authProvider: "google",
-    });
-    if (u.displayName && profile.displayName === "Estudante SENAI") {
-      profile.displayName = u.displayName.slice(0, 22);
-    }
-    if (u.photoURL) {
-      profile.photoURL = u.photoURL;
-    }
-    await saveUserProfile(profile);
-    return profile;
+export async function signInWithGoogleAccount(): Promise<UserProfile> {
+  if (!isFirebaseAuthConfigured || !auth || !googleProvider) {
+    throw new Error("AUTH_NOT_CONFIGURED");
   }
 
-  return null;
+  const cred = await signInWithPopup(auth, googleProvider);
+  const u = cred.user;
+  if (typeof window !== "undefined") {
+    localStorage.setItem(LOCAL_ACTIVE_USER_KEY, u.uid);
+  }
+  const profile = await getOrLoadUserProfile(u.uid, {
+    displayName: u.displayName || u.email?.split("@")[0] || "Aluno SENAI",
+    email: u.email || "",
+    photoURL: u.photoURL || "",
+    avatar: "⚡",
+    authProvider: "google",
+  });
+  if (u.displayName && profile.displayName === "Estudante SENAI") {
+    profile.displayName = u.displayName.slice(0, 22);
+  }
+  if (u.photoURL) {
+    profile.photoURL = u.photoURL;
+  }
+  await saveUserProfile(profile);
+  return profile;
 }
 
 export async function signInWithQuickGoogleSimulation(
@@ -338,8 +420,7 @@ export async function signInWithQuickGoogleSimulation(
     email.trim().toLowerCase() ||
     `${displayName.trim().toLowerCase().replace(/\s+/g, ".")}@aluno.sc.senai.br`;
   const uid =
-    "usr_" +
-    cleanEmail.replace(/[^a-z0-9]/g, "_").slice(0, 24);
+    "usr_" + cleanEmail.replace(/[^a-z0-9]/g, "_").slice(0, 24);
 
   if (typeof window !== "undefined") {
     localStorage.setItem(LOCAL_ACTIVE_USER_KEY, uid);
@@ -364,9 +445,9 @@ export async function signOutCurrentProfile(): Promise<void> {
     localStorage.removeItem(LOCAL_ACTIVE_USER_KEY);
     window.dispatchEvent(new CustomEvent(PROFILE_EVENT_NAME));
   }
-  if (isFirebaseConfigured && auth) {
+  if (isFirebaseAuthConfigured && auth) {
     try {
-      await firebaseSignOut(auth);
+      await withTimeout(firebaseSignOut(auth), 2000);
     } catch {
       // Ignora
     }
@@ -383,46 +464,67 @@ export function subscribeToActiveProfile(
 ): () => void {
   if (typeof window === "undefined") return () => {};
 
-  const loadCurrent = async () => {
+  let isMounted = true;
+
+  // Leitura síncrona local (nunca dispara rede nem eventos recursivos)
+  const readFromLocalCache = () => {
+    if (!isMounted) return;
     const uid = getActiveUid();
     if (!uid) {
       callback(null);
       return;
     }
-    const prof = await getOrLoadUserProfile(uid);
-    callback(prof);
+    const localMap = getLocalUsersMap();
+    if (localMap[uid]) {
+      callback(normalizeProfile(localMap[uid]));
+    }
   };
 
-  loadCurrent();
+  // Carregamento inicial: mostra cache local imediatamente e sincroniza uma vez com Firebase
+  const initialSync = async () => {
+    const uid = getActiveUid();
+    if (!uid) {
+      if (isMounted) callback(null);
+      return;
+    }
+    readFromLocalCache();
+    const prof = await getOrLoadUserProfile(uid);
+    if (isMounted) callback(prof);
+  };
+
+  initialSync();
 
   let unsubAuth: (() => void) | null = null;
-  if (isFirebaseConfigured && auth) {
-    unsubAuth = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        localStorage.setItem(LOCAL_ACTIVE_USER_KEY, user.uid);
-        const prof = await getOrLoadUserProfile(user.uid, {
-          displayName: user.displayName || "Aluno SENAI",
-          email: user.email || "",
-          photoURL: user.photoURL || "",
-          authProvider: "google",
-        });
-        callback(prof);
-      } else {
-        loadCurrent();
-      }
-    });
+  if (isFirebaseAuthConfigured && auth) {
+    try {
+      unsubAuth = onAuthStateChanged(auth, async (user) => {
+        if (!isMounted) return;
+        if (user) {
+          localStorage.setItem(LOCAL_ACTIVE_USER_KEY, user.uid);
+          const prof = await getOrLoadUserProfile(user.uid, {
+            displayName: user.displayName || "Aluno SENAI",
+            email: user.email || "",
+            photoURL: user.photoURL || "",
+            authProvider: "google",
+          });
+          if (isMounted) callback(prof);
+        } else {
+          readFromLocalCache();
+        }
+      });
+    } catch {
+      // Ignora erro de listener Auth
+    }
   }
 
-  const onLocalUpdate = () => {
-    loadCurrent();
-  };
-  window.addEventListener(PROFILE_EVENT_NAME, onLocalUpdate);
-  window.addEventListener("storage", onLocalUpdate);
+  window.addEventListener(PROFILE_EVENT_NAME, readFromLocalCache);
+  window.addEventListener("storage", readFromLocalCache);
 
   return () => {
+    isMounted = false;
     if (unsubAuth) unsubAuth();
-    window.removeEventListener(PROFILE_EVENT_NAME, onLocalUpdate);
-    window.removeEventListener("storage", onLocalUpdate);
+    window.removeEventListener(PROFILE_EVENT_NAME, readFromLocalCache);
+    window.removeEventListener("storage", readFromLocalCache);
   };
 }
 
@@ -533,10 +635,7 @@ export async function recordCompletedMatch(params: {
   };
 
   tryUnlock("first_match", nextMatches >= 1);
-  tryUnlock(
-    "zero_short_circuit",
-    params.hits >= 8 && params.misses === 0
-  );
+  tryUnlock("zero_short_circuit", params.hits >= 8 && params.misses === 0);
   tryUnlock("combo_5", nextBestStreak >= 5);
   tryUnlock("combo_12", nextBestStreak >= 12);
   tryUnlock(
@@ -587,33 +686,51 @@ export function subscribeToGlobalLeaderboard(
 ): () => void {
   if (typeof window === "undefined") return () => {};
 
+  const loadLocal = () => {
+    const map = getLocalUsersMap();
+    callback(Object.values(map));
+  };
+
+  // Exibe imediatamente os dados locais para nunca travar a renderização
+  loadLocal();
+
   if (isFirebaseConfigured && db) {
-    const usersRef = ref(db, "users");
-    const listener = onValue(usersRef, (snap) => {
-      const localMap = getLocalUsersMap();
-      if (snap.exists()) {
-        const remoteMap = snap.val() as Record<string, UserProfile>;
-        const merged: Record<string, UserProfile> = { ...localMap };
-        for (const [k, v] of Object.entries(remoteMap)) {
-          merged[k] = normalizeProfile({ ...v, uid: k });
+    try {
+      const usersRef = ref(db, "users");
+      const listener = onValue(
+        usersRef,
+        (snap) => {
+          const localMap = getLocalUsersMap();
+          if (snap.exists()) {
+            const remoteMap = snap.val() as Record<string, UserProfile>;
+            const merged: Record<string, UserProfile> = { ...localMap };
+            for (const [k, v] of Object.entries(remoteMap)) {
+              merged[k] = normalizeProfile({ ...v, uid: k });
+            }
+            callback(Object.values(merged));
+          } else {
+            callback(Object.values(localMap));
+          }
+        },
+        () => {
+          // Em caso de erro de permissão nas rules do Firebase, mantém a lista local
+          loadLocal();
         }
-        callback(Object.values(merged));
-      } else {
-        callback(Object.values(localMap));
-      }
-    });
-    return () => off(usersRef, "value", listener);
-  } else {
-    const load = () => {
-      const map = getLocalUsersMap();
-      callback(Object.values(map));
-    };
-    load();
-    window.addEventListener(PROFILE_EVENT_NAME, load);
-    window.addEventListener("storage", load);
-    return () => {
-      window.removeEventListener(PROFILE_EVENT_NAME, load);
-      window.removeEventListener("storage", load);
-    };
+      );
+      window.addEventListener(PROFILE_EVENT_NAME, loadLocal);
+      return () => {
+        off(usersRef, "value", listener);
+        window.removeEventListener(PROFILE_EVENT_NAME, loadLocal);
+      };
+    } catch {
+      // Fallback para local
+    }
   }
+
+  window.addEventListener(PROFILE_EVENT_NAME, loadLocal);
+  window.addEventListener("storage", loadLocal);
+  return () => {
+    window.removeEventListener(PROFILE_EVENT_NAME, loadLocal);
+    window.removeEventListener("storage", loadLocal);
+  };
 }
