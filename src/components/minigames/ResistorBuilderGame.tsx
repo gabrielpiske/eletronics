@@ -3,9 +3,12 @@
 import React, { useState } from "react";
 import {
   RESISTOR_COLORS,
-  RESISTOR_ORDERS,
   ResistorOrder,
 } from "@/data/electronicsData";
+import {
+  generateProceduralResistorOrder,
+  formatOhmsLabel,
+} from "@/lib/challengeGenerator";
 import {
   usePenaltySystem,
   PenaltyBanner,
@@ -21,23 +24,12 @@ interface ResistorBuilderGameProps {
   ) => void;
 }
 
-function formatOhms(ohms: number): string {
-  if (ohms >= 1000000) {
-    return `${(ohms / 1000000).toLocaleString("pt-BR")} MΩ`;
-  }
-  if (ohms >= 1000) {
-    return `${(ohms / 1000).toLocaleString("pt-BR")} kΩ`;
-  }
-  return `${ohms} Ω`;
-}
-
 export const ResistorBuilderGame: React.FC<ResistorBuilderGameProps> = ({
   onScoreAction,
 }) => {
-  const [orders] = useState<ResistorOrder[]>(() =>
-    [...RESISTOR_ORDERS].sort(() => Math.random() - 0.5)
+  const [currentOrder, setCurrentOrder] = useState<ResistorOrder>(() =>
+    generateProceduralResistorOrder()
   );
-  const [orderIdx, setOrderIdx] = useState<number>(0);
   const [activeBand, setActiveBand] = useState<0 | 1 | 2>(0);
   const [bands, setBands] = useState<[number, number, number]>([0, 0, 0]);
   const [showTable, setShowTable] = useState<boolean>(false);
@@ -64,8 +56,6 @@ export const ResistorBuilderGame: React.FC<ResistorBuilderGameProps> = ({
   } = usePenaltySystem(onScoreAction, () => {
     setStatusMsg(null);
   });
-
-  const currentOrder = orders[orderIdx % orders.length];
 
   const color1 = RESISTOR_COLORS[bands[0]];
   const color2 = RESISTOR_COLORS[bands[1]];
@@ -101,12 +91,12 @@ export const ResistorBuilderGame: React.FC<ResistorBuilderGameProps> = ({
 
       setStatusMsg({
         ok: true,
-        text: `Resistor de ${currentOrder.displayLabel} validado (+${pts} pts)`,
+        text: `Resistor comercial ${currentOrder.displayLabel} aferido (+${pts} pts)`,
       });
 
       registerHit(
         pts,
-        `Soldou resistor de ${currentOrder.displayLabel} (${color1.name}-${color2.name}-${color3.name})`,
+        `Soldou resistor E24 de ${currentOrder.displayLabel} (${color1.name}-${color2.name}-${color3.name})`,
         newLevel
       );
 
@@ -114,12 +104,14 @@ export const ResistorBuilderGame: React.FC<ResistorBuilderGameProps> = ({
         setStatusMsg(null);
         setActiveBand(0);
         setBands([0, 0, 0]);
-        setOrderIdx((prev) => prev + 1);
+        setCurrentOrder((prev) =>
+          generateProceduralResistorOrder(prev.targetOhms)
+        );
       }, 900);
     } else {
       triggerErrorPenalty(
-        `Mediu ${formatOhms(currentOhms)} (pedido: ${currentOrder.displayLabel})`,
-        `Leitura incorreta no multímetro: ${formatOhms(currentOhms)}`,
+        `Mediu ${formatOhmsLabel(currentOhms)} (pedido: ${currentOrder.displayLabel})`,
+        `Leitura incorreta no multímetro: ${formatOhmsLabel(currentOhms)}`,
         `Especificação exigida: ${currentOrder.displayLabel}. Configurado: ${color1.name} (${color1.digit}), ${color2.name} (${color2.digit}), ${color3.name} (${color3.multiplierLabel}).`
       );
     }
@@ -130,17 +122,17 @@ export const ResistorBuilderGame: React.FC<ResistorBuilderGameProps> = ({
       onPointerDownCapture={handleContainerPointerDown}
       className="w-full max-w-2xl mx-auto flex flex-col gap-3.5 select-none"
     >
-      {/* Ordem de Bancada */}
+      {/* Ordem de Bancada Procedural */}
       <div className="bg-[#181B20] border border-[#2A303C] rounded-lg px-4 py-3 flex items-center justify-between flex-wrap gap-3">
-        <div>
+        <div className="flex-1">
           <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 block">
-            ESPECIFICAÇÃO DE RESISTOR • ORDEM #{builtCount + 1}
+            GERADOR E12/E24 + LEI DE OHM • ORDEM #{builtCount + 1}
           </span>
-          <div className="flex items-baseline gap-2 mt-0.5">
+          <div className="flex flex-wrap items-baseline gap-2 mt-0.5">
             <h3 className="text-lg sm:text-xl font-mono font-bold text-amber-400">
               {currentOrder.displayLabel}
             </h3>
-            <span className="text-xs text-zinc-400">
+            <span className="text-xs text-zinc-300">
               — {currentOrder.usageHint}
             </span>
           </div>
@@ -149,7 +141,7 @@ export const ResistorBuilderGame: React.FC<ResistorBuilderGameProps> = ({
         <button
           type="button"
           onClick={() => setShowTable((v) => !v)}
-          className="text-xs font-mono font-semibold px-3 py-1.5 rounded bg-[#0C0E12] hover:bg-[#14181F] text-zinc-300 border border-[#2A303C] flex items-center gap-1.5"
+          className="text-xs font-mono font-semibold px-3 py-1.5 rounded bg-[#0C0E12] hover:bg-[#14181F] text-zinc-300 border border-[#2A303C] flex items-center gap-1.5 shrink-0"
         >
           <HelpCircle className="w-3.5 h-3.5 text-amber-400" />
           {showTable ? "Ocultar Tabela" : "Tabela de Cores"}

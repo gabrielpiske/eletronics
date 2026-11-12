@@ -44,6 +44,7 @@ export const ConveyorGame: React.FC<ConveyorGameProps> = ({ onScoreAction }) => 
   } | null>(null);
 
   const lockRef = useRef(false);
+  const recentIdsRef = useRef<string[]>([]);
 
   const {
     isLocked,
@@ -66,10 +67,15 @@ export const ConveyorGame: React.FC<ConveyorGameProps> = ({ onScoreAction }) => 
 
   const spawnNextItem = useCallback((nextCount: number) => {
     lockRef.current = false;
-    const randomComp =
-      ELECTRONIC_COMPONENTS[
-        Math.floor(Math.random() * ELECTRONIC_COMPONENTS.length)
-      ];
+
+    const pool = ELECTRONIC_COMPONENTS.filter(
+      (c) => !recentIdsRef.current.includes(c.id)
+    );
+    const source = pool.length > 0 ? pool : ELECTRONIC_COMPONENTS;
+    const randomComp = source[Math.floor(Math.random() * source.length)];
+
+    recentIdsRef.current = [randomComp.id, ...recentIdsRef.current].slice(0, 6);
+
     setCurrentComp(randomComp);
     setBeltProgress(6);
 
@@ -81,39 +87,46 @@ export const ConveyorGame: React.FC<ConveyorGameProps> = ({ onScoreAction }) => 
         {
           id: "passivo",
           title: "PASSIVOS",
-          subtitle: "R, C, L, LDR, Termistor",
+          subtitle: "R, C, L, LDR, Termistor, Cristal",
           accentBorder: "border-l-[#0052CC]",
         },
         {
           id: "semicondutor",
           title: "SEMICONDUTORES",
-          subtitle: "Diodo, LED, Zener, Transistor, CI",
+          subtitle: "Diodos, LED, Transistores, Ponte, TRIAC",
           accentBorder: "border-l-amber-400",
         },
         {
           id: "protecao_energia",
           title: "PROTEÇÃO & ENERGIA",
-          subtitle: "Fusível, Chave, Terra, Trafo, Fonte",
+          subtitle: "Fusível, Relé, Varistor, Trafo, Fonte",
           accentBorder: "border-l-emerald-500",
+        },
+        {
+          id: "digital_logica",
+          title: "DIGITAL & LÓGICA",
+          subtitle: "Portas AND/OR/NOT/NAND/XOR, 7-Seg, Opto",
+          accentBorder: "border-l-purple-400",
         },
       ]);
     } else {
       const others = ELECTRONIC_COMPONENTS.filter(
         (c) => c.id !== randomComp.id
       ).sort(() => Math.random() - 0.5);
-      const choices = [randomComp, others[0], others[1]].sort(
+      const choices = [randomComp, others[0], others[1], others[2]].sort(
         () => Math.random() - 0.5
       );
       const borders = [
         "border-l-[#0052CC]",
         "border-l-amber-400",
         "border-l-emerald-500",
+        "border-l-purple-400",
       ];
       setBins(
         choices.map((c, idx) => ({
           id: c.id,
           title: c.shortName,
-          subtitle: `Designador: [${c.boardLetter}]`,
+          subtitle: `Designador: [${c.boardLetter}] • ${c.categoryLabel.split(" ")[0]}`,
           accentBorder: borders[idx],
         }))
       );
@@ -223,12 +236,12 @@ export const ConveyorGame: React.FC<ConveyorGameProps> = ({ onScoreAction }) => 
       <div className="bg-[#181B20] border border-[#2A303C] rounded-lg px-4 py-3 flex items-center justify-between flex-wrap gap-2">
         <div>
           <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 block">
-            TRIAGEM DE COMPONENTES • PEÇA #{sortedCount + 1}
+            TRIAGEM DE 35 COMPONENTES • PEÇA #{sortedCount + 1}
           </span>
           <h3 className="text-sm sm:text-base font-bold text-white">
             {mode === "direct"
-              ? "Selecione o nome e designador do símbolo"
-              : "Selecione a família tecnológica do componente"}
+              ? "Selecione o nome e designador do símbolo na esteira"
+              : "Selecione a família tecnológica (Passivo, Semicondutor, Proteção ou Digital)"}
           </h3>
         </div>
         <div className="flex items-center gap-2 font-mono text-xs">
@@ -294,15 +307,15 @@ export const ConveyorGame: React.FC<ConveyorGameProps> = ({ onScoreAction }) => 
         </div>
       )}
 
-      {/* 3 Coletores Industriais */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+      {/* 4 Coletores Industriais */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
         {bins.map((bin, idx) => (
           <button
             key={bin.id}
             type="button"
             aria-disabled={isLocked}
             onClick={() => handleSelectBin(bin.id)}
-            className={`bg-[#181B20] border border-[#2A303C] border-l-4 ${bin.accentBorder} rounded-md p-3.5 text-left transition-colors flex flex-col justify-between min-h-[88px] ${
+            className={`bg-[#181B20] border border-[#2A303C] border-l-4 ${bin.accentBorder} rounded-md p-3.5 text-left transition-colors flex flex-col justify-between min-h-[82px] ${
               isLocked
                 ? "opacity-45 cursor-not-allowed"
                 : "hover:bg-[#1E2229] hover:border-zinc-500 active:bg-[#252A34]"
@@ -314,7 +327,7 @@ export const ConveyorGame: React.FC<ConveyorGameProps> = ({ onScoreAction }) => 
               </span>
               {isLocked && <Lock className="w-3.5 h-3.5 text-red-400" />}
             </div>
-            <div className="mt-1.5">
+            <div className="mt-1">
               <p className="text-sm sm:text-base font-bold text-white leading-tight">
                 {bin.title}
               </p>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   ELECTRONIC_COMPONENTS,
   ElectronicComponentItem,
@@ -32,6 +32,8 @@ export const BenchMatchGame: React.FC<BenchMatchGameProps> = ({
   const [matchedIds, setMatchedIds] = useState<string[]>([]);
   const [wrongPair, setWrongPair] = useState<boolean>(false);
 
+  const lastBoardIdsRef = useRef<string[]>([]);
+
   const {
     isLocked,
     lockRemainingMs,
@@ -53,9 +55,18 @@ export const BenchMatchGame: React.FC<BenchMatchGameProps> = ({
   });
 
   const generateBoard = useCallback(() => {
-    const picked = [...ELECTRONIC_COMPONENTS]
+    const freshPool = ELECTRONIC_COMPONENTS.filter(
+      (c) => !lastBoardIdsRef.current.includes(c.id)
+    );
+    const source =
+      freshPool.length >= 6 ? freshPool : [...ELECTRONIC_COMPONENTS];
+
+    const picked = [...source]
       .sort(() => Math.random() - 0.5)
       .slice(0, 6);
+
+    lastBoardIdsRef.current = picked.map((p) => p.id);
+
     setSymbolCards([...picked].sort(() => Math.random() - 0.5));
     setTextCards([...picked].sort(() => Math.random() - 0.5));
     setSelectedSymbolId(null);
@@ -142,7 +153,7 @@ export const BenchMatchGame: React.FC<BenchMatchGameProps> = ({
       <div className="bg-[#181B20] border border-[#2A303C] rounded-lg px-4 py-3 flex items-center justify-between flex-wrap gap-2">
         <div>
           <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 block">
-            ASSOCIAÇÃO DE BANCADA • NÍVEL {boardLevel}
+            ASSOCIAÇÃO DE BANCADA (35 PEÇAS) • PLACA NÍVEL {boardLevel}
           </span>
           <h3 className="text-sm sm:text-base font-bold text-white">
             Relacione cada símbolo à sua especificação ({matchedIds.length}/6)
@@ -225,12 +236,17 @@ export const BenchMatchGame: React.FC<BenchMatchGameProps> = ({
         {/* Coluna 2: Especificações */}
         <div className="bg-[#181B20] border border-[#2A303C] rounded-lg p-3">
           <p className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 font-semibold mb-2.5">
-            2. Designador e Função
+            2. Designador, Família e Função
           </p>
           <div className="grid grid-cols-1 gap-2">
             {textCards.map((item) => {
               const isMatched = matchedIds.includes(item.id);
               const isSelected = selectedTextId === item.id;
+              const descText =
+                boardLevel % 2 === 1
+                  ? item.basicFunction
+                  : item.clues[boardLevel % item.clues.length] ||
+                    item.basicFunction;
 
               return (
                 <button
@@ -260,7 +276,7 @@ export const BenchMatchGame: React.FC<BenchMatchGameProps> = ({
                       </span>
                     </div>
                     <p className="text-xs text-zinc-400 mt-1 line-clamp-1">
-                      {item.basicFunction}
+                      {descText}
                     </p>
                   </div>
 
