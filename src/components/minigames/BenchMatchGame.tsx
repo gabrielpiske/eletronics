@@ -6,7 +6,11 @@ import {
   ElectronicComponentItem,
 } from "@/data/electronicsData";
 import { ElectronicSymbolSVG } from "@/components/ElectronicSymbolSVG";
-import { Cpu, CheckCircle2, Sparkles } from "lucide-react";
+import {
+  usePenaltySystem,
+  PenaltyBanner,
+} from "@/components/minigames/PenaltySystem";
+import { Cpu, CheckCircle2, Sparkles, Lock } from "lucide-react";
 
 interface BenchMatchGameProps {
   onScoreAction: (
@@ -27,6 +31,26 @@ export const BenchMatchGame: React.FC<BenchMatchGameProps> = ({
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
   const [matchedIds, setMatchedIds] = useState<string[]>([]);
   const [wrongPair, setWrongPair] = useState<boolean>(false);
+
+  const {
+    isLocked,
+    lockRemainingMs,
+    totalLockMs,
+    lockReason,
+    consecutiveErrors,
+    lastPenaltyPts,
+    lastBadge,
+    lastErrorTitle,
+    lastErrorDetail,
+    handleContainerPointerDown,
+    guardClick,
+    registerHit,
+    triggerErrorPenalty,
+  } = usePenaltySystem(onScoreAction, () => {
+    setSelectedSymbolId(null);
+    setSelectedTextId(null);
+    setWrongPair(false);
+  });
 
   const generateBoard = useCallback(() => {
     const picked = [...ELECTRONIC_COMPONENTS]
@@ -55,9 +79,8 @@ export const BenchMatchGame: React.FC<BenchMatchGameProps> = ({
 
         if (nextMatched.length === 6) {
           const nextLevel = boardLevel + 1;
-          onScoreAction(
+          registerHit(
             350,
-            true,
             `Limpou a Placa Nível ${boardLevel} completa!`,
             nextLevel
           );
@@ -66,28 +89,35 @@ export const BenchMatchGame: React.FC<BenchMatchGameProps> = ({
             generateBoard();
           }, 550);
         } else {
-          onScoreAction(
+          registerHit(
             140,
-            true,
             `Conectou ${comp?.shortName || symId} [${comp?.boardLetter}]`,
             boardLevel
           );
         }
       } else {
         setWrongPair(true);
-        onScoreAction(-35, false, "Curto na conexão de pares!");
+        const txtComp = ELECTRONIC_COMPONENTS.find((c) => c.id === txtId);
+        const { delayMs } = triggerErrorPenalty(
+          "Curto na conexão de pares!",
+          "⚡ Curto-Circuito! Conexão de par incorreta na placa",
+          `O símbolo escolhido não corresponde a ${
+            txtComp?.shortName || txtId
+          } [${txtComp?.boardLetter}]. Analise o desenho esquemático antes de reconectar!`
+        );
         setTimeout(() => {
           setSelectedSymbolId(null);
           setSelectedTextId(null);
           setWrongPair(false);
-        }, 500);
+        }, delayMs);
       }
     },
-    [matchedIds, boardLevel, onScoreAction, generateBoard]
+    [matchedIds, boardLevel, registerHit, triggerErrorPenalty, generateBoard]
   );
 
   const handleSelectSymbol = (id: string) => {
-    if (matchedIds.includes(id) || wrongPair) return;
+    if (!guardClick() || isLocked || matchedIds.includes(id) || wrongPair)
+      return;
     setSelectedSymbolId(id);
     if (selectedTextId) {
       checkMatch(id, selectedTextId);
@@ -95,7 +125,8 @@ export const BenchMatchGame: React.FC<BenchMatchGameProps> = ({
   };
 
   const handleSelectText = (id: string) => {
-    if (matchedIds.includes(id) || wrongPair) return;
+    if (!guardClick() || isLocked || matchedIds.includes(id) || wrongPair)
+      return;
     setSelectedTextId(id);
     if (selectedSymbolId) {
       checkMatch(selectedSymbolId, id);
@@ -103,7 +134,10 @@ export const BenchMatchGame: React.FC<BenchMatchGameProps> = ({
   };
 
   return (
-    <div className="w-full max-w-3xl mx-auto flex flex-col gap-4 select-none">
+    <div
+      onPointerDownCapture={handleContainerPointerDown}
+      className="w-full max-w-3xl mx-auto flex flex-col gap-4 select-none"
+    >
       {/* Barra de Progresso da Placa */}
       <div className="bg-gradient-to-r from-violet-950 via-slate-900 to-purple-950 border-2 border-violet-500/70 rounded-2xl p-4 flex items-center justify-between flex-wrap gap-2 shadow-xl">
         <div className="flex items-center gap-2.5">
@@ -128,6 +162,19 @@ export const BenchMatchGame: React.FC<BenchMatchGameProps> = ({
         </div>
       </div>
 
+      {/* Banner de Penalidade / Bloqueio Anti-Autoclique */}
+      <PenaltyBanner
+        isLocked={isLocked}
+        lockRemainingMs={lockRemainingMs}
+        totalLockMs={totalLockMs}
+        lockReason={lockReason}
+        consecutiveErrors={consecutiveErrors}
+        lastPenaltyPts={lastPenaltyPts}
+        lastBadge={lastBadge}
+        lastErrorTitle={lastErrorTitle}
+        lastErrorDetail={lastErrorDetail}
+      />
+
       {/* Painel de Conexão: Coluna de Símbolos vs. Coluna de Descrições */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Coluna 1: Símbolos Esquemáticos */}
@@ -143,26 +190,40 @@ export const BenchMatchGame: React.FC<BenchMatchGameProps> = ({
               return (
                 <button
                   key={item.id}
-                  disabled={isMatched}
+                  type="button"
+                  aria-disabled={isMatched || isLocked}
                   onClick={() => handleSelectSymbol(item.id)}
                   className={`rounded-2xl p-2.5 border-2 transition-all flex flex-col items-center justify-center min-h-[96px] ${
                     isMatched
                       ? "bg-emerald-950/40 border-emerald-500/40 opacity-45 cursor-default"
                       : isSelected
-                      ? wrongPair
+                      ? wrongPair || isLocked
                         ? "bg-red-900/70 border-red-400 scale-95"
                         : "bg-sky-900/70 border-sky-400 scale-105 shadow-lg shadow-sky-500/20"
+                      : isLocked
+                      ? "bg-slate-950/70 border-red-900/40 opacity-45 cursor-not-allowed"
                       : "bg-slate-950 border-slate-700 hover:border-sky-400/70 active:scale-95"
                   }`}
                 >
                   <ElectronicSymbolSVG
                     symbolId={item.id}
                     className="w-24 h-16"
-                    strokeColor={isMatched ? "#34D399" : "#38BDF8"}
+                    strokeColor={
+                      isMatched
+                        ? "#34D399"
+                        : isLocked && !isSelected
+                        ? "#64748B"
+                        : "#38BDF8"
+                    }
                   />
                   {isMatched && (
                     <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-1 mt-1">
                       <CheckCircle2 className="w-3 h-3" /> Conectado
+                    </span>
+                  )}
+                  {!isMatched && isLocked && (
+                    <span className="text-[10px] font-mono text-red-400/80 flex items-center gap-1 mt-1">
+                      <Lock className="w-3 h-3" /> Bloqueado
                     </span>
                   )}
                 </button>
@@ -184,15 +245,18 @@ export const BenchMatchGame: React.FC<BenchMatchGameProps> = ({
               return (
                 <button
                   key={item.id}
-                  disabled={isMatched}
+                  type="button"
+                  aria-disabled={isMatched || isLocked}
                   onClick={() => handleSelectText(item.id)}
                   className={`rounded-xl px-3.5 py-2.5 border-2 text-left transition-all flex items-center justify-between gap-2 ${
                     isMatched
                       ? "bg-emerald-950/40 border-emerald-500/40 opacity-45 cursor-default"
                       : isSelected
-                      ? wrongPair
+                      ? wrongPair || isLocked
                         ? "bg-red-900/70 border-red-400 scale-95"
                         : "bg-amber-900/60 border-amber-400 scale-[1.02] shadow-lg"
+                      : isLocked
+                      ? "bg-slate-950/70 border-red-900/40 opacity-45 cursor-not-allowed"
                       : "bg-slate-950 border-slate-700 hover:border-amber-400/70 active:scale-98"
                   }`}
                 >
@@ -212,6 +276,9 @@ export const BenchMatchGame: React.FC<BenchMatchGameProps> = ({
 
                   {isMatched && (
                     <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                  )}
+                  {!isMatched && isLocked && (
+                    <Lock className="w-4 h-4 text-red-400/70 shrink-0" />
                   )}
                 </button>
               );

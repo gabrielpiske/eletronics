@@ -2,8 +2,15 @@
 
 import React, { useState } from "react";
 import { RADAR_MISSIONS, RadarMission } from "@/data/electronicsData";
-import { ElectronicSymbolSVG, SymbolId } from "@/components/ElectronicSymbolSVG";
-import { Radar, HelpCircle, CheckCircle2, XCircle } from "lucide-react";
+import {
+  ElectronicSymbolSVG,
+  SymbolId,
+} from "@/components/ElectronicSymbolSVG";
+import {
+  usePenaltySystem,
+  PenaltyBanner,
+} from "@/components/minigames/PenaltySystem";
+import { Radar, HelpCircle, CheckCircle2, XCircle, Lock } from "lucide-react";
 
 interface CircuitRadarGameProps {
   onScoreAction: (
@@ -48,10 +55,28 @@ export const CircuitRadarGame: React.FC<CircuitRadarGameProps> = ({
   } | null>(null);
   const [foundCount, setFoundCount] = useState<number>(0);
 
+  const {
+    isLocked,
+    lockRemainingMs,
+    totalLockMs,
+    lockReason,
+    consecutiveErrors,
+    lastPenaltyPts,
+    lastBadge,
+    lastErrorTitle,
+    lastErrorDetail,
+    handleContainerPointerDown,
+    guardClick,
+    registerHit,
+    triggerErrorPenalty,
+  } = usePenaltySystem(onScoreAction, () => {
+    setSelectedNode(null);
+  });
+
   const currentMission = missions[missionIdx % missions.length];
 
   const handleNodeClick = (node: CircuitNodeSpot) => {
-    if (selectedNode) return;
+    if (!guardClick() || isLocked || selectedNode) return;
 
     const isCorrect = node.nodeId === currentMission.targetNodeId;
     setSelectedNode({ nodeId: node.nodeId, correct: isCorrect });
@@ -61,9 +86,8 @@ export const CircuitRadarGame: React.FC<CircuitRadarGameProps> = ({
       setFoundCount(nextFound);
       const pts = showHint ? 130 : 220;
       const newLevel = Math.floor(nextFound / 4) + 1;
-      onScoreAction(
+      registerHit(
         pts,
-        true,
         `Localizou ${node.nodeId} no esquema elétrico!`,
         newLevel
       );
@@ -74,25 +98,31 @@ export const CircuitRadarGame: React.FC<CircuitRadarGameProps> = ({
         setMissionIdx((prev) => prev + 1);
       }, 650);
     } else {
-      onScoreAction(
-        -40,
-        false,
-        `Tocou em ${node.nodeId} procurando ${currentMission.targetNodeId}`
+      const { delayMs } = triggerErrorPenalty(
+        `Tocou em ${node.nodeId} procurando ${currentMission.targetNodeId}`,
+        `⚡ Nó incorreto! Você tocou em ${node.nodeId} (${node.stageLabel})`,
+        `Dica de inspeção: ${currentMission.promptHint}`
       );
       setTimeout(() => {
         setSelectedNode(null);
-      }, 650);
+      }, delayMs);
     }
   };
 
   return (
-    <div className="w-full max-w-3xl mx-auto flex flex-col gap-4 select-none">
+    <div
+      onPointerDownCapture={handleContainerPointerDown}
+      className="w-full max-w-3xl mx-auto flex flex-col gap-4 select-none"
+    >
       {/* Barra de Missão do Radar */}
       <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-teal-950 border-2 border-emerald-500/70 rounded-2xl p-4 shadow-xl">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-2">
             <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-400/50 flex items-center justify-center">
-              <Radar className="w-5 h-5 text-emerald-400 animate-spin" style={{ animationDuration: "4s" }} />
+              <Radar
+                className="w-5 h-5 text-emerald-400 animate-spin"
+                style={{ animationDuration: "4s" }}
+              />
             </div>
             <div>
               <span className="text-[11px] font-mono uppercase tracking-widest text-emerald-400 block">
@@ -121,14 +151,26 @@ export const CircuitRadarGame: React.FC<CircuitRadarGameProps> = ({
         )}
       </div>
 
+      {/* Banner de Penalidade / Bloqueio Anti-Autoclique */}
+      <PenaltyBanner
+        isLocked={isLocked}
+        lockRemainingMs={lockRemainingMs}
+        totalLockMs={totalLockMs}
+        lockReason={lockReason}
+        consecutiveErrors={consecutiveErrors}
+        lastPenaltyPts={lastPenaltyPts}
+        lastBadge={lastBadge}
+        lastErrorTitle={lastErrorTitle}
+        lastErrorDetail={lastErrorDetail}
+      />
+
       {/* Placa / Esquema Elétrico Interativo */}
       <div className="relative bg-[#071318] border-2 border-emerald-500/40 rounded-3xl p-4 sm:p-5 shadow-2xl overflow-hidden">
         {/* Grade de fundo estilo folha de esquemático */}
         <div
           className="absolute inset-0 opacity-15 pointer-events-none"
           style={{
-            backgroundImage:
-              "radial-gradient(#10B981 1px, transparent 1px)",
+            backgroundImage: "radial-gradient(#10B981 1px, transparent 1px)",
             backgroundSize: "18px 18px",
           }}
         />
@@ -138,7 +180,7 @@ export const CircuitRadarGame: React.FC<CircuitRadarGameProps> = ({
             ESQUEMA ELÉTRICO: FONTE REGULADA + SENSOR DE LUZ
           </span>
           <span className="text-xs font-mono text-slate-400">
-            Toque diretamente no símbolo correto da malha!
+            Toque com precisão! Erros tiram pontos e travam o circuito.
           </span>
         </div>
 
@@ -152,12 +194,16 @@ export const CircuitRadarGame: React.FC<CircuitRadarGameProps> = ({
             return (
               <button
                 key={node.nodeId}
+                type="button"
+                aria-disabled={isLocked}
                 onClick={() => handleNodeClick(node)}
                 className={`group relative rounded-2xl p-2.5 border-2 transition-all flex flex-col items-center justify-between min-h-[118px] ${
                   isRight
                     ? "bg-emerald-900/80 border-emerald-400 scale-105 shadow-lg shadow-emerald-500/30"
                     : isWrong
                     ? "bg-red-900/80 border-red-400 scale-95"
+                    : isLocked
+                    ? "bg-slate-950/80 border-red-900/40 opacity-45 cursor-not-allowed"
                     : "bg-slate-900/90 border-slate-700 hover:border-emerald-400/80 hover:bg-slate-800/90 active:scale-95"
                 }`}
               >
@@ -175,7 +221,13 @@ export const CircuitRadarGame: React.FC<CircuitRadarGameProps> = ({
                     symbolId={node.symbol}
                     className="w-24 h-16"
                     strokeColor={
-                      isRight ? "#34D399" : isWrong ? "#F87171" : "#38BDF8"
+                      isRight
+                        ? "#34D399"
+                        : isWrong
+                        ? "#F87171"
+                        : isLocked
+                        ? "#64748B"
+                        : "#38BDF8"
                     }
                   />
                 </div>
@@ -191,7 +243,12 @@ export const CircuitRadarGame: React.FC<CircuitRadarGameProps> = ({
                     <XCircle className="w-3.5 h-3.5" /> Peça Errada!
                   </span>
                 )}
-                {!isSelected && (
+                {!isSelected && isLocked && (
+                  <span className="text-[11px] font-mono text-red-400/80 flex items-center gap-1">
+                    <Lock className="w-3 h-3" /> Bloqueado
+                  </span>
+                )}
+                {!isSelected && !isLocked && (
                   <span className="text-[11px] font-mono text-slate-400 group-hover:text-emerald-300">
                     [ Tocar para Inspecionar ]
                   </span>

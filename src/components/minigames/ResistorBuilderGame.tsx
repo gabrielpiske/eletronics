@@ -6,7 +6,11 @@ import {
   RESISTOR_ORDERS,
   ResistorOrder,
 } from "@/data/electronicsData";
-import { Wrench, CheckCircle2, Sparkles, HelpCircle } from "lucide-react";
+import {
+  usePenaltySystem,
+  PenaltyBanner,
+} from "@/components/minigames/PenaltySystem";
+import { Wrench, Sparkles, HelpCircle, Lock } from "lucide-react";
 
 interface ResistorBuilderGameProps {
   onScoreAction: (
@@ -43,6 +47,24 @@ export const ResistorBuilderGame: React.FC<ResistorBuilderGameProps> = ({
     text: string;
   } | null>(null);
 
+  const {
+    isLocked,
+    lockRemainingMs,
+    totalLockMs,
+    lockReason,
+    consecutiveErrors,
+    lastPenaltyPts,
+    lastBadge,
+    lastErrorTitle,
+    lastErrorDetail,
+    handleContainerPointerDown,
+    guardClick,
+    registerHit,
+    triggerErrorPenalty,
+  } = usePenaltySystem(onScoreAction, () => {
+    setStatusMsg(null);
+  });
+
   const currentOrder = orders[orderIdx % orders.length];
 
   const color1 = RESISTOR_COLORS[bands[0]];
@@ -53,6 +75,7 @@ export const ResistorBuilderGame: React.FC<ResistorBuilderGameProps> = ({
     (color1.digit * 10 + color2.digit) * color3.multiplier;
 
   const handlePickColor = (colorIndex: number) => {
+    if (!guardClick() || isLocked || statusMsg) return;
     const nextBands: [number, number, number] = [...bands] as [
       number,
       number,
@@ -67,7 +90,7 @@ export const ResistorBuilderGame: React.FC<ResistorBuilderGameProps> = ({
   };
 
   const handleSolder = () => {
-    if (statusMsg) return;
+    if (!guardClick() || isLocked || statusMsg) return;
 
     const isExactMatch = currentOhms === currentOrder.targetOhms;
 
@@ -82,9 +105,8 @@ export const ResistorBuilderGame: React.FC<ResistorBuilderGameProps> = ({
         text: `🔥 Perfeito! Resistor de ${currentOrder.displayLabel} soldado (+${pts} pts)!`,
       });
 
-      onScoreAction(
+      registerHit(
         pts,
-        true,
         `Soldou resistor de ${currentOrder.displayLabel} (${color1.name}-${color2.name}-${color3.name})!`,
         newLevel
       );
@@ -96,27 +118,19 @@ export const ResistorBuilderGame: React.FC<ResistorBuilderGameProps> = ({
         setOrderIdx((prev) => prev + 1);
       }, 900);
     } else {
-      setStatusMsg({
-        ok: false,
-        text: `⚠️ O multímetro mediu ${formatOhms(
-          currentOhms
-        )}, mas o pedido é ${currentOrder.displayLabel}!`,
-      });
-
-      onScoreAction(
-        -40,
-        false,
-        `Montou ${formatOhms(currentOhms)} em vez de ${currentOrder.displayLabel}`
+      triggerErrorPenalty(
+        `Montou ${formatOhms(currentOhms)} em vez de ${currentOrder.displayLabel}`,
+        `⚠️ Multímetro mediu ${formatOhms(currentOhms)}, mas o pedido é ${currentOrder.displayLabel}!`,
+        `Combinação montada: ${color1.name} (${color1.digit}), ${color2.name} (${color2.digit}) e ${color3.name} (${color3.multiplierLabel}). Ajuste as faixas após o rearme!`
       );
-
-      setTimeout(() => {
-        setStatusMsg(null);
-      }, 1100);
     }
   };
 
   return (
-    <div className="w-full max-w-2xl mx-auto flex flex-col gap-4 select-none">
+    <div
+      onPointerDownCapture={handleContainerPointerDown}
+      className="w-full max-w-2xl mx-auto flex flex-col gap-4 select-none"
+    >
       {/* Ordem de Serviço */}
       <div className="bg-gradient-to-r from-amber-950 via-slate-900 to-orange-950 border-2 border-amber-500/70 rounded-2xl p-4 shadow-xl flex items-center justify-between flex-wrap gap-3">
         <div>
@@ -144,6 +158,19 @@ export const ResistorBuilderGame: React.FC<ResistorBuilderGameProps> = ({
         </button>
       </div>
 
+      {/* Banner de Penalidade / Bloqueio Anti-Autoclique */}
+      <PenaltyBanner
+        isLocked={isLocked}
+        lockRemainingMs={lockRemainingMs}
+        totalLockMs={totalLockMs}
+        lockReason={lockReason}
+        consecutiveErrors={consecutiveErrors}
+        lastPenaltyPts={lastPenaltyPts}
+        lastBadge={lastBadge}
+        lastErrorTitle={lastErrorTitle}
+        lastErrorDetail={lastErrorDetail}
+      />
+
       {/* Desenho Interativo do Resistor */}
       <div className="bg-slate-900/95 border-2 border-slate-700 rounded-3xl p-4 sm:p-5 flex flex-col items-center shadow-2xl">
         <p className="text-xs text-slate-400 mb-2">
@@ -152,8 +179,24 @@ export const ResistorBuilderGame: React.FC<ResistorBuilderGameProps> = ({
 
         <svg viewBox="0 0 420 130" className="w-full max-w-md h-28 sm:h-32">
           {/* Terminais Metálicos */}
-          <line x1="10" y1="65" x2="95" y2="65" stroke="#94A3B8" strokeWidth="10" strokeLinecap="round" />
-          <line x1="325" y1="65" x2="410" y2="65" stroke="#94A3B8" strokeWidth="10" strokeLinecap="round" />
+          <line
+            x1="10"
+            y1="65"
+            x2="95"
+            y2="65"
+            stroke="#94A3B8"
+            strokeWidth="10"
+            strokeLinecap="round"
+          />
+          <line
+            x1="325"
+            y1="65"
+            x2="410"
+            y2="65"
+            stroke="#94A3B8"
+            strokeWidth="10"
+            strokeLinecap="round"
+          />
 
           {/* Corpo Bege do Resistor PTH */}
           <rect
@@ -169,7 +212,7 @@ export const ResistorBuilderGame: React.FC<ResistorBuilderGameProps> = ({
 
           {/* 1ª Faixa (1º Dígito) */}
           <g
-            onClick={() => setActiveBand(0)}
+            onClick={() => !isLocked && setActiveBand(0)}
             className="cursor-pointer"
           >
             <rect
@@ -195,7 +238,7 @@ export const ResistorBuilderGame: React.FC<ResistorBuilderGameProps> = ({
 
           {/* 2ª Faixa (2º Dígito) */}
           <g
-            onClick={() => setActiveBand(1)}
+            onClick={() => !isLocked && setActiveBand(1)}
             className="cursor-pointer"
           >
             <rect
@@ -221,7 +264,7 @@ export const ResistorBuilderGame: React.FC<ResistorBuilderGameProps> = ({
 
           {/* 3ª Faixa (Multiplicador) */}
           <g
-            onClick={() => setActiveBand(2)}
+            onClick={() => !isLocked && setActiveBand(2)}
             className="cursor-pointer"
           >
             <rect
@@ -247,7 +290,13 @@ export const ResistorBuilderGame: React.FC<ResistorBuilderGameProps> = ({
 
           {/* 4ª Faixa Fixa (Dourado ±5%) */}
           <rect x="285" y="25" width="18" height="80" fill="#EAB308" />
-          <text x="294" y="18" textAnchor="middle" fill="#EAB308" fontSize="11">
+          <text
+            x="294"
+            y="18"
+            textAnchor="middle"
+            fill="#EAB308"
+            fontSize="11"
+          >
             ±5%
           </text>
         </svg>
@@ -265,12 +314,12 @@ export const ResistorBuilderGame: React.FC<ResistorBuilderGameProps> = ({
             <button
               key={b.idx}
               type="button"
-              onClick={() => setActiveBand(b.idx)}
+              onClick={() => !isLocked && setActiveBand(b.idx)}
               className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all ${
                 activeBand === b.idx
                   ? "bg-sky-500/20 border-sky-400 text-sky-300 shadow"
                   : "bg-slate-800 border-slate-700 text-slate-300"
-              }`}
+              } ${isLocked ? "opacity-50 cursor-not-allowed" : ""}`}
             >
               {b.label}
             </button>
@@ -278,15 +327,9 @@ export const ResistorBuilderGame: React.FC<ResistorBuilderGameProps> = ({
         </div>
       </div>
 
-      {/* Feedback */}
-      {statusMsg && (
-        <div
-          className={`rounded-2xl px-4 py-3 border text-center font-bold text-sm ${
-            statusMsg.ok
-              ? "bg-emerald-950/90 border-emerald-400 text-emerald-200"
-              : "bg-red-950/90 border-red-400 text-red-200"
-          }`}
-        >
+      {/* Feedback de Acerto */}
+      {statusMsg && !isLocked && (
+        <div className="rounded-2xl px-4 py-3 border text-center font-bold text-sm bg-emerald-950/90 border-emerald-400 text-emerald-200">
           {statusMsg.text}
         </div>
       )}
@@ -307,17 +350,19 @@ export const ResistorBuilderGame: React.FC<ResistorBuilderGameProps> = ({
         <div className="grid grid-cols-5 gap-2">
           {RESISTOR_COLORS.map((c, idx) => {
             // Na 3ª faixa (multiplicador), Cinza e Branco não são usados para nossos resistores básicos
-            const disabled = activeBand === 2 && idx >= 7;
+            const disabledBand = activeBand === 2 && idx >= 7;
+            const disabled = disabledBand || isLocked;
             return (
               <button
                 key={c.id}
-                disabled={disabled}
-                onClick={() => handlePickColor(idx)}
+                type="button"
+                aria-disabled={disabled}
+                onClick={() => !disabledBand && handlePickColor(idx)}
                 style={{ backgroundColor: c.hex }}
-                className={`rounded-xl py-2.5 px-1.5 border-2 transition-transform active:scale-95 flex flex-col items-center justify-center ${
+                className={`rounded-xl py-2.5 px-1.5 border-2 transition-transform flex flex-col items-center justify-center ${
                   disabled
                     ? "opacity-25 cursor-not-allowed border-transparent"
-                    : "border-white/30 hover:border-white shadow"
+                    : "border-white/30 hover:border-white shadow active:scale-95"
                 } ${c.textLight ? "text-white" : "text-slate-950"}`}
               >
                 <span className="text-xs font-extrabold leading-tight">
@@ -337,12 +382,26 @@ export const ResistorBuilderGame: React.FC<ResistorBuilderGameProps> = ({
       {/* Botão Soldar na Placa */}
       <button
         type="button"
+        aria-disabled={isLocked}
         onClick={handleSolder}
-        className="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-extrabold text-base sm:text-lg shadow-xl shadow-emerald-500/20 active:scale-98 flex items-center justify-center gap-2"
+        className={`w-full py-4 rounded-2xl font-extrabold text-base sm:text-lg shadow-xl flex items-center justify-center gap-2 transition-all ${
+          isLocked
+            ? "bg-slate-800 border-2 border-red-500/40 text-red-300 opacity-65 cursor-not-allowed"
+            : "bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 shadow-emerald-500/20 active:scale-98"
+        }`}
       >
-        <Wrench className="w-5 h-5" />
-        TESTAR NO MULTÍMETRO E SOLDAR NA PLACA!
-        <Sparkles className="w-5 h-5" />
+        {isLocked ? (
+          <>
+            <Lock className="w-5 h-5" />
+            DISJUNTOR BLOQUEADO — AGUARDE O REARME
+          </>
+        ) : (
+          <>
+            <Wrench className="w-5 h-5" />
+            TESTAR NO MULTÍMETRO E SOLDAR NA PLACA!
+            <Sparkles className="w-5 h-5" />
+          </>
+        )}
       </button>
     </div>
   );

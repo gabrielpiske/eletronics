@@ -6,7 +6,11 @@ import {
   ElectronicComponentItem,
 } from "@/data/electronicsData";
 import { ElectronicSymbolSVG } from "@/components/ElectronicSymbolSVG";
-import { Zap, Flame, AlertTriangle, PackageCheck } from "lucide-react";
+import {
+  usePenaltySystem,
+  PenaltyBanner,
+} from "@/components/minigames/PenaltySystem";
+import { Zap, Flame, AlertTriangle, PackageCheck, Lock } from "lucide-react";
 
 interface ConveyorGameProps {
   onScoreAction: (
@@ -40,6 +44,25 @@ export const ConveyorGame: React.FC<ConveyorGameProps> = ({ onScoreAction }) => 
   } | null>(null);
 
   const lockRef = useRef(false);
+
+  const {
+    isLocked,
+    lockRemainingMs,
+    totalLockMs,
+    lockReason,
+    consecutiveErrors,
+    lastPenaltyPts,
+    lastBadge,
+    lastErrorTitle,
+    lastErrorDetail,
+    handleContainerPointerDown,
+    guardClick,
+    registerHit,
+    triggerErrorPenalty,
+  } = usePenaltySystem(onScoreAction, () => {
+    setStreak(0);
+    setFeedback(null);
+  });
 
   const spawnNextItem = useCallback((nextCount: number) => {
     lockRef.current = false;
@@ -106,30 +129,27 @@ export const ConveyorGame: React.FC<ConveyorGameProps> = ({ onScoreAction }) => 
     spawnNextItem(0);
   }, [spawnNextItem]);
 
-  // Movimento da esteira
+  // Movimento da esteira (pausa se estiver em transição ou bloqueado por penalidade)
   useEffect(() => {
     const speedStep = Math.min(2.6, 1.15 + Math.floor(streak / 3) * 0.25);
     const timer = setInterval(() => {
-      if (lockRef.current) return;
+      if (lockRef.current || isLocked) return;
       setBeltProgress((prev) => {
         if (prev >= 96) {
           // Peça caiu da esteira!
           lockRef.current = true;
           setStreak(0);
-          setFeedback({
-            ok: false,
-            text: "⚠️ Peça caiu da esteira!",
-            detail: `Era: ${currentComp.name} (${currentComp.boardLetter})`,
-          });
-          onScoreAction(
-            -40,
-            false,
-            `Deixou ${currentComp.shortName} cair da esteira!`
+          setFeedback(null);
+          const nextCount = sortedCount + 1;
+          setSortedCount(nextCount);
+          const { delayMs } = triggerErrorPenalty(
+            `Deixou ${currentComp.shortName} cair da esteira!`,
+            `⚠️ Peça caiu no fim da esteira! Era ${currentComp.name} [${currentComp.boardLetter}]`,
+            `${currentComp.categoryLabel}: ${currentComp.basicFunction}`
           );
           setTimeout(() => {
-            setFeedback(null);
-            spawnNextItem(sortedCount + 1);
-          }, 950);
+            spawnNextItem(nextCount);
+          }, delayMs);
           return 98;
         }
         return prev + speedStep;
@@ -137,10 +157,17 @@ export const ConveyorGame: React.FC<ConveyorGameProps> = ({ onScoreAction }) => 
     }, 100);
 
     return () => clearInterval(timer);
-  }, [streak, currentComp, sortedCount, onScoreAction, spawnNextItem]);
+  }, [
+    streak,
+    currentComp,
+    sortedCount,
+    isLocked,
+    triggerErrorPenalty,
+    spawnNextItem,
+  ]);
 
   const handleSelectBin = (binId: string) => {
-    if (lockRef.current) return;
+    if (!guardClick() || isLocked || lockRef.current) return;
     lockRef.current = true;
 
     const isCorrect =
@@ -165,38 +192,40 @@ export const ConveyorGame: React.FC<ConveyorGameProps> = ({ onScoreAction }) => 
         detail: currentComp.basicFunction,
       });
 
-      onScoreAction(
+      registerHit(
         points,
-        true,
         `Classificou ${currentComp.shortName} (${multiplier}x Combo!)`,
         newLevel
       );
+
+      setTimeout(() => {
+        setFeedback(null);
+        spawnNextItem(nextCount);
+      }, 750);
     } else {
       setStreak(0);
-      setFeedback({
-        ok: false,
-        text: `⚡ CURTO! Era ${currentComp.name} [${currentComp.boardLetter}]`,
-        detail: `${currentComp.categoryLabel}: ${currentComp.basicFunction}`,
-      });
+      setFeedback(null);
 
-      onScoreAction(
-        -50,
-        false,
-        `Curto ao classificar ${currentComp.shortName}!`,
+      const { delayMs } = triggerErrorPenalty(
+        `Curto ao classificar ${currentComp.shortName}`,
+        `⚡ CURTO! Era ${currentComp.name} [${currentComp.boardLetter}]`,
+        `${currentComp.categoryLabel}: ${currentComp.basicFunction}`,
         newLevel
       );
-    }
 
-    setTimeout(() => {
-      setFeedback(null);
-      spawnNextItem(nextCount);
-    }, 850);
+      setTimeout(() => {
+        spawnNextItem(nextCount);
+      }, delayMs);
+    }
   };
 
   const multiplier = Math.min(4, 1 + Math.floor(streak / 3));
 
   return (
-    <div className="w-full max-w-2xl mx-auto flex flex-col gap-4 select-none">
+    <div
+      onPointerDownCapture={handleContainerPointerDown}
+      className="w-full max-w-2xl mx-auto flex flex-col gap-4 select-none"
+    >
       {/* Cabeçalho da Esteira */}
       <div className="flex items-center justify-between bg-slate-900/90 border border-slate-700/80 rounded-2xl px-4 py-3">
         <div className="flex items-center gap-2">
@@ -221,7 +250,8 @@ export const ConveyorGame: React.FC<ConveyorGameProps> = ({ onScoreAction }) => 
             : "🏭 CLASSIFIQUE A FAMÍLIA DESTE COMPONENTE"}
         </p>
         <p className="text-xs text-slate-300 mt-0.5">
-          Toque na caixa coletora certa antes que o componente caia no fim da esteira!
+          Toque na caixa coletora certa antes que o componente caia! Cuidado:
+          erros tiram pontos e travam o disjuntor.
         </p>
       </div>
 
@@ -239,11 +269,16 @@ export const ConveyorGame: React.FC<ConveyorGameProps> = ({ onScoreAction }) => 
               left: `${Math.min(72, Math.max(2, beltProgress * 0.72))}%`,
               transition: "left 95ms linear",
             }}
-            className="absolute bg-slate-900 border-2 border-sky-400/80 shadow-lg shadow-sky-500/20 rounded-2xl px-5 py-3 flex flex-col items-center justify-center"
+            className={`absolute bg-slate-900 border-2 rounded-2xl px-5 py-3 flex flex-col items-center justify-center shadow-lg ${
+              isLocked
+                ? "border-red-500/80 shadow-red-500/20 opacity-75"
+                : "border-sky-400/80 shadow-sky-500/20"
+            }`}
           >
             <ElectronicSymbolSVG
               symbolId={currentComp.id}
               className="w-28 h-20"
+              strokeColor={isLocked ? "#F87171" : "#38BDF8"}
             />
             <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400 mt-1">
               Unidade: {currentComp.unit}
@@ -256,22 +291,31 @@ export const ConveyorGame: React.FC<ConveyorGameProps> = ({ onScoreAction }) => 
           {Array.from({ length: 12 }).map((_, i) => (
             <div
               key={i}
-              className="w-2.5 h-2.5 rounded-full bg-slate-500 animate-spin"
+              className={`w-2.5 h-2.5 rounded-full bg-slate-500 ${
+                isLocked ? "" : "animate-spin"
+              }`}
               style={{ animationDuration: `${1.2 / multiplier}s` }}
             />
           ))}
         </div>
       </div>
 
-      {/* Feedback Rápido */}
-      {feedback && (
-        <div
-          className={`rounded-2xl px-4 py-3 border text-center transition-all ${
-            feedback.ok
-              ? "bg-emerald-950/90 border-emerald-400 text-emerald-200"
-              : "bg-red-950/90 border-red-400 text-red-200"
-          }`}
-        >
+      {/* Banner de Penalidade / Bloqueio Anti-Autoclique */}
+      <PenaltyBanner
+        isLocked={isLocked}
+        lockRemainingMs={lockRemainingMs}
+        totalLockMs={totalLockMs}
+        lockReason={lockReason}
+        consecutiveErrors={consecutiveErrors}
+        lastPenaltyPts={lastPenaltyPts}
+        lastBadge={lastBadge}
+        lastErrorTitle={lastErrorTitle}
+        lastErrorDetail={lastErrorDetail}
+      />
+
+      {/* Feedback Rápido de Acerto */}
+      {feedback && !isLocked && (
+        <div className="rounded-2xl px-4 py-3 border text-center transition-all bg-emerald-950/90 border-emerald-400 text-emerald-200">
           <p className="font-extrabold text-sm sm:text-base">{feedback.text}</p>
           <p className="text-xs opacity-90 mt-0.5">{feedback.detail}</p>
         </div>
@@ -282,14 +326,24 @@ export const ConveyorGame: React.FC<ConveyorGameProps> = ({ onScoreAction }) => 
         {bins.map((bin) => (
           <button
             key={bin.id}
+            type="button"
+            aria-disabled={isLocked}
             onClick={() => handleSelectBin(bin.id)}
-            className={`bg-gradient-to-br ${bin.colorClass} border-2 rounded-2xl p-4 text-left shadow-lg active:scale-95 transition-transform flex flex-col justify-between min-h-[96px]`}
+            className={`bg-gradient-to-br ${bin.colorClass} border-2 rounded-2xl p-4 text-left shadow-lg transition-all flex flex-col justify-between min-h-[96px] ${
+              isLocked
+                ? "opacity-45 grayscale cursor-not-allowed scale-95"
+                : "active:scale-95"
+            }`}
           >
             <div className="flex items-center justify-between">
               <span className="text-xs font-mono uppercase tracking-wider bg-black/30 px-2 py-0.5 rounded text-white/90">
-                COLETOR
+                {isLocked ? "BLOQUEADO" : "COLETOR"}
               </span>
-              <Zap className="w-4 h-4 text-white/80" />
+              {isLocked ? (
+                <Lock className="w-4 h-4 text-red-300" />
+              ) : (
+                <Zap className="w-4 h-4 text-white/80" />
+              )}
             </div>
             <div className="mt-2">
               <p className="text-base sm:text-lg font-extrabold text-white leading-tight">

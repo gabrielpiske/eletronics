@@ -6,7 +6,11 @@ import {
   ElectronicComponentItem,
 } from "@/data/electronicsData";
 import { ElectronicSymbolSVG } from "@/components/ElectronicSymbolSVG";
-import { Eye, Sparkles, Search, CheckCircle2, XCircle } from "lucide-react";
+import {
+  usePenaltySystem,
+  PenaltyBanner,
+} from "@/components/minigames/PenaltySystem";
+import { Eye, Sparkles, Search, CheckCircle2, Lock } from "lucide-react";
 
 interface SmokeDetectiveGameProps {
   onScoreAction: (
@@ -31,6 +35,24 @@ export const SmokeDetectiveGame: React.FC<SmokeDetectiveGameProps> = ({
     message: string;
   } | null>(null);
 
+  const {
+    isLocked,
+    lockRemainingMs,
+    totalLockMs,
+    lockReason,
+    consecutiveErrors,
+    lastPenaltyPts,
+    lastBadge,
+    lastErrorTitle,
+    lastErrorDetail,
+    handleContainerPointerDown,
+    guardClick,
+    registerHit,
+    triggerErrorPenalty,
+  } = usePenaltySystem(onScoreAction, () => {
+    setResultFeedback(null);
+  });
+
   const nextMystery = useCallback(() => {
     const pickedTarget =
       ELECTRONIC_COMPONENTS[
@@ -54,19 +76,19 @@ export const SmokeDetectiveGame: React.FC<SmokeDetectiveGameProps> = ({
     nextMystery();
   }, [nextMystery]);
 
-  // Revela pistas automaticamente a cada 4,5 segundos se o aluno ainda não respondeu
+  // Revela pistas automaticamente a cada 4,5 segundos se o aluno ainda não respondeu e não estiver bloqueado
   useEffect(() => {
-    if (resultFeedback || clueStage >= 3) return;
+    if (resultFeedback || isLocked || clueStage >= 3) return;
     const timer = setTimeout(() => {
       setClueStage((prev) => (prev < 3 ? ((prev + 1) as 1 | 2 | 3) : 3));
     }, 4500);
     return () => clearTimeout(timer);
-  }, [clueStage, resultFeedback]);
+  }, [clueStage, resultFeedback, isLocked]);
 
   const potentialPoints = clueStage === 1 ? 300 : clueStage === 2 ? 200 : 120;
 
   const handleGuess = (chosen: ElectronicComponentItem) => {
-    if (resultFeedback) return;
+    if (!guardClick() || isLocked || resultFeedback) return;
 
     if (chosen.id === target.id) {
       const nextSolved = solvedCount + 1;
@@ -78,9 +100,8 @@ export const SmokeDetectiveGame: React.FC<SmokeDetectiveGameProps> = ({
         message: `🎯 Na mosca (+${potentialPoints} pts)! Era ${target.name} [${target.boardLetter}]!`,
       });
 
-      onScoreAction(
+      registerHit(
         potentialPoints,
-        true,
         `Descobriu ${target.shortName} na ${clueStage}ª pista (+${potentialPoints} pts)!`,
         newLevel
       );
@@ -90,25 +111,23 @@ export const SmokeDetectiveGame: React.FC<SmokeDetectiveGameProps> = ({
       }, 950);
     } else {
       setClueStage(3);
-      setResultFeedback({
-        ok: false,
-        message: `❌ Ops! Você escolheu ${chosen.shortName}, mas o mistério era ${target.name} [${target.boardLetter}]!`,
-      });
-
-      onScoreAction(
-        -45,
-        false,
-        `Confundiu ${target.shortName} com ${chosen.shortName}`
+      const { delayMs } = triggerErrorPenalty(
+        `Confundiu ${target.shortName} com ${chosen.shortName}`,
+        `❌ Ops! Você escolheu ${chosen.shortName}, mas o mistério era ${target.name} [${target.boardLetter}]!`,
+        `${target.categoryLabel}: ${target.basicFunction}`
       );
 
       setTimeout(() => {
         nextMystery();
-      }, 1250);
+      }, delayMs);
     }
   };
 
   return (
-    <div className="w-full max-w-2xl mx-auto flex flex-col gap-4 select-none">
+    <div
+      onPointerDownCapture={handleContainerPointerDown}
+      className="w-full max-w-2xl mx-auto flex flex-col gap-4 select-none"
+    >
       {/* Cabeçalho Detetive */}
       <div className="bg-gradient-to-r from-pink-950 via-slate-900 to-rose-950 border-2 border-pink-500/70 rounded-2xl p-4 flex items-center justify-between flex-wrap gap-2 shadow-xl">
         <div className="flex items-center gap-2.5">
@@ -130,7 +149,7 @@ export const SmokeDetectiveGame: React.FC<SmokeDetectiveGameProps> = ({
             <Sparkles className="w-4 h-4" />
             Valendo {potentialPoints} pts
           </span>
-          {clueStage < 3 && !resultFeedback && (
+          {clueStage < 3 && !resultFeedback && !isLocked && (
             <button
               type="button"
               onClick={() =>
@@ -143,6 +162,19 @@ export const SmokeDetectiveGame: React.FC<SmokeDetectiveGameProps> = ({
           )}
         </div>
       </div>
+
+      {/* Banner de Penalidade / Bloqueio Anti-Autoclique */}
+      <PenaltyBanner
+        isLocked={isLocked}
+        lockRemainingMs={lockRemainingMs}
+        totalLockMs={totalLockMs}
+        lockReason={lockReason}
+        consecutiveErrors={consecutiveErrors}
+        lastPenaltyPts={lastPenaltyPts}
+        lastBadge={lastBadge}
+        lastErrorTitle={lastErrorTitle}
+        lastErrorDetail={lastErrorDetail}
+      />
 
       {/* Cápsula de Fumaça + Pistas Progressivas */}
       <div className="grid grid-cols-1 sm:grid-cols-5 gap-4 bg-slate-900/95 border-2 border-slate-700 rounded-3xl p-4 shadow-2xl items-center">
@@ -160,10 +192,12 @@ export const SmokeDetectiveGame: React.FC<SmokeDetectiveGameProps> = ({
             <ElectronicSymbolSVG
               symbolId={target.id}
               className="w-36 h-28"
+              strokeColor={isLocked ? "#F87171" : "#38BDF8"}
             />
           </div>
           <span className="text-[11px] font-mono text-slate-400 mt-2">
-            Nitidez: {clueStage === 1 ? "35%" : clueStage === 2 ? "70%" : "100%"}
+            Nitidez:{" "}
+            {clueStage === 1 ? "35%" : clueStage === 2 ? "70%" : "100%"}
           </span>
         </div>
 
@@ -192,20 +226,10 @@ export const SmokeDetectiveGame: React.FC<SmokeDetectiveGameProps> = ({
         </div>
       </div>
 
-      {/* Feedback de Resposta */}
-      {resultFeedback && (
-        <div
-          className={`rounded-2xl px-4 py-3 border text-center font-bold text-sm flex items-center justify-center gap-2 ${
-            resultFeedback.ok
-              ? "bg-emerald-950/90 border-emerald-400 text-emerald-200"
-              : "bg-red-950/90 border-red-400 text-red-200"
-          }`}
-        >
-          {resultFeedback.ok ? (
-            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-          ) : (
-            <XCircle className="w-5 h-5 text-red-400 shrink-0" />
-          )}
+      {/* Feedback de Acerto */}
+      {resultFeedback && !isLocked && (
+        <div className="rounded-2xl px-4 py-3 border text-center font-bold text-sm flex items-center justify-center gap-2 bg-emerald-950/90 border-emerald-400 text-emerald-200">
+          <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
           <span>{resultFeedback.message}</span>
         </div>
       )}
@@ -215,16 +239,26 @@ export const SmokeDetectiveGame: React.FC<SmokeDetectiveGameProps> = ({
         {candidates.map((cand) => (
           <button
             key={cand.id}
+            type="button"
+            aria-disabled={isLocked}
             onClick={() => handleGuess(cand)}
-            className="bg-slate-900 hover:bg-slate-800 border-2 border-slate-700 hover:border-pink-400 rounded-2xl p-3 text-left transition-all active:scale-95 flex flex-col justify-between"
+            className={`rounded-2xl p-3 text-left transition-all flex flex-col justify-between border-2 ${
+              isLocked
+                ? "bg-slate-950/80 border-red-900/40 opacity-45 cursor-not-allowed"
+                : "bg-slate-900 hover:bg-slate-800 border-slate-700 hover:border-pink-400 active:scale-95"
+            }`}
           >
             <div className="flex items-center justify-between">
               <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-pink-500/20 text-pink-300 border border-pink-400/30">
                 [{cand.boardLetter}]
               </span>
-              <span className="text-[11px] font-mono text-slate-400">
-                {cand.unit}
-              </span>
+              {isLocked ? (
+                <Lock className="w-3.5 h-3.5 text-red-400/80" />
+              ) : (
+                <span className="text-[11px] font-mono text-slate-400">
+                  {cand.unit}
+                </span>
+              )}
             </div>
             <p className="text-sm sm:text-base font-extrabold text-white mt-2">
               {cand.shortName}

@@ -40,6 +40,7 @@ export default function PlayRoomPage() {
   const [avatar, setAvatar] = useState<string>(AVATARS[0]);
   const [hasJoined, setHasJoined] = useState<boolean>(false);
   const [remainingSec, setRemainingSec] = useState<number>(0);
+  const [lastScoreDelta, setLastScoreDelta] = useState<number | null>(null);
 
   useEffect(() => {
     const pid = getOrCreatePlayerId();
@@ -95,6 +96,11 @@ export default function PlayRoomPage() {
       actionMessage: string,
       newLevel?: number
     ) => {
+      setLastScoreDelta(deltaScore);
+      setTimeout(() => {
+        setLastScoreDelta((prev) => (prev === deltaScore ? null : prev));
+      }, 1800);
+
       if (!pin || !playerId) return;
       recordPlayerAction(
         pin,
@@ -238,13 +244,30 @@ export default function PlayRoomPage() {
               </span>
             )}
 
-            <div className="px-3 py-1 rounded-xl bg-slate-900 border border-slate-700 text-right">
+            <div
+              className={`px-3 py-1 rounded-xl border text-right transition-colors ${
+                lastScoreDelta !== null && lastScoreDelta < 0
+                  ? "bg-red-950/90 border-red-400"
+                  : "bg-slate-900 border-slate-700"
+              }`}
+            >
               <span className="text-[10px] font-mono text-slate-400 block leading-none">
                 PONTOS
               </span>
-              <span className="text-sm sm:text-base font-mono font-black text-amber-300">
-                {myPlayer?.score || 0}
-              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm sm:text-base font-mono font-black text-amber-300">
+                  {myPlayer?.score || 0}
+                </span>
+                {lastScoreDelta !== null && (
+                  <span
+                    className={`text-xs font-mono font-extrabold ${
+                      lastScoreDelta >= 0 ? "text-emerald-400" : "text-red-400"
+                    }`}
+                  >
+                    ({lastScoreDelta >= 0 ? `+${lastScoreDelta}` : lastScoreDelta})
+                  </span>
+                )}
+              </div>
             </div>
 
             {room.status === "PLAYING" && (

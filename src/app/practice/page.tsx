@@ -42,10 +42,16 @@ function PracticeContent() {
   );
   const [soloScore, setSoloScore] = useState<number>(0);
   const [soloStreak, setSoloStreak] = useState<number>(0);
+  const [soloMisses, setSoloMisses] = useState<number>(0);
+  const [lastSoloDelta, setLastSoloDelta] = useState<number | null>(null);
 
   const handleSoloScore = (deltaScore: number, isHit: boolean) => {
     setSoloScore((prev) => Math.max(0, prev + deltaScore));
     setSoloStreak((prev) => (isHit ? prev + 1 : 0));
+    if (!isHit) {
+      setSoloMisses((prev) => prev + 1);
+    }
+    setLastSoloDelta(deltaScore);
   };
 
   const filteredComponents =
@@ -203,18 +209,38 @@ function PracticeContent() {
                 ))}
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 <span className="px-3 py-1.5 rounded-xl bg-amber-500/20 border border-amber-400/40 text-amber-300 text-xs font-extrabold flex items-center gap-1">
                   <Flame className="w-4 h-4" /> Combo {soloStreak}x
                 </span>
-                <span className="px-3.5 py-1.5 rounded-xl bg-slate-950 border border-slate-700 text-amber-300 font-mono font-black text-sm flex items-center gap-1.5">
+                <span className="px-3 py-1.5 rounded-xl bg-red-950/60 border border-red-500/40 text-red-300 text-xs font-extrabold">
+                  Curtos: {soloMisses}
+                </span>
+                <span
+                  className={`px-3.5 py-1.5 rounded-xl border font-mono font-black text-sm flex items-center gap-1.5 transition-colors ${
+                    lastSoloDelta !== null && lastSoloDelta < 0
+                      ? "bg-red-950/80 border-red-400 text-red-200"
+                      : "bg-slate-950 border-slate-700 text-amber-300"
+                  }`}
+                >
                   <Trophy className="w-4 h-4 text-amber-400" /> {soloScore} pts
+                  {lastSoloDelta !== null && (
+                    <span
+                      className={`text-xs ${
+                        lastSoloDelta >= 0 ? "text-emerald-400" : "text-red-400"
+                      }`}
+                    >
+                      ({lastSoloDelta >= 0 ? `+${lastSoloDelta}` : lastSoloDelta})
+                    </span>
+                  )}
                 </span>
                 <button
                   type="button"
                   onClick={() => {
                     setSoloScore(0);
                     setSoloStreak(0);
+                    setSoloMisses(0);
+                    setLastSoloDelta(null);
                   }}
                   className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300"
                   title="Zerar pontuação de treino"
