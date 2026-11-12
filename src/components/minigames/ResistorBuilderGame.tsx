@@ -10,7 +10,7 @@ import {
   usePenaltySystem,
   PenaltyBanner,
 } from "@/components/minigames/PenaltySystem";
-import { Wrench, Sparkles, HelpCircle, Lock } from "lucide-react";
+import { Wrench, HelpCircle, Lock } from "lucide-react";
 
 interface ResistorBuilderGameProps {
   onScoreAction: (
@@ -84,7 +84,6 @@ export const ResistorBuilderGame: React.FC<ResistorBuilderGameProps> = ({
     nextBands[activeBand] = colorIndex;
     setBands(nextBands);
 
-    // Avança automaticamente para a próxima faixa
     if (activeBand === 0) setActiveBand(1);
     else if (activeBand === 1) setActiveBand(2);
   };
@@ -102,12 +101,12 @@ export const ResistorBuilderGame: React.FC<ResistorBuilderGameProps> = ({
 
       setStatusMsg({
         ok: true,
-        text: `🔥 Perfeito! Resistor de ${currentOrder.displayLabel} soldado (+${pts} pts)!`,
+        text: `Resistor de ${currentOrder.displayLabel} validado (+${pts} pts)`,
       });
 
       registerHit(
         pts,
-        `Soldou resistor de ${currentOrder.displayLabel} (${color1.name}-${color2.name}-${color3.name})!`,
+        `Soldou resistor de ${currentOrder.displayLabel} (${color1.name}-${color2.name}-${color3.name})`,
         newLevel
       );
 
@@ -119,9 +118,9 @@ export const ResistorBuilderGame: React.FC<ResistorBuilderGameProps> = ({
       }, 900);
     } else {
       triggerErrorPenalty(
-        `Montou ${formatOhms(currentOhms)} em vez de ${currentOrder.displayLabel}`,
-        `⚠️ Multímetro mediu ${formatOhms(currentOhms)}, mas o pedido é ${currentOrder.displayLabel}!`,
-        `Combinação montada: ${color1.name} (${color1.digit}), ${color2.name} (${color2.digit}) e ${color3.name} (${color3.multiplierLabel}). Ajuste as faixas após o rearme!`
+        `Mediu ${formatOhms(currentOhms)} (pedido: ${currentOrder.displayLabel})`,
+        `Leitura incorreta no multímetro: ${formatOhms(currentOhms)}`,
+        `Especificação exigida: ${currentOrder.displayLabel}. Configurado: ${color1.name} (${color1.digit}), ${color2.name} (${color2.digit}), ${color3.name} (${color3.multiplierLabel}).`
       );
     }
   };
@@ -129,36 +128,34 @@ export const ResistorBuilderGame: React.FC<ResistorBuilderGameProps> = ({
   return (
     <div
       onPointerDownCapture={handleContainerPointerDown}
-      className="w-full max-w-2xl mx-auto flex flex-col gap-4 select-none"
+      className="w-full max-w-2xl mx-auto flex flex-col gap-3.5 select-none"
     >
-      {/* Ordem de Serviço */}
-      <div className="bg-gradient-to-r from-amber-950 via-slate-900 to-orange-950 border-2 border-amber-500/70 rounded-2xl p-4 shadow-xl flex items-center justify-between flex-wrap gap-3">
+      {/* Ordem de Bancada */}
+      <div className="bg-[#181B20] border border-[#2A303C] rounded-lg px-4 py-3 flex items-center justify-between flex-wrap gap-3">
         <div>
-          <span className="text-[11px] font-mono uppercase tracking-widest text-amber-400 font-bold">
-            ORDEM DE BANCADA #{builtCount + 1}
+          <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 block">
+            ESPECIFICAÇÃO DE RESISTOR • ORDEM #{builtCount + 1}
           </span>
-          <h3 className="text-xl sm:text-2xl font-extrabold text-white mt-0.5">
-            Monte um Resistor de:{" "}
-            <span className="text-amber-300 underline decoration-amber-500">
+          <div className="flex items-baseline gap-2 mt-0.5">
+            <h3 className="text-lg sm:text-xl font-mono font-bold text-amber-400">
               {currentOrder.displayLabel}
+            </h3>
+            <span className="text-xs text-zinc-400">
+              — {currentOrder.usageHint}
             </span>
-          </h3>
-          <p className="text-xs text-slate-300 mt-1">
-            Aplicação: {currentOrder.usageHint}
-          </p>
+          </div>
         </div>
 
         <button
           type="button"
           onClick={() => setShowTable((v) => !v)}
-          className="text-xs font-bold px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-400/40 flex items-center gap-1.5"
+          className="text-xs font-mono font-semibold px-3 py-1.5 rounded bg-[#0C0E12] hover:bg-[#14181F] text-zinc-300 border border-[#2A303C] flex items-center gap-1.5"
         >
-          <HelpCircle className="w-4 h-4" />
-          {showTable ? "Ocultar Tabela" : "Ver Tabela de Cores"}
+          <HelpCircle className="w-3.5 h-3.5 text-amber-400" />
+          {showTable ? "Ocultar Tabela" : "Tabela de Cores"}
         </button>
       </div>
 
-      {/* Banner de Penalidade / Bloqueio Anti-Autoclique */}
       <PenaltyBanner
         isLocked={isLocked}
         lockRemainingMs={lockRemainingMs}
@@ -171,14 +168,9 @@ export const ResistorBuilderGame: React.FC<ResistorBuilderGameProps> = ({
         lastErrorDetail={lastErrorDetail}
       />
 
-      {/* Desenho Interativo do Resistor */}
-      <div className="bg-slate-900/95 border-2 border-slate-700 rounded-3xl p-4 sm:p-5 flex flex-col items-center shadow-2xl">
-        <p className="text-xs text-slate-400 mb-2">
-          Toque na faixa que deseja pintar (1ª, 2ª ou 3ª) e escolha a cor abaixo:
-        </p>
-
-        <svg viewBox="0 0 420 130" className="w-full max-w-md h-28 sm:h-32">
-          {/* Terminais Metálicos */}
+      {/* Bancada do Resistor */}
+      <div className="bg-[#0C0E12] border border-[#2A303C] rounded-lg p-4 flex flex-col items-center">
+        <svg viewBox="0 0 420 130" className="w-full max-w-md h-24 sm:h-28">
           <line
             x1="10"
             y1="65"
@@ -198,19 +190,18 @@ export const ResistorBuilderGame: React.FC<ResistorBuilderGameProps> = ({
             strokeLinecap="round"
           />
 
-          {/* Corpo Bege do Resistor PTH */}
           <rect
             x="85"
             y="25"
             width="250"
             height="80"
-            rx="28"
+            rx="20"
             fill="#FDE68A"
-            stroke="#D97706"
-            strokeWidth="4"
+            stroke="#B45309"
+            strokeWidth="3"
           />
 
-          {/* 1ª Faixa (1º Dígito) */}
+          {/* 1ª Faixa */}
           <g
             onClick={() => !isLocked && setActiveBand(0)}
             className="cursor-pointer"
@@ -221,22 +212,22 @@ export const ResistorBuilderGame: React.FC<ResistorBuilderGameProps> = ({
               width="26"
               height="80"
               fill={color1.hex}
-              stroke={activeBand === 0 ? "#38BDF8" : "transparent"}
+              stroke={activeBand === 0 ? "#F59E0B" : "transparent"}
               strokeWidth="4"
             />
             <text
               x="138"
-              y="18"
+              y="17"
               textAnchor="middle"
-              fill={activeBand === 0 ? "#38BDF8" : "#94A3B8"}
-              fontSize="12"
+              fill={activeBand === 0 ? "#F59E0B" : "#71717A"}
+              fontSize="11"
               fontWeight="bold"
             >
-              1ª Faixa
+              1ª FAIXA
             </text>
           </g>
 
-          {/* 2ª Faixa (2º Dígito) */}
+          {/* 2ª Faixa */}
           <g
             onClick={() => !isLocked && setActiveBand(1)}
             className="cursor-pointer"
@@ -247,22 +238,22 @@ export const ResistorBuilderGame: React.FC<ResistorBuilderGameProps> = ({
               width="26"
               height="80"
               fill={color2.hex}
-              stroke={activeBand === 1 ? "#38BDF8" : "transparent"}
+              stroke={activeBand === 1 ? "#F59E0B" : "transparent"}
               strokeWidth="4"
             />
             <text
               x="188"
-              y="18"
+              y="17"
               textAnchor="middle"
-              fill={activeBand === 1 ? "#38BDF8" : "#94A3B8"}
-              fontSize="12"
+              fill={activeBand === 1 ? "#F59E0B" : "#71717A"}
+              fontSize="11"
               fontWeight="bold"
             >
-              2ª Faixa
+              2ª FAIXA
             </text>
           </g>
 
-          {/* 3ª Faixa (Multiplicador) */}
+          {/* 3ª Faixa */}
           <g
             onClick={() => !isLocked && setActiveBand(2)}
             className="cursor-pointer"
@@ -273,35 +264,34 @@ export const ResistorBuilderGame: React.FC<ResistorBuilderGameProps> = ({
               width="26"
               height="80"
               fill={color3.hex}
-              stroke={activeBand === 2 ? "#38BDF8" : "transparent"}
+              stroke={activeBand === 2 ? "#F59E0B" : "transparent"}
               strokeWidth="4"
             />
             <text
               x="238"
-              y="18"
+              y="17"
               textAnchor="middle"
-              fill={activeBand === 2 ? "#38BDF8" : "#94A3B8"}
-              fontSize="12"
+              fill={activeBand === 2 ? "#F59E0B" : "#71717A"}
+              fontSize="11"
               fontWeight="bold"
             >
-              3ª (Mult.)
+              MULT.
             </text>
           </g>
 
-          {/* 4ª Faixa Fixa (Dourado ±5%) */}
-          <rect x="285" y="25" width="18" height="80" fill="#EAB308" />
+          {/* 4ª Faixa (±5%) */}
+          <rect x="285" y="25" width="16" height="80" fill="#EAB308" />
           <text
-            x="294"
-            y="18"
+            x="293"
+            y="17"
             textAnchor="middle"
-            fill="#EAB308"
-            fontSize="11"
+            fill="#A1A1AA"
+            fontSize="10"
           >
             ±5%
           </text>
         </svg>
 
-        {/* Seletor Rápido de Faixa Ativa */}
         <div className="grid grid-cols-3 gap-2 w-full mt-2">
           {[
             { idx: 0 as const, label: `1ª: ${color1.name} (${color1.digit})` },
@@ -315,10 +305,10 @@ export const ResistorBuilderGame: React.FC<ResistorBuilderGameProps> = ({
               key={b.idx}
               type="button"
               onClick={() => !isLocked && setActiveBand(b.idx)}
-              className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all ${
+              className={`py-2 px-2 rounded text-xs font-mono font-semibold border transition-colors ${
                 activeBand === b.idx
-                  ? "bg-sky-500/20 border-sky-400 text-sky-300 shadow"
-                  : "bg-slate-800 border-slate-700 text-slate-300"
+                  ? "bg-amber-500/15 border-amber-400 text-amber-300"
+                  : "bg-[#181B20] border-[#2A303C] text-zinc-400"
               } ${isLocked ? "opacity-50 cursor-not-allowed" : ""}`}
             >
               {b.label}
@@ -327,29 +317,29 @@ export const ResistorBuilderGame: React.FC<ResistorBuilderGameProps> = ({
         </div>
       </div>
 
-      {/* Feedback de Acerto */}
       {statusMsg && !isLocked && (
-        <div className="rounded-2xl px-4 py-3 border text-center font-bold text-sm bg-emerald-950/90 border-emerald-400 text-emerald-200">
+        <div className="rounded-md px-3.5 py-2.5 border-l-4 border-l-emerald-400 bg-[#121F1A] border border-emerald-500/30 text-emerald-200 font-mono font-bold text-xs sm:text-sm">
           {statusMsg.text}
         </div>
       )}
 
-      {/* Paleta de Cores */}
-      <div className="bg-slate-900/90 border border-slate-700 rounded-2xl p-3">
+      {/* Seletor de Cores */}
+      <div className="bg-[#181B20] border border-[#2A303C] rounded-lg p-3">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-bold text-sky-400 uppercase">
-            Pintando agora:{" "}
-            {activeBand === 0
-              ? "1ª Faixa (1º Dígito)"
-              : activeBand === 1
-              ? "2ª Faixa (2º Dígito)"
-              : "3ª Faixa (Multiplicador de Zeros)"}
+          <span className="text-[11px] font-mono uppercase text-zinc-400">
+            Selecionando:{" "}
+            <strong className="text-amber-400">
+              {activeBand === 0
+                ? "1ª Faixa (1º Dígito)"
+                : activeBand === 1
+                ? "2ª Faixa (2º Dígito)"
+                : "3ª Faixa (Multiplicador)"}
+            </strong>
           </span>
         </div>
 
         <div className="grid grid-cols-5 gap-2">
           {RESISTOR_COLORS.map((c, idx) => {
-            // Na 3ª faixa (multiplicador), Cinza e Branco não são usados para nossos resistores básicos
             const disabledBand = activeBand === 2 && idx >= 7;
             const disabled = disabledBand || isLocked;
             return (
@@ -359,18 +349,18 @@ export const ResistorBuilderGame: React.FC<ResistorBuilderGameProps> = ({
                 aria-disabled={disabled}
                 onClick={() => !disabledBand && handlePickColor(idx)}
                 style={{ backgroundColor: c.hex }}
-                className={`rounded-xl py-2.5 px-1.5 border-2 transition-transform flex flex-col items-center justify-center ${
+                className={`rounded-md py-2.5 px-1.5 border transition-opacity flex flex-col items-center justify-center ${
                   disabled
-                    ? "opacity-25 cursor-not-allowed border-transparent"
-                    : "border-white/30 hover:border-white shadow active:scale-95"
-                } ${c.textLight ? "text-white" : "text-slate-950"}`}
+                    ? "opacity-20 cursor-not-allowed border-transparent"
+                    : "border-white/25 hover:border-white"
+                } ${c.textLight ? "text-white" : "text-zinc-950"}`}
               >
-                <span className="text-xs font-extrabold leading-tight">
+                <span className="text-xs font-bold leading-tight">
                   {c.name}
                 </span>
                 {showTable && (
                   <span className="text-[10px] font-mono opacity-90">
-                    {activeBand === 2 ? c.multiplierLabel : `Dígito ${c.digit}`}
+                    {activeBand === 2 ? c.multiplierLabel : c.digit}
                   </span>
                 )}
               </button>
@@ -379,27 +369,25 @@ export const ResistorBuilderGame: React.FC<ResistorBuilderGameProps> = ({
         </div>
       </div>
 
-      {/* Botão Soldar na Placa */}
       <button
         type="button"
         aria-disabled={isLocked}
         onClick={handleSolder}
-        className={`w-full py-4 rounded-2xl font-extrabold text-base sm:text-lg shadow-xl flex items-center justify-center gap-2 transition-all ${
+        className={`w-full py-3.5 rounded-md font-bold text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2 transition-colors ${
           isLocked
-            ? "bg-slate-800 border-2 border-red-500/40 text-red-300 opacity-65 cursor-not-allowed"
-            : "bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 shadow-emerald-500/20 active:scale-98"
+            ? "bg-[#181B20] border border-red-500/40 text-red-300 opacity-65 cursor-not-allowed"
+            : "bg-amber-500 hover:bg-amber-400 text-zinc-950"
         }`}
       >
         {isLocked ? (
           <>
-            <Lock className="w-5 h-5" />
-            DISJUNTOR BLOQUEADO — AGUARDE O REARME
+            <Lock className="w-4 h-4" />
+            Disjuntor Bloqueado — Aguarde
           </>
         ) : (
           <>
-            <Wrench className="w-5 h-5" />
-            TESTAR NO MULTÍMETRO E SOLDAR NA PLACA!
-            <Sparkles className="w-5 h-5" />
+            <Wrench className="w-4 h-4" />
+            Aferir no Multímetro e Confirmar
           </>
         )}
       </button>

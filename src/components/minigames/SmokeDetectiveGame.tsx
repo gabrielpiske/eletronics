@@ -10,7 +10,7 @@ import {
   usePenaltySystem,
   PenaltyBanner,
 } from "@/components/minigames/PenaltySystem";
-import { Eye, Sparkles, Search, CheckCircle2, Lock } from "lucide-react";
+import { Eye, CheckCircle2, Lock } from "lucide-react";
 
 interface SmokeDetectiveGameProps {
   onScoreAction: (
@@ -76,7 +76,6 @@ export const SmokeDetectiveGame: React.FC<SmokeDetectiveGameProps> = ({
     nextMystery();
   }, [nextMystery]);
 
-  // Revela pistas automaticamente a cada 4,5 segundos se o aluno ainda não respondeu e não estiver bloqueado
   useEffect(() => {
     if (resultFeedback || isLocked || clueStage >= 3) return;
     const timer = setTimeout(() => {
@@ -97,12 +96,12 @@ export const SmokeDetectiveGame: React.FC<SmokeDetectiveGameProps> = ({
       setClueStage(3);
       setResultFeedback({
         ok: true,
-        message: `🎯 Na mosca (+${potentialPoints} pts)! Era ${target.name} [${target.boardLetter}]!`,
+        message: `+${potentialPoints} pts • Componente confirmado: ${target.name} [${target.boardLetter}]`,
       });
 
       registerHit(
         potentialPoints,
-        `Descobriu ${target.shortName} na ${clueStage}ª pista (+${potentialPoints} pts)!`,
+        `Identificou ${target.shortName} na ${clueStage}ª pista (+${potentialPoints} pts)`,
         newLevel
       );
 
@@ -112,8 +111,8 @@ export const SmokeDetectiveGame: React.FC<SmokeDetectiveGameProps> = ({
     } else {
       setClueStage(3);
       const { delayMs } = triggerErrorPenalty(
-        `Confundiu ${target.shortName} com ${chosen.shortName}`,
-        `❌ Ops! Você escolheu ${chosen.shortName}, mas o mistério era ${target.name} [${target.boardLetter}]!`,
+        `Selecionou ${chosen.shortName} em vez de ${target.shortName}`,
+        `Diagnóstico incorreto: era ${target.name} [${target.boardLetter}]`,
         `${target.categoryLabel}: ${target.basicFunction}`
       );
 
@@ -126,28 +125,22 @@ export const SmokeDetectiveGame: React.FC<SmokeDetectiveGameProps> = ({
   return (
     <div
       onPointerDownCapture={handleContainerPointerDown}
-      className="w-full max-w-2xl mx-auto flex flex-col gap-4 select-none"
+      className="w-full max-w-2xl mx-auto flex flex-col gap-3.5 select-none"
     >
-      {/* Cabeçalho Detetive */}
-      <div className="bg-gradient-to-r from-pink-950 via-slate-900 to-rose-950 border-2 border-pink-500/70 rounded-2xl p-4 flex items-center justify-between flex-wrap gap-2 shadow-xl">
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-pink-500/20 border border-pink-400/50 flex items-center justify-center">
-            <Search className="w-5 h-5 text-pink-300" />
-          </div>
-          <div>
-            <span className="text-[11px] font-mono uppercase tracking-widest text-pink-300 block">
-              CASO DE BANCADA #{solvedCount + 1}
-            </span>
-            <h3 className="text-base sm:text-lg font-extrabold text-white">
-              Que componente está saindo da fumaça?
-            </h3>
-          </div>
+      {/* Cabeçalho Técnico */}
+      <div className="bg-[#181B20] border border-[#2A303C] rounded-lg px-4 py-3 flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 block">
+            DIAGNÓSTICO POR PISTAS • CASO #{solvedCount + 1}
+          </span>
+          <h3 className="text-sm sm:text-base font-bold text-white">
+            Identifique o componente pelas características técnicas
+          </h3>
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-xs font-extrabold px-3 py-1.5 rounded-xl bg-amber-500/20 border border-amber-400/50 text-amber-300 flex items-center gap-1">
-            <Sparkles className="w-4 h-4" />
-            Valendo {potentialPoints} pts
+          <span className="text-xs font-mono font-bold px-2.5 py-1 rounded bg-[#0C0E12] border border-[#2A303C] text-amber-400">
+            Valor: {potentialPoints} pts
           </span>
           {clueStage < 3 && !resultFeedback && !isLocked && (
             <button
@@ -155,15 +148,14 @@ export const SmokeDetectiveGame: React.FC<SmokeDetectiveGameProps> = ({
               onClick={() =>
                 setClueStage((prev) => (prev < 3 ? ((prev + 1) as 2 | 3) : 3))
               }
-              className="text-xs font-bold px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-pink-300 border border-pink-400/40 flex items-center gap-1"
+              className="text-xs font-mono font-semibold px-2.5 py-1 rounded bg-[#0C0E12] hover:bg-[#14181F] text-zinc-300 border border-[#2A303C] flex items-center gap-1"
             >
-              <Eye className="w-3.5 h-3.5" /> +Pista
+              <Eye className="w-3.5 h-3.5 text-amber-400" /> +Pista
             </button>
           )}
         </div>
       </div>
 
-      {/* Banner de Penalidade / Bloqueio Anti-Autoclique */}
       <PenaltyBanner
         isLocked={isLocked}
         lockRemainingMs={lockRemainingMs}
@@ -176,14 +168,13 @@ export const SmokeDetectiveGame: React.FC<SmokeDetectiveGameProps> = ({
         lastErrorDetail={lastErrorDetail}
       />
 
-      {/* Cápsula de Fumaça + Pistas Progressivas */}
-      <div className="grid grid-cols-1 sm:grid-cols-5 gap-4 bg-slate-900/95 border-2 border-slate-700 rounded-3xl p-4 shadow-2xl items-center">
-        {/* Visor do Símbolo com Desfoque Progressivo */}
-        <div className="sm:col-span-2 flex flex-col items-center justify-center bg-slate-950 border border-slate-800 rounded-2xl p-4 min-h-[160px] relative overflow-hidden">
+      {/* Visor de Inspeção + Pistas */}
+      <div className="grid grid-cols-1 sm:grid-cols-5 gap-3.5 bg-[#181B20] border border-[#2A303C] rounded-lg p-3.5 items-center">
+        <div className="sm:col-span-2 flex flex-col items-center justify-center bg-[#0C0E12] border border-[#242933] rounded-md p-4 min-h-[152px]">
           <div
             className={`transition-all duration-700 ${
               clueStage === 1
-                ? "blur-[6px] scale-90 opacity-65"
+                ? "blur-[6px] scale-90 opacity-60"
                 : clueStage === 2
                 ? "blur-[2px] scale-95 opacity-85"
                 : "blur-0 scale-100 opacity-100"
@@ -191,50 +182,46 @@ export const SmokeDetectiveGame: React.FC<SmokeDetectiveGameProps> = ({
           >
             <ElectronicSymbolSVG
               symbolId={target.id}
-              className="w-36 h-28"
+              className="w-32 h-24"
               strokeColor={isLocked ? "#F87171" : "#38BDF8"}
             />
           </div>
-          <span className="text-[11px] font-mono text-slate-400 mt-2">
-            Nitidez:{" "}
+          <span className="text-[10px] font-mono text-zinc-500 mt-2">
+            Foco óptico:{" "}
             {clueStage === 1 ? "35%" : clueStage === 2 ? "70%" : "100%"}
           </span>
         </div>
 
-        {/* Lista das 3 Pistas */}
         <div className="sm:col-span-3 flex flex-col gap-2">
           {[0, 1, 2].map((idx) => {
             const unlocked = clueStage >= idx + 1;
             return (
               <div
                 key={idx}
-                className={`rounded-xl px-3.5 py-2.5 border text-xs sm:text-sm transition-all ${
+                className={`rounded-md px-3 py-2 border text-xs transition-colors ${
                   unlocked
-                    ? "bg-slate-800/90 border-pink-500/40 text-slate-100"
-                    : "bg-slate-950/50 border-slate-800 text-slate-500 italic"
+                    ? "bg-[#0C0E12] border-[#2E3540] text-zinc-200"
+                    : "bg-[#121519] border-[#222730] text-zinc-600 font-mono"
                 }`}
               >
-                <span className="font-mono font-bold text-pink-400 mr-1.5">
-                  Pista {idx + 1}:
+                <span className="font-mono font-bold text-amber-400 mr-1.5">
+                  #{idx + 1}:
                 </span>
-                {unlocked
-                  ? target.clues[idx]
-                  : "Revelando automaticamente em instantes..."}
+                {unlocked ? target.clues[idx] : "Aguardando leitura..."}
               </div>
             );
           })}
         </div>
       </div>
 
-      {/* Feedback de Acerto */}
       {resultFeedback && !isLocked && (
-        <div className="rounded-2xl px-4 py-3 border text-center font-bold text-sm flex items-center justify-center gap-2 bg-emerald-950/90 border-emerald-400 text-emerald-200">
-          <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+        <div className="rounded-md px-3.5 py-2.5 border-l-4 border-l-emerald-400 bg-[#121F1A] border border-emerald-500/30 text-emerald-200 font-mono font-bold text-xs sm:text-sm flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
           <span>{resultFeedback.message}</span>
         </div>
       )}
 
-      {/* Prateleira de Peças Candidatas */}
+      {/* Candidatos */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
         {candidates.map((cand) => (
           <button
@@ -242,28 +229,28 @@ export const SmokeDetectiveGame: React.FC<SmokeDetectiveGameProps> = ({
             type="button"
             aria-disabled={isLocked}
             onClick={() => handleGuess(cand)}
-            className={`rounded-2xl p-3 text-left transition-all flex flex-col justify-between border-2 ${
+            className={`rounded-md p-3 text-left transition-colors flex flex-col justify-between border ${
               isLocked
-                ? "bg-slate-950/80 border-red-900/40 opacity-45 cursor-not-allowed"
-                : "bg-slate-900 hover:bg-slate-800 border-slate-700 hover:border-pink-400 active:scale-95"
+                ? "bg-[#121519] border-[#222730] opacity-40 cursor-not-allowed"
+                : "bg-[#181B20] hover:bg-[#1E2229] border-[#2A303C] hover:border-amber-400"
             }`}
           >
             <div className="flex items-center justify-between">
-              <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-pink-500/20 text-pink-300 border border-pink-400/30">
+              <span className="text-xs font-mono font-bold px-1.5 py-0.5 rounded bg-[#0C0E12] text-amber-400 border border-[#2A303C]">
                 [{cand.boardLetter}]
               </span>
               {isLocked ? (
                 <Lock className="w-3.5 h-3.5 text-red-400/80" />
               ) : (
-                <span className="text-[11px] font-mono text-slate-400">
+                <span className="text-[10px] font-mono text-zinc-500">
                   {cand.unit}
                 </span>
               )}
             </div>
-            <p className="text-sm sm:text-base font-extrabold text-white mt-2">
+            <p className="text-sm font-bold text-white mt-2">
               {cand.shortName}
             </p>
-            <p className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">
+            <p className="text-[11px] text-zinc-400 line-clamp-1 mt-0.5">
               {cand.categoryLabel}
             </p>
           </button>

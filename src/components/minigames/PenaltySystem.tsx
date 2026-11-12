@@ -23,20 +23,20 @@ export function getProgressivePenalty(
     return {
       points: -80,
       delayMs: 2500,
-      badge: "1º Curto-Circuito (-80 pts)",
+      badge: "FALHA 1 • DISJUNTOR (-80 PTS)",
     };
   }
   if (consecutiveErrors === 2) {
     return {
       points: -120,
       delayMs: 4000,
-      badge: "2º Curto Seguido • Penalidade Aumentada (-120 pts)",
+      badge: "FALHA 2 SEGUIDA • PENALIDADE ELEVADA (-120 PTS)",
     };
   }
   return {
     points: -180,
     delayMs: 6000,
-    badge: `${consecutiveErrors}º Curto Seguido • Disjuntor Crítico (-180 pts)`,
+    badge: `FALHA ${consecutiveErrors} SEGUIDA • BLOQUEIO CRÍTICO (-180 PTS)`,
   };
 }
 
@@ -83,7 +83,6 @@ export function usePenaltySystem(
 
   const triggerAutoclickLock = useCallback(() => {
     const now = Date.now();
-    // Evita disparar múltiplas deduções no mesmo segundo se o autoclicker estiver em alta frequência
     const shouldDeductScore = now - lastAutoclickAtRef.current > 1800;
     lastAutoclickAtRef.current = now;
     clickTimestampsRef.current = [];
@@ -97,19 +96,19 @@ export function usePenaltySystem(
     setLockRemainingMs(AUTOCLICK_LOCK_MS);
     setLockReason("autoclick");
     setLastPenaltyPts(AUTOCLICK_PENALTY_PTS);
-    setLastBadge("🚨 PROTEÇÃO ANTI-AUTOCLIQUE ATIVADA");
+    setLastBadge("PROTEÇÃO ANTI-AUTOCLIQUE ATIVADA");
     setLastErrorTitle(
-      `Sobrecarga por cliques ultrarrápidos (${AUTOCLICK_PENALTY_PTS} pts)!`
+      `Sobrecarga por cliques repetitivos (${AUTOCLICK_PENALTY_PTS} pts)`
     );
     setLastErrorDetail(
-      "Cliques em velocidade de autoclicker/spam desarmaram o disjuntor da bancada. Aguarde o rearme e jogue analisando cada questão."
+      "Frequência de cliques incompatível detectada. Aguarde o rearme do disjuntor."
     );
 
     if (shouldDeductScore) {
       onScoreAction(
         AUTOCLICK_PENALTY_PTS,
         false,
-        `🚨 Sobrecarga por autoclique detectada! (${AUTOCLICK_PENALTY_PTS} pts)`
+        `Sobrecarga por autoclique (${AUTOCLICK_PENALTY_PTS} pts)`
       );
     }
 
@@ -118,7 +117,6 @@ export function usePenaltySystem(
     }
   }, [onScoreAction, onAutoclickDetected]);
 
-  // Registra qualquer toque/clique na área do minigame (mesmo durante bloqueios) para detectar autoclique
   const handleContainerPointerDown = useCallback(() => {
     const now = Date.now();
     const recent = clickTimestampsRef.current.filter(
@@ -132,7 +130,6 @@ export function usePenaltySystem(
     }
   }, [triggerAutoclickLock]);
 
-  // Verifica se a ação do botão pode prosseguir
   const guardClick = useCallback((): boolean => {
     const now = Date.now();
     if (lockEndsAtRef.current > now) {
@@ -244,80 +241,64 @@ export const PenaltyBanner: React.FC<PenaltyBannerProps> = ({
   const isAutoclick = lockReason === "autoclick";
 
   return (
-    <div
-      className={`rounded-2xl p-4 border-2 shadow-2xl transition-all animate-pulse ${
-        isAutoclick
-          ? "bg-gradient-to-r from-rose-950 via-red-950 to-orange-950 border-amber-400 text-amber-100"
-          : "bg-gradient-to-r from-red-950 via-slate-950 to-rose-950 border-red-500 text-red-100"
-      }`}
-    >
+    <div className="rounded-md bg-[#1C1113] border border-red-500/70 border-l-4 border-l-red-500 p-3.5 text-zinc-100">
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="flex items-center gap-2">
-          <div
-            className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-              isAutoclick
-                ? "bg-amber-500/25 border border-amber-400 text-amber-300"
-                : "bg-red-500/25 border border-red-400 text-red-300"
-            }`}
-          >
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded bg-red-500/20 border border-red-500/40 flex items-center justify-center shrink-0 text-red-400">
             {isAutoclick ? (
-              <AlertOctagon className="w-5 h-5" />
+              <AlertOctagon className="w-4 h-4" />
             ) : (
-              <ZapOff className="w-5 h-5" />
+              <ZapOff className="w-4 h-4" />
             )}
           </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[11px] font-mono uppercase tracking-wider px-2 py-0.5 rounded bg-black/40 border border-red-400/40 text-red-300 font-extrabold">
+              <span className="text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded bg-[#0C0E12] border border-red-500/40 text-red-300 font-bold">
                 {lastBadge}
               </span>
               {consecutiveErrors >= 2 && !isAutoclick && (
-                <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-400/40 font-bold">
-                  Erros Seguidos: {consecutiveErrors}x
+                <span className="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-400/30 font-bold">
+                  Reincidência {consecutiveErrors}x
                 </span>
               )}
             </div>
-            <p className="font-extrabold text-sm sm:text-base text-white mt-1">
+            <p className="font-bold text-xs sm:text-sm text-white mt-1">
               {lastErrorTitle}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 bg-black/40 px-3 py-1.5 rounded-xl border border-red-400/40">
-          <span className="text-sm font-mono font-black text-red-400">
+        <div className="flex items-center gap-2 bg-[#0C0E12] px-2.5 py-1.5 rounded border border-red-500/40 font-mono">
+          <span className="text-xs font-bold text-red-400">
             {lastPenaltyPts} pts
           </span>
-          <span className="text-slate-600">•</span>
-          <span className="text-xs font-mono font-extrabold text-amber-300 flex items-center gap-1">
-            <Timer className="w-3.5 h-3.5 animate-spin" />
-            Rearmando: {secondsText}s
+          <span className="text-zinc-600">|</span>
+          <span className="text-xs font-bold text-amber-400 flex items-center gap-1">
+            <Timer className="w-3.5 h-3.5" />
+            {secondsText}s
           </span>
         </div>
       </div>
 
       {lastErrorDetail && (
-        <p className="text-xs text-red-200/90 mt-2 bg-black/25 rounded-xl px-3 py-1.5 border border-red-500/20">
+        <p className="text-xs text-zinc-300 mt-2 bg-[#0C0E12] rounded px-2.5 py-1.5 border border-[#2A303C]">
           {lastErrorDetail}
         </p>
       )}
 
-      {/* Barra de Progresso do Delay de Bloqueio */}
-      <div className="w-full h-2.5 bg-black/50 rounded-full overflow-hidden mt-3 border border-red-500/30">
+      {/* Barra de Progresso do Delay */}
+      <div className="w-full h-1.5 bg-[#0C0E12] rounded-sm overflow-hidden mt-2.5">
         <div
           style={{ width: `${progressPct}%` }}
-          className={`h-full transition-all duration-75 ${
-            isAutoclick
-              ? "bg-gradient-to-r from-amber-400 to-red-500"
-              : "bg-gradient-to-r from-red-500 to-amber-400"
-          }`}
+          className="h-full bg-red-500 transition-all duration-75"
         />
       </div>
-      <div className="flex items-center justify-between text-[10px] font-mono text-red-300/80 mt-1">
+      <div className="flex items-center justify-between text-[10px] font-mono text-zinc-400 mt-1">
         <span className="flex items-center gap-1">
-          <ShieldAlert className="w-3 h-3" /> Controles temporariamente
-          bloqueados por curto-circuito
+          <ShieldAlert className="w-3 h-3 text-red-400" /> Disjuntor em rearme
+          automático
         </span>
-        <span>Acerte a próxima para resetar o disjuntor!</span>
+        <span>Acerte a próxima para normalizar</span>
       </div>
     </div>
   );

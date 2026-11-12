@@ -1,10 +1,23 @@
 import type { Metadata } from "next";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-sans",
+  display: "swap",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
-  title: "Arena SENAI | Técnicas de Manutenção Eletrônica",
+  title: "Arena Eletrônica SENAI | Manutenção Eletrônica",
   description:
-    "Plataforma gamificada interativa com acesso via PIN para identificação rápida de simbologia e conceitos básicos de manutenção eletrônica.",
+    "Bancada interativa para identificação de simbologia e análise de circuitos eletrônicos.",
 };
 
 export default function RootLayout({
@@ -13,8 +26,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="pt-BR">
-      <body className="min-h-screen bg-[#060B16] text-slate-100 antialiased selection:bg-sky-500 selection:text-white">
+    <html lang="pt-BR" className={`${inter.variable} ${jetbrainsMono.variable}`}>
+      <body className="min-h-screen bg-[#111317] text-zinc-100 font-sans antialiased selection:bg-[#0047B6] selection:text-white">
         {children}
       </body>
     </html>

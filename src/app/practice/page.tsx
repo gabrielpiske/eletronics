@@ -20,7 +20,6 @@ import {
   ArrowLeft,
   BookOpen,
   Gamepad2,
-  Flame,
   Trophy,
   RotateCcw,
 } from "lucide-react";
@@ -37,9 +36,9 @@ function PracticeContent() {
       ? initialGame
       : "conveyor"
   );
-  const [categoryFilter, setCategoryFilter] = useState<"all" | ComponentCategory>(
-    "all"
-  );
+  const [categoryFilter, setCategoryFilter] = useState<
+    "all" | ComponentCategory
+  >("all");
   const [soloScore, setSoloScore] = useState<number>(0);
   const [soloStreak, setSoloStreak] = useState<number>(0);
   const [soloMisses, setSoloMisses] = useState<number>(0);
@@ -60,67 +59,56 @@ function PracticeContent() {
       : ELECTRONIC_COMPONENTS.filter((c) => c.category === categoryFilter);
 
   return (
-    <div className="min-h-screen bg-[#060B16] text-slate-100 flex flex-col">
-      <header className="border-b border-slate-800 bg-slate-950/85 backdrop-blur px-4 py-3 sticky top-0 z-30">
-        <div className="max-w-6xl mx-auto flex items-center justify-between gap-3 flex-wrap">
+    <div className="min-h-screen bg-[#111317] text-zinc-100 flex flex-col">
+      <header className="border-b border-[#242933] bg-[#16191E] px-4 h-16 sticky top-0 z-30 flex items-center">
+        <div className="max-w-6xl w-full mx-auto flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <Link
               href="/"
-              className="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300"
+              className="p-2 rounded-md bg-[#1E2229] hover:bg-[#262B34] border border-[#2E3540] text-zinc-300"
             >
-              <ArrowLeft className="w-5 h-5" />
+              <ArrowLeft className="w-4 h-4" />
             </Link>
-            <div>
-              <span className="text-[11px] font-mono uppercase tracking-widest text-amber-400 font-bold block">
-                REVISÃO RÁPIDA & TREINO LIVRE
-              </span>
-              <h1 className="text-lg font-extrabold text-white">
-                Guia de Simbologia e Bancada Solo
-              </h1>
-            </div>
+            <h1 className="text-sm sm:text-base font-bold text-white">
+              Catálogo Técnico & Bancada Solo
+            </h1>
           </div>
 
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => setActiveTab("catalog")}
-              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-extrabold flex items-center gap-1.5 border transition-all ${
+              className={`px-3 py-2 rounded-md text-xs font-semibold flex items-center gap-1.5 border transition-colors ${
                 activeTab === "catalog"
-                  ? "bg-amber-400 text-slate-950 border-amber-300"
-                  : "bg-slate-900 text-slate-300 border-slate-700 hover:bg-slate-800"
+                  ? "bg-amber-500 text-zinc-950 border-amber-400 font-bold"
+                  : "bg-[#1E2229] text-zinc-300 border-[#2E3540] hover:bg-[#262B34]"
               }`}
             >
-              <BookOpen className="w-4 h-4" /> Catálogo de Símbolos (20)
+              <BookOpen className="w-3.5 h-3.5" /> Catálogo (20)
             </button>
             <button
               type="button"
               onClick={() => setActiveTab("solo")}
-              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-extrabold flex items-center gap-1.5 border transition-all ${
+              className={`px-3 py-2 rounded-md text-xs font-semibold flex items-center gap-1.5 border transition-colors ${
                 activeTab === "solo"
-                  ? "bg-sky-500 text-slate-950 border-sky-400"
-                  : "bg-slate-900 text-slate-300 border-slate-700 hover:bg-slate-800"
+                  ? "bg-[#0047B6] text-white border-[#0056DB] font-bold"
+                  : "bg-[#1E2229] text-zinc-300 border-[#2E3540] hover:bg-[#262B34]"
               }`}
             >
-              <Gamepad2 className="w-4 h-4" /> Treinar Minigames Solo
+              <Gamepad2 className="w-3.5 h-3.5" /> Treino Solo
             </button>
           </div>
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto w-full px-4 py-6 flex-1">
-        {/* ABA 1: GUIA VISUAL DE SÍMBOLOS E CONCEITOS BÁSICOS */}
+      <main className="max-w-6xl mx-auto w-full px-4 py-5 flex-1">
+        {/* ABA 1: CATÁLOGO DE SÍMBOLOS */}
         {activeTab === "catalog" && (
-          <div className="flex flex-col gap-5">
-            <div className="flex items-center justify-between flex-wrap gap-3 bg-slate-900 border border-slate-800 rounded-2xl p-4">
-              <div>
-                <h2 className="text-xl font-black text-white">
-                  Simbologia Essencial de Manutenção Eletrônica
-                </h2>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Revise os símbolos, letras na placa (PCI), unidades de medida
-                  e função básica antes de entrar na competição!
-                </p>
-              </div>
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between flex-wrap gap-2 bg-[#181B20] border border-[#2A303C] rounded-lg px-4 py-3">
+              <span className="text-xs font-mono uppercase tracking-wider text-zinc-400 font-semibold">
+                Simbologia Normalizada (PCI)
+              </span>
 
               <div className="flex items-center gap-1.5 flex-wrap">
                 {[
@@ -136,10 +124,10 @@ function PracticeContent() {
                     key={f.id}
                     type="button"
                     onClick={() => setCategoryFilter(f.id)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border ${
+                    className={`px-2.5 py-1 rounded text-xs font-mono font-semibold border transition-colors ${
                       categoryFilter === f.id
-                        ? "bg-sky-500/20 border-sky-400 text-sky-300"
-                        : "bg-slate-950 border-slate-800 text-slate-400 hover:text-white"
+                        ? "bg-amber-500/15 border-amber-400 text-amber-300"
+                        : "bg-[#0C0E12] border-[#262B35] text-zinc-400 hover:text-white"
                     }`}
                   >
                     {f.label}
@@ -148,36 +136,36 @@ function PracticeContent() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               {filteredComponents.map((comp) => (
                 <div
                   key={comp.id}
-                  className="bg-slate-900 border border-slate-800 hover:border-sky-500/60 rounded-2xl p-4 flex flex-col justify-between transition-all"
+                  className="bg-[#181B20] border border-[#2A303C] rounded-lg p-3.5 flex flex-col justify-between"
                 >
                   <div>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-mono font-extrabold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-400/30">
-                        Placa: [{comp.boardLetter}]
+                      <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-[#0C0E12] text-amber-400 border border-[#2A303C]">
+                        [{comp.boardLetter}]
                       </span>
-                      <span className="text-[11px] font-mono text-slate-400">
+                      <span className="text-[11px] font-mono text-zinc-500">
                         {comp.unit}
                       </span>
                     </div>
 
-                    <div className="bg-slate-950 border border-slate-800 rounded-xl py-3 flex items-center justify-center my-2">
+                    <div className="bg-[#0C0E12] border border-[#222730] rounded-md py-3 flex items-center justify-center my-1.5">
                       <ElectronicSymbolSVG
                         symbolId={comp.id}
-                        className="w-32 h-22"
+                        className="w-28 h-20"
                       />
                     </div>
 
-                    <h3 className="text-base font-extrabold text-white mt-2">
+                    <h3 className="text-sm font-bold text-white mt-2">
                       {comp.name}
                     </h3>
-                    <span className="text-[10px] font-mono uppercase text-sky-400 block">
+                    <span className="text-[10px] font-mono uppercase text-zinc-500 block">
                       {comp.categoryLabel}
                     </span>
-                    <p className="text-xs text-slate-300 mt-1.5 leading-relaxed">
+                    <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
                       {comp.basicFunction}
                     </p>
                   </div>
@@ -187,21 +175,20 @@ function PracticeContent() {
           </div>
         )}
 
-        {/* ABA 2: TREINO INDIVIDUAL DOS 5 MINIGAMES */}
+        {/* ABA 2: TREINO INDIVIDUAL */}
         {activeTab === "solo" && (
-          <div className="flex flex-col gap-5">
-            {/* Seletor de Minigame + Placar Solo */}
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center justify-between flex-wrap gap-3">
-              <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex flex-col gap-4">
+            <div className="bg-[#181B20] border border-[#2A303C] rounded-lg p-3 flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 {MINIGAMES_CATALOG.map((mg) => (
                   <button
                     key={mg.id}
                     type="button"
                     onClick={() => setSelectedGame(mg.id)}
-                    className={`px-3.5 py-2 rounded-xl text-xs font-extrabold border transition-all ${
+                    className={`px-3 py-1.5 rounded-md text-xs font-semibold border transition-colors ${
                       selectedGame === mg.id
-                        ? "bg-sky-500 text-slate-950 border-sky-400"
-                        : "bg-slate-950 text-slate-300 border-slate-800 hover:border-slate-600"
+                        ? "bg-[#0047B6] text-white border-[#0056DB]"
+                        : "bg-[#0C0E12] text-zinc-400 border-[#262B35] hover:text-zinc-200"
                     }`}
                   >
                     {mg.title}
@@ -209,28 +196,30 @@ function PracticeContent() {
                 ))}
               </div>
 
-              <div className="flex items-center gap-3 flex-wrap">
-                <span className="px-3 py-1.5 rounded-xl bg-amber-500/20 border border-amber-400/40 text-amber-300 text-xs font-extrabold flex items-center gap-1">
-                  <Flame className="w-4 h-4" /> Combo {soloStreak}x
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="px-2.5 py-1 rounded bg-[#0C0E12] border border-[#2A303C] text-amber-400 text-xs font-mono font-bold">
+                  Combo {soloStreak}x
                 </span>
-                <span className="px-3 py-1.5 rounded-xl bg-red-950/60 border border-red-500/40 text-red-300 text-xs font-extrabold">
-                  Curtos: {soloMisses}
+                <span className="px-2.5 py-1 rounded bg-[#0C0E12] border border-[#2A303C] text-red-400 text-xs font-mono font-bold">
+                  Falhas: {soloMisses}
                 </span>
                 <span
-                  className={`px-3.5 py-1.5 rounded-xl border font-mono font-black text-sm flex items-center gap-1.5 transition-colors ${
+                  className={`px-3 py-1 rounded border font-mono font-bold text-xs flex items-center gap-1.5 ${
                     lastSoloDelta !== null && lastSoloDelta < 0
-                      ? "bg-red-950/80 border-red-400 text-red-200"
-                      : "bg-slate-950 border-slate-700 text-amber-300"
+                      ? "bg-red-950/80 border-red-500 text-red-200"
+                      : "bg-[#0C0E12] border-[#2A303C] text-amber-400"
                   }`}
                 >
-                  <Trophy className="w-4 h-4 text-amber-400" /> {soloScore} pts
+                  <Trophy className="w-3.5 h-3.5 text-amber-400" /> {soloScore}{" "}
+                  pts
                   {lastSoloDelta !== null && (
                     <span
-                      className={`text-xs ${
+                      className={
                         lastSoloDelta >= 0 ? "text-emerald-400" : "text-red-400"
-                      }`}
+                      }
                     >
-                      ({lastSoloDelta >= 0 ? `+${lastSoloDelta}` : lastSoloDelta})
+                      ({lastSoloDelta >= 0 ? `+${lastSoloDelta}` : lastSoloDelta}
+                      )
                     </span>
                   )}
                 </span>
@@ -242,16 +231,15 @@ function PracticeContent() {
                     setSoloMisses(0);
                     setLastSoloDelta(null);
                   }}
-                  className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300"
-                  title="Zerar pontuação de treino"
+                  className="p-1.5 rounded bg-[#1E2229] hover:bg-[#262B34] border border-[#2E3540] text-zinc-300"
+                  title="Zerar placar"
                 >
-                  <RotateCcw className="w-4 h-4" />
+                  <RotateCcw className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>
 
-            {/* Minigame Selecionado */}
-            <div className="py-2">
+            <div>
               {selectedGame === "conveyor" && (
                 <ConveyorGame onScoreAction={handleSoloScore} />
               )}
@@ -280,8 +268,8 @@ export default function PracticePage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#060B16] text-white flex items-center justify-center">
-          Carregando Bancada de Treino...
+        <div className="min-h-screen bg-[#111317] text-zinc-400 font-mono text-xs flex items-center justify-center">
+          Carregando bancada...
         </div>
       }
     >

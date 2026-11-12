@@ -8,11 +8,18 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ["var(--font-sans)", "system-ui", "sans-serif"],
+        mono: ["var(--font-mono)", "monospace"],
+      },
       colors: {
         senai: {
           blue: "#0047B6",
-          dark: "#0B1120",
-          cyan: "#06B6D4",
+          blueHover: "#0056DB",
+          dark: "#111317",
+          panel: "#181B20",
+          visor: "#0C0E12",
+          border: "#2A303C",
           amber: "#F59E0B",
         },
       },
