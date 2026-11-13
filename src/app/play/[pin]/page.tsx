@@ -341,7 +341,9 @@ export default function PlayRoomPage() {
                 </p>
                 {activeProfile && rankInfo && (
                   <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#0C0E12] text-[#F59E0B] border border-[#2A303C]">
-                    NV {rankInfo.currentTier.level} •{" "}
+                    {rankInfo.currentPatent.icon} NV{" "}
+                    {rankInfo.currentTier.level} •{" "}
+                    {rankInfo.currentPatent.badgeCode} •{" "}
                     {activeProfile.totalXp.toLocaleString("pt-BR")} XP
                   </span>
                 )}

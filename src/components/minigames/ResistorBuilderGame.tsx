@@ -86,8 +86,8 @@ export const ResistorBuilderGame: React.FC<ResistorBuilderGameProps> = ({
     if (isExactMatch) {
       const nextBuilt = builtCount + 1;
       setBuiltCount(nextBuilt);
-      const pts = showTable ? 180 : 280;
-      const newLevel = Math.floor(nextBuilt / 3) + 1;
+      const pts = showTable ? 55 : 110;
+      const newLevel = Math.floor(nextBuilt / 6) + 1;
 
       setStatusMsg({
         ok: true,

@@ -183,14 +183,15 @@ export const ConveyorGame: React.FC<ConveyorGameProps> = ({ onScoreAction }) => 
 
     const nextCount = sortedCount + 1;
     setSortedCount(nextCount);
-    const newLevel = Math.floor(nextCount / 5) + 1;
+    const newLevel = Math.floor(nextCount / 8) + 1;
 
     if (isCorrect) {
       const newStreak = streak + 1;
       setStreak(newStreak);
-      const multiplier = Math.min(4, 1 + Math.floor(newStreak / 3));
-      const speedBonus = Math.round((100 - beltProgress) * 1.2);
-      const points = (120 + speedBonus) * multiplier;
+      const multiplier =
+        newStreak >= 12 ? 2 : newStreak >= 8 ? 1.5 : newStreak >= 4 ? 1.25 : 1;
+      const speedBonus = Math.round((100 - beltProgress) * 0.35);
+      const points = Math.round((45 + speedBonus) * multiplier);
 
       setFeedback({
         ok: true,
@@ -225,7 +226,8 @@ export const ConveyorGame: React.FC<ConveyorGameProps> = ({ onScoreAction }) => 
     }
   };
 
-  const multiplier = Math.min(4, 1 + Math.floor(streak / 3));
+  const multiplier =
+    streak >= 12 ? 2 : streak >= 8 ? 1.5 : streak >= 4 ? 1.25 : 1;
 
   return (
     <div

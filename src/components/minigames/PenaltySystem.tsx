@@ -21,29 +21,29 @@ export function getProgressivePenalty(
 ): ProgressivePenaltyInfo {
   if (consecutiveErrors <= 1) {
     return {
-      points: -80,
+      points: -40,
       delayMs: 2500,
-      badge: "FALHA 1 • DISJUNTOR (-80 PTS)",
+      badge: "FALHA 1 • DISJUNTOR (-40 PTS)",
     };
   }
   if (consecutiveErrors === 2) {
     return {
-      points: -120,
+      points: -70,
       delayMs: 4000,
-      badge: "FALHA 2 SEGUIDA • PENALIDADE ELEVADA (-120 PTS)",
+      badge: "FALHA 2 SEGUIDA • PENALIDADE ELEVADA (-70 PTS)",
     };
   }
   return {
-    points: -180,
+    points: -110,
     delayMs: 6000,
-    badge: `FALHA ${consecutiveErrors} SEGUIDA • BLOQUEIO CRÍTICO (-180 PTS)`,
+    badge: `FALHA ${consecutiveErrors} SEGUIDA • BLOQUEIO CRÍTICO (-110 PTS)`,
   };
 }
 
 const AUTOCLICK_WINDOW_MS = 480;
 const AUTOCLICK_MIN_CLICKS = 4;
 const AUTOCLICK_LOCK_MS = 5000;
-const AUTOCLICK_PENALTY_PTS = -150;
+const AUTOCLICK_PENALTY_PTS = -90;
 
 export function usePenaltySystem(
   onScoreAction: ScoreActionHandler,

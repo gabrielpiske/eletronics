@@ -104,7 +104,7 @@ export const SmokeDetectiveGame: React.FC<SmokeDetectiveGameProps> = ({
     return () => clearTimeout(timer);
   }, [clueStage, resultFeedback, isLocked]);
 
-  const potentialPoints = clueStage === 1 ? 300 : clueStage === 2 ? 200 : 120;
+  const potentialPoints = clueStage === 1 ? 120 : clueStage === 2 ? 80 : 45;
   const target = detectiveCase.target;
 
   const handleGuess = (chosen: ElectronicComponentItem) => {
@@ -113,7 +113,7 @@ export const SmokeDetectiveGame: React.FC<SmokeDetectiveGameProps> = ({
     if (chosen.id === target.id) {
       const nextSolved = solvedCount + 1;
       setSolvedCount(nextSolved);
-      const newLevel = Math.floor(nextSolved / 3) + 1;
+      const newLevel = Math.floor(nextSolved / 6) + 1;
       setClueStage(3);
       setResultFeedback({
         ok: true,

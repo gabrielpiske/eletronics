@@ -91,7 +91,7 @@ export const BenchMatchGame: React.FC<BenchMatchGameProps> = ({
         if (nextMatched.length === 6) {
           const nextLevel = boardLevel + 1;
           registerHit(
-            350,
+            120,
             `Concluiu Placa Nível ${boardLevel}`,
             nextLevel
           );
@@ -101,7 +101,7 @@ export const BenchMatchGame: React.FC<BenchMatchGameProps> = ({
           }, 550);
         } else {
           registerHit(
-            140,
+            50,
             `Associou ${comp?.shortName || symId} [${comp?.boardLetter}]`,
             boardLevel
           );
@@ -161,7 +161,7 @@ export const BenchMatchGame: React.FC<BenchMatchGameProps> = ({
         </div>
 
         <span className="text-xs font-mono text-amber-400 bg-[#0C0E12] px-2.5 py-1 rounded border border-[#2A303C] font-bold">
-          Placa completa: +350 pts
+          Par: +50 pts • Placa completa: +120 pts
         </span>
       </div>
 

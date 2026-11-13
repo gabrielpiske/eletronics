@@ -154,13 +154,19 @@ export default function LeaderboardPage() {
                     </span>
                     <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-[#0C0E12] text-[#F59E0B] border border-[#2A303C]">
                       NV {rankInfo.currentTier.level} •{" "}
-                      {rankInfo.currentTier.badgeCode}
+                      {rankInfo.currentPatent.badgeCode}
                     </span>
                   </div>
 
                   <div className="flex items-center gap-3.5 mb-4">
-                    <div className="w-12 h-12 rounded-lg bg-[#0C0E12] border border-[#2A303C] flex items-center justify-center text-2xl">
+                    <div className="w-12 h-12 rounded-lg bg-[#0C0E12] border border-[#2A303C] flex items-center justify-center text-2xl relative">
                       {player.avatar}
+                      <span
+                        title={rankInfo.currentPatent.title}
+                        className="absolute -bottom-1.5 -right-1.5 w-5 h-5 rounded-full bg-[#181B20] border border-[#F59E0B] flex items-center justify-center text-[11px]"
+                      >
+                        {rankInfo.currentPatent.icon}
+                      </span>
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
@@ -173,8 +179,12 @@ export default function LeaderboardPage() {
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-[#94A3B8] truncate">
-                        {rankInfo.currentTier.title}
+                      <p className="text-xs text-emerald-400 font-semibold truncate">
+                        {rankInfo.currentPatent.icon}{" "}
+                        {rankInfo.currentPatent.title}
+                      </p>
+                      <p className="text-[10px] font-mono text-[#94A3B8] truncate">
+                        {rankInfo.currentPatent.divisionLabel}
                       </p>
                     </div>
                   </div>
@@ -297,9 +307,15 @@ export default function LeaderboardPage() {
                                 </span>
                               )}
                             </div>
-                            <span className="text-[11px] text-[#94A3B8]">
-                              {rankInfo.currentTier.title}
-                            </span>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#0C0E12] text-emerald-400 border border-[#2A303C]">
+                                {rankInfo.currentPatent.icon}{" "}
+                                {rankInfo.currentPatent.badgeCode}
+                              </span>
+                              <span className="text-[11px] text-[#94A3B8]">
+                                {rankInfo.currentPatent.title}
+                              </span>
+                            </div>
                           </div>
                         </div>
                       </td>

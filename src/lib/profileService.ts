@@ -15,6 +15,7 @@ import {
 import { ref, get, set, onValue, off } from "firebase/database";
 import {
   ACHIEVEMENTS_CATALOG,
+  AchievementDef,
   MatchRecord,
   getRankInfoByXp,
 } from "@/data/achievementsData";
@@ -31,11 +32,15 @@ export interface UserProfile {
   totalXp: number;
   level: number;
   rankTitle: string;
+  patentCode?: string;
   totalMatches: number;
   matchesPlayed: number;
   totalHits: number;
   totalMisses: number;
   bestStreak: number;
+  perfectMatches?: number;
+  highScoreMatch?: number;
+  minigameBestScores?: Partial<Record<MinigameId, number>>;
   playedMinigames: MinigameId[];
   achievements: Record<string, number>;
   unlockedAchievements: string[];
@@ -176,6 +181,32 @@ function normalizeProfile(
     ? (Object.values(raw.playedMinigames) as MinigameId[])
     : [];
 
+  // Deriva recordes e partidas perfeitas do histórico caso ainda não estejam gravados
+  const derivedBestByGame: Partial<Record<MinigameId, number>> = {
+    ...(raw.minigameBestScores && typeof raw.minigameBestScores === "object"
+      ? raw.minigameBestScores
+      : {}),
+  };
+  let derivedHighScore = Number(raw.highScoreMatch || 0);
+  let derivedPerfectMatches = Number(raw.perfectMatches || 0);
+
+  if (normalizedMatches.length > 0) {
+    let historyPerfectCount = 0;
+    for (const m of normalizedMatches) {
+      if (m.score > derivedHighScore) {
+        derivedHighScore = m.score;
+      }
+      const prevGameBest = derivedBestByGame[m.minigameId] || 0;
+      if (m.score > prevGameBest) {
+        derivedBestByGame[m.minigameId] = m.score;
+      }
+      if (m.hits >= 10 && m.misses === 0) {
+        historyPerfectCount++;
+      }
+    }
+    derivedPerfectMatches = Math.max(derivedPerfectMatches, historyPerfectCount);
+  }
+
   return {
     uid: String(raw.uid),
     displayName: String(raw.displayName || "Estudante SENAI"),
@@ -187,16 +218,108 @@ function normalizeProfile(
     totalXp: xpVal,
     level: rank.currentTier.level,
     rankTitle: rank.currentTier.title,
+    patentCode: rank.currentTier.patentCode,
     totalMatches: matchesVal,
     matchesPlayed: matchesVal,
     totalHits: Number(raw.totalHits || 0),
     totalMisses: Number(raw.totalMisses || 0),
     bestStreak: Number(raw.bestStreak || 0),
+    perfectMatches: derivedPerfectMatches,
+    highScoreMatch: derivedHighScore,
+    minigameBestScores: derivedBestByGame,
     playedMinigames: rawPlayedGames,
     achievements: achMap,
     unlockedAchievements: unlockedList,
     recentMatches: normalizedMatches,
     updatedAt: Number(raw.updatedAt || Date.now()),
+  };
+}
+
+export function getAchievementProgressForProfile(
+  ach: AchievementDef,
+  profile: UserProfile
+): {
+  current: number;
+  target: number;
+  pct: number;
+} {
+  const unlocked = profile.unlockedAchievements.includes(ach.id);
+  const bestByGame = profile.minigameBestScores || {};
+  const bestFlawlessHits = (profile.recentMatches || []).reduce(
+    (maxH, m) => (m.misses === 0 && m.hits > maxH ? m.hits : maxH),
+    0
+  );
+
+  let current = 0;
+  switch (ach.id) {
+    case "first_match":
+    case "matches_5":
+    case "matches_15":
+    case "matches_150":
+      current = profile.matchesPlayed || 0;
+      break;
+    case "all_rounder":
+      current = (profile.playedMinigames || []).length;
+      break;
+    case "zero_short_circuit":
+    case "flawless_master_25":
+      current = bestFlawlessHits;
+      break;
+    case "perfect_runs_10":
+      current = profile.perfectMatches || 0;
+      break;
+    case "high_scorer_2500":
+    case "high_scorer_3000":
+      current = profile.highScoreMatch || 0;
+      break;
+    case "combo_5":
+    case "combo_12":
+    case "combo_35":
+    case "combo_60":
+      current = profile.bestStreak || 0;
+      break;
+    case "conveyor_specialist":
+      current = bestByGame.conveyor || 0;
+      break;
+    case "resistor_specialist":
+      current = bestByGame.resistor || 0;
+      break;
+    case "radar_specialist":
+      current = bestByGame.radar || 0;
+      break;
+    case "match_specialist":
+      current = bestByGame.match || 0;
+      break;
+    case "detective_specialist":
+      current = bestByGame.detective || 0;
+      break;
+    case "hits_50":
+    case "hits_200":
+    case "hits_2500":
+      current = profile.totalHits || 0;
+      break;
+    case "career_level_25":
+    case "career_level_50":
+      current = profile.level || 1;
+      break;
+    default:
+      current = unlocked ? ach.targetValue : 0;
+  }
+
+  if (unlocked && current < ach.targetValue) {
+    current = ach.targetValue;
+  }
+
+  const target = Math.max(1, ach.targetValue);
+  const pct = Math.max(
+    0,
+    Math.min(100, Math.round((Math.min(current, target) / target) * 100))
+  );
+
+  return {
+    current: Math.min(current, target),
+    target,
+    pct,
   };
 }
 
@@ -598,12 +721,12 @@ export async function recordCompletedMatch(params: {
     const accuracyPct =
       totalAttempts > 0 ? Math.round((params.hits / totalAttempts) * 100) : 0;
 
-    // Calcula XP da partida (pontos + bônus de precisão + bônus por acerto)
+    // Calcula XP da partida rebalanceado (progressão equilibrada rumo a 1.000.000 XP)
     const baseXp = Math.max(
-      30,
-      Math.round(Math.max(0, params.score) * 0.65) + params.hits * 15
+      15,
+      Math.round(Math.max(0, params.score) * 0.5) + params.hits * 8
     );
-    const accuracyBonus = accuracyPct >= 85 && params.hits >= 4 ? 90 : 0;
+    const accuracyBonus = accuracyPct >= 90 && params.hits >= 5 ? 45 : 0;
     let totalXpEarned = baseXp + accuracyBonus;
 
     const gameMeta =
@@ -637,6 +760,20 @@ export async function recordCompletedMatch(params: {
     const nextPlayedGames = Array.from(
       new Set([...(profile.playedMinigames || []), resolvedGameId])
     ) as MinigameId[];
+    const isPerfectRun = params.hits >= 10 && params.misses === 0;
+    const nextPerfectMatches =
+      (profile.perfectMatches || 0) + (isPerfectRun ? 1 : 0);
+    const nextHighScoreMatch = Math.max(
+      profile.highScoreMatch || 0,
+      Math.max(0, params.score)
+    );
+    const nextMinigameBestScores: Partial<Record<MinigameId, number>> = {
+      ...(profile.minigameBestScores || {}),
+      [resolvedGameId]: Math.max(
+        profile.minigameBestScores?.[resolvedGameId] || 0,
+        Math.max(0, params.score)
+      ),
+    };
 
     const unlockedMap: Record<string, number> = {
       ...(profile.achievements || {}),
@@ -654,24 +791,54 @@ export async function recordCompletedMatch(params: {
       }
     };
 
+    // Início & Polivalência
     tryUnlock("first_match", nextMatches >= 1);
-    tryUnlock("zero_short_circuit", params.hits >= 5 && params.misses === 0);
-    tryUnlock("combo_5", nextBestStreak >= 5);
-    tryUnlock("combo_12", nextBestStreak >= 12);
+    tryUnlock("all_rounder", nextPlayedGames.length >= 5);
+
+    // Precisão & Pontuação em Partida
+    tryUnlock("zero_short_circuit", params.hits >= 12 && params.misses === 0);
+    tryUnlock("flawless_master_25", params.hits >= 22 && params.misses === 0);
+    tryUnlock("perfect_runs_10", nextPerfectMatches >= 10);
+    tryUnlock("high_scorer_2500", nextHighScoreMatch >= 1500);
+    tryUnlock("high_scorer_3000", nextHighScoreMatch >= 2800);
+
+    // Combos de Alta Frequência
+    tryUnlock("combo_5", nextBestStreak >= 10);
+    tryUnlock("combo_12", nextBestStreak >= 20);
+    tryUnlock("combo_35", nextBestStreak >= 35);
+    tryUnlock("combo_60", nextBestStreak >= 60);
+
+    // Especialistas nos 5 Minigames
+    tryUnlock(
+      "conveyor_specialist",
+      (nextMinigameBestScores.conveyor || 0) >= 1100
+    );
     tryUnlock(
       "resistor_specialist",
-      resolvedGameId === "resistor" && params.score >= 800
+      (nextMinigameBestScores.resistor || 0) >= 950
     );
+    tryUnlock("radar_specialist", (nextMinigameBestScores.radar || 0) >= 900);
+    tryUnlock("match_specialist", (nextMinigameBestScores.match || 0) >= 900);
     tryUnlock(
-      "radar_specialist",
-      resolvedGameId === "radar" && params.score >= 800
+      "detective_specialist",
+      (nextMinigameBestScores.detective || 0) >= 900
     );
-    tryUnlock("all_rounder", nextPlayedGames.length >= 5);
-    tryUnlock("matches_5", nextMatches >= 5);
-    tryUnlock("matches_15", nextMatches >= 15);
-    tryUnlock("hits_50", nextHits >= 50);
-    tryUnlock("hits_200", nextHits >= 200);
-    tryUnlock("high_scorer_2500", params.score >= 2500);
+
+    // Volume de Partidas & Acertos
+    tryUnlock("matches_5", nextMatches >= 15);
+    tryUnlock("matches_15", nextMatches >= 50);
+    tryUnlock("matches_150", nextMatches >= 150);
+    tryUnlock("hits_50", nextHits >= 150);
+    tryUnlock("hits_200", nextHits >= 750);
+    tryUnlock("hits_2500", nextHits >= 2500);
+
+    // Verifica marcos de nível após somar XP preliminar
+    let prelimTotalXp = (profile.totalXp || profile.xp || 0) + totalXpEarned;
+    let prelimRank = getRankInfoByXp(prelimTotalXp);
+    tryUnlock("career_level_25", prelimRank.currentTier.level >= 25);
+    prelimTotalXp = (profile.totalXp || profile.xp || 0) + totalXpEarned;
+    prelimRank = getRankInfoByXp(prelimTotalXp);
+    tryUnlock("career_level_50", prelimRank.currentTier.level >= 50);
 
     matchRecord.xpEarned = totalXpEarned;
     const newTotalXp = (profile.totalXp || profile.xp || 0) + totalXpEarned;
@@ -685,6 +852,9 @@ export async function recordCompletedMatch(params: {
       totalHits: nextHits,
       totalMisses: nextMisses,
       bestStreak: nextBestStreak,
+      perfectMatches: nextPerfectMatches,
+      highScoreMatch: nextHighScoreMatch,
+      minigameBestScores: nextMinigameBestScores,
       playedMinigames: nextPlayedGames,
       achievements: unlockedMap,
       unlockedAchievements: Object.keys(unlockedMap),

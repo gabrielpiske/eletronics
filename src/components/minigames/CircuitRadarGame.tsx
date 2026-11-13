@@ -74,8 +74,8 @@ export const CircuitRadarGame: React.FC<CircuitRadarGameProps> = ({
     if (isCorrect) {
       const nextFound = foundCount + 1;
       setFoundCount(nextFound);
-      const pts = showHint ? 130 : 220;
-      const newLevel = Math.floor(nextFound / 3) + 1;
+      const pts = showHint ? 45 : 95;
+      const newLevel = Math.floor(nextFound / 6) + 1;
       registerHit(
         pts,
         `Localizou ${node.nodeId} (${node.stageLabel})`,
@@ -161,7 +161,7 @@ export const CircuitRadarGame: React.FC<CircuitRadarGameProps> = ({
             className="text-xs font-mono font-semibold px-3 py-1.5 rounded bg-[#0C0E12] hover:bg-[#14181F] text-zinc-300 border border-[#2A303C] flex items-center gap-1.5 shrink-0"
           >
             <HelpCircle className="w-3.5 h-3.5 text-amber-400" />
-            {showHint ? "Dica ativa (-90 pts)" : "Consultar Dica"}
+            {showHint ? "Dica ativa (-50 pts)" : "Consultar Dica"}
           </button>
         </div>
 

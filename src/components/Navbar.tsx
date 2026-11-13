@@ -81,7 +81,7 @@ export default function Navbar() {
     { href: "/", label: "Acesso PIN", icon: Radio },
     { href: "/practice", label: "Catálogo & Treino", icon: BookOpen },
     { href: "/leaderboard", label: "Ranking Global", icon: Trophy },
-    { href: "/profile", label: "Perfil & Conquistas", icon: Award },
+    { href: "/profile", label: "Perfil & Patentes", icon: Award },
     { href: "/host", label: "Professor", icon: MonitorPlay },
   ];
 
@@ -152,10 +152,11 @@ export default function Navbar() {
                         {profile.displayName}
                       </span>
                       <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#F59E0B]/15 text-[#F59E0B] border border-[#F59E0B]/30">
-                        NV {rankInfo.currentTier.level}
+                        {rankInfo.currentPatent.icon} NV {rankInfo.currentTier.level}
                       </span>
                     </div>
-                    <div className="font-mono text-[10px] text-emerald-400 font-semibold">
+                    <div className="font-mono text-[10px] text-emerald-400 font-semibold truncate max-w-[160px]">
+                      {rankInfo.currentPatent.title} •{" "}
                       {profile.totalXp.toLocaleString("pt-BR")} XP
                     </div>
                   </div>

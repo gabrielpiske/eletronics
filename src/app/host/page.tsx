@@ -174,10 +174,10 @@ function HostContent() {
     const timer = setInterval(() => {
       const randomBot = bots[Math.floor(Math.random() * bots.length)];
       const isHit = Math.random() > 0.2;
-      const pts = isHit ? Math.floor(130 + Math.random() * 140) : -80;
+      const pts = isHit ? Math.floor(50 + Math.random() * 65) : -40;
       const msg = isHit
         ? "Identificou componente com precisão"
-        : "Curto-circuito na bancada (-80 pts)";
+        : "Curto-circuito na bancada (-40 pts)";
       recordPlayerAction(room.pin, randomBot.id, pts, isHit, msg);
     }, 2600);
 

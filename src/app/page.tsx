@@ -96,11 +96,13 @@ export default function HomePage() {
                 <div className="flex items-center gap-2 min-w-0">
                   <UserCheck className="w-4 h-4 text-emerald-400 shrink-0" />
                   <span className="truncate text-zinc-200 font-semibold">
-                    Google: {profile.displayName}
+                    {profile.displayName} ({rankInfo.currentPatent.icon}{" "}
+                    {rankInfo.currentPatent.title})
                   </span>
                 </div>
                 <span className="font-mono text-[11px] font-bold text-[#F59E0B] shrink-0">
-                  NV {rankInfo.currentTier.level} • {profile.totalXp} XP
+                  NV {rankInfo.currentTier.level} •{" "}
+                  {profile.totalXp.toLocaleString("pt-BR")} XP
                 </span>
               </div>
             ) : (
@@ -213,9 +215,11 @@ export default function HomePage() {
           >
             <span className="flex items-center gap-2">
               <Award className="w-4 h-4 text-[#0057E0]" />
-              <span>Perfil & Conquistas</span>
+              <span>Perfil & Patentes</span>
             </span>
-            <span className="font-mono text-[10px] text-zinc-400">12 ACH →</span>
+            <span className="font-mono text-[10px] text-zinc-400">
+              21 PAT / 24 ACH →
+            </span>
           </Link>
         </div>
       </main>
