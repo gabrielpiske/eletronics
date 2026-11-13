@@ -161,112 +161,31 @@ function normalizeProfile(
   };
 }
 
-// Perfis de referência para manter o Ranking Global rico mesmo em modo local/offline
-const SEED_PROFILES: UserProfile[] = [
-  normalizeProfile({
-    uid: "seed_1",
-    displayName: "Matheus_WEG",
-    email: "matheus@aluno.sc.senai.br",
-    photoURL: "",
-    avatar: "⚡",
-    authProvider: "google",
-    xp: 6420,
-    totalXp: 6420,
-    level: 5,
-    rankTitle: "Inspetor de Esquemas Elétricos",
-    totalMatches: 14,
-    matchesPlayed: 14,
-    totalHits: 138,
-    totalMisses: 12,
-    bestStreak: 14,
-    playedMinigames: ["conveyor", "radar", "resistor", "match", "detective"],
-    achievements: {
-      first_match: Date.now() - 86400000 * 5,
-      zero_short_circuit: Date.now() - 86400000 * 3,
-      combo_5: Date.now() - 86400000 * 4,
-      combo_12: Date.now() - 86400000 * 2,
-      matches_5: Date.now() - 86400000 * 3,
-      hits_50: Date.now() - 86400000 * 2,
-      all_rounder: Date.now() - 86400000,
-    },
-    recentMatches: [],
-    updatedAt: Date.now() - 3600000,
-  }),
-  normalizeProfile({
-    uid: "seed_2",
-    displayName: "Beatriz_CLP",
-    email: "beatriz@aluno.sc.senai.br",
-    photoURL: "",
-    avatar: "🤖",
-    authProvider: "google",
-    xp: 4890,
-    totalXp: 4890,
-    level: 5,
-    rankTitle: "Inspetor de Esquemas Elétricos",
-    totalMatches: 11,
-    matchesPlayed: 11,
-    totalHits: 104,
-    totalMisses: 9,
-    bestStreak: 11,
-    playedMinigames: ["conveyor", "radar", "resistor", "detective"],
-    achievements: {
-      first_match: Date.now() - 86400000 * 4,
-      zero_short_circuit: Date.now() - 86400000 * 2,
-      combo_5: Date.now() - 86400000 * 3,
-      resistor_specialist: Date.now() - 86400000 * 2,
-      matches_5: Date.now() - 86400000,
-      hits_50: Date.now() - 86400000,
-    },
-    recentMatches: [],
-    updatedAt: Date.now() - 7200000,
-  }),
-  normalizeProfile({
-    uid: "seed_3",
-    displayName: "Rafael_SMD",
-    email: "rafael@aluno.sc.senai.br",
-    photoURL: "",
-    avatar: "🔧",
-    authProvider: "google",
-    xp: 3150,
-    totalXp: 3150,
-    level: 4,
-    rankTitle: "Técnico de Soldagem SMD",
-    totalMatches: 8,
-    matchesPlayed: 8,
-    totalHits: 72,
-    totalMisses: 14,
-    bestStreak: 8,
-    playedMinigames: ["conveyor", "resistor", "match"],
-    achievements: {
-      first_match: Date.now() - 86400000 * 3,
-      combo_5: Date.now() - 86400000 * 2,
-      matches_5: Date.now() - 86400000,
-      hits_50: Date.now() - 86400000,
-    },
-    recentMatches: [],
-    updatedAt: Date.now() - 14400000,
-  }),
-];
-
 function getLocalUsersMap(): Record<string, UserProfile> {
   if (typeof window === "undefined") return {};
   const raw = localStorage.getItem(LOCAL_USERS_DB_KEY);
   const parsed: Record<string, UserProfile> = {};
+  let hadSeed = false;
+
   if (raw) {
     try {
       const obj = JSON.parse(raw) as Record<string, UserProfile>;
       for (const [k, v] of Object.entries(obj)) {
+        if (k.startsWith("seed_") || v?.uid?.startsWith("seed_")) {
+          hadSeed = true;
+          continue;
+        }
         parsed[k] = normalizeProfile({ ...v, uid: k });
       }
     } catch {
       // ignore
     }
   }
-  for (const seed of SEED_PROFILES) {
-    if (!parsed[seed.uid]) {
-      parsed[seed.uid] = seed;
-    }
+
+  if (hadSeed) {
+    localStorage.setItem(LOCAL_USERS_DB_KEY, JSON.stringify(parsed));
   }
+
   return parsed;
 }
 
@@ -705,6 +624,9 @@ export function subscribeToGlobalLeaderboard(
             const remoteMap = snap.val() as Record<string, UserProfile>;
             const merged: Record<string, UserProfile> = { ...localMap };
             for (const [k, v] of Object.entries(remoteMap)) {
+              if (k.startsWith("seed_") || v?.uid?.startsWith("seed_")) {
+                continue;
+              }
               merged[k] = normalizeProfile({ ...v, uid: k });
             }
             callback(Object.values(merged));

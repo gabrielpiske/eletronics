@@ -243,7 +243,18 @@ export default function LeaderboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#2A303C] text-xs">
-                {sortedPlayers.map((player, index) => {
+                {sortedPlayers.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={8}
+                      className="py-10 px-4 text-center font-mono text-xs text-[#94A3B8]"
+                    >
+                      Nenhum aluno registrado no ranking ainda. Entre com sua
+                      conta Google e jogue uma partida para inaugurar o placar!
+                    </td>
+                  </tr>
+                ) : (
+                  sortedPlayers.map((player, index) => {
                   const rankInfo = getRankInfoByXp(player.totalXp);
                   const acc = getPlayerAccuracy(player);
                   const isMe = activeProfile?.uid === player.uid;
@@ -330,7 +341,8 @@ export default function LeaderboardPage() {
                       </td>
                     </tr>
                   );
-                })}
+                  })
+                )}
               </tbody>
             </table>
           </div>
