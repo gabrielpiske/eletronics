@@ -46,29 +46,43 @@ export interface UserProfile {
 const LOCAL_ACTIVE_USER_KEY = "senai_arena_v2_active_uid";
 const LOCAL_USERS_DB_KEY = "senai_arena_v2_users_db";
 const PROFILE_EVENT_NAME = "senai_profile_updated";
+// Caminho espelhado dentro de rooms/ para garantir permissão de escrita mesmo com regras V1
+const GLOBAL_PROFILES_DB_PATH = "rooms/global_profiles_v2/users";
 
 /**
- * Executa uma Promise do Firebase com timeout estrito para impedir que
- * problemas de URL/Regras/Rede do Realtime Database travem a interface.
+ * Remove qualquer propriedade `undefined` do objeto antes de enviar ao Firebase Realtime Database.
+ * O Firebase RTDB lança erro síncrono fatal se houver qualquer chave com valor `undefined`.
  */
-async function withTimeout<T>(
-  promise: Promise<T>,
-  timeoutMs = 2800
+function sanitizeForFirebase<T>(obj: T): T {
+  return JSON.parse(JSON.stringify(obj)) as T;
+}
+
+/**
+ * Executa uma função assíncrona do Firebase com captura de erros síncronos/assíncronos e timeout.
+ */
+async function safeFirebaseCall<T>(
+  fn: () => Promise<T>,
+  timeoutMs = 3000
 ): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => {
       reject(new Error("FIREBASE_TIMEOUT"));
     }, timeoutMs);
 
-    promise
-      .then((val) => {
-        clearTimeout(timer);
-        resolve(val);
-      })
-      .catch((err) => {
-        clearTimeout(timer);
-        reject(err);
-      });
+    try {
+      fn()
+        .then((val) => {
+          clearTimeout(timer);
+          resolve(val);
+        })
+        .catch((err) => {
+          clearTimeout(timer);
+          reject(err);
+        });
+    } catch (syncErr) {
+      clearTimeout(timer);
+      reject(syncErr);
+    }
   });
 }
 
@@ -116,48 +130,73 @@ export function formatGoogleAuthError(err: unknown): string {
 function normalizeProfile(
   raw: Partial<UserProfile> & { uid: string }
 ): UserProfile {
-  const xpVal = raw.totalXp ?? raw.xp ?? 0;
+  const xpVal = Math.max(0, Number(raw.totalXp ?? raw.xp ?? 0) || 0);
   const rank = getRankInfoByXp(xpVal);
-  const matchesVal = raw.matchesPlayed ?? raw.totalMatches ?? 0;
-  const achMap = raw.achievements || {};
+  const matchesVal = Math.max(
+    0,
+    Number(raw.matchesPlayed ?? raw.totalMatches ?? 0) || 0
+  );
+  const achMap =
+    raw.achievements && typeof raw.achievements === "object"
+      ? raw.achievements
+      : {};
   const unlockedList =
-    raw.unlockedAchievements && raw.unlockedAchievements.length > 0
+    Array.isArray(raw.unlockedAchievements) &&
+    raw.unlockedAchievements.length > 0
       ? raw.unlockedAchievements
       : Object.keys(achMap);
 
-  const normalizedMatches: MatchRecord[] = (raw.recentMatches || []).map(
-    (m) => ({
-      ...m,
-      timestamp: m.timestamp || m.playedAt || Date.now(),
-      playedAt: m.playedAt || m.timestamp || Date.now(),
-      minigameTitle: m.minigameTitle || m.gameTitle || "Minigame",
-      gameTitle: m.gameTitle || m.minigameTitle || "Minigame",
-      accuracyPct: m.accuracyPct ?? m.accuracy ?? 0,
-      accuracy: m.accuracy ?? m.accuracyPct ?? 0,
-    })
-  );
+  const rawMatches = Array.isArray(raw.recentMatches)
+    ? raw.recentMatches
+    : raw.recentMatches && typeof raw.recentMatches === "object"
+    ? (Object.values(raw.recentMatches) as MatchRecord[])
+    : [];
+
+  const normalizedMatches: MatchRecord[] = rawMatches.map((m, idx) => ({
+    id: m.id || `m_${Date.now()}_${idx}`,
+    timestamp: Number(m.timestamp || m.playedAt || Date.now()),
+    playedAt: Number(m.playedAt || m.timestamp || Date.now()),
+    mode: m.mode === "room" ? "room" : "solo",
+    roomPin: m.roomPin ? String(m.roomPin) : "SOLO",
+    minigameId: (m.minigameId || "conveyor") as MinigameId,
+    minigameTitle: m.minigameTitle || m.gameTitle || "Minigame",
+    gameTitle: m.gameTitle || m.minigameTitle || "Minigame",
+    score: Number(m.score || 0),
+    xpEarned: Number(m.xpEarned || 0),
+    hits: Number(m.hits || 0),
+    misses: Number(m.misses || 0),
+    accuracyPct: Number(m.accuracyPct ?? m.accuracy ?? 0),
+    accuracy: Number(m.accuracy ?? m.accuracyPct ?? 0),
+    maxStreak: Number(m.maxStreak || 0),
+  }));
+
+  const rawPlayedGames = Array.isArray(raw.playedMinigames)
+    ? raw.playedMinigames
+    : raw.playedMinigames && typeof raw.playedMinigames === "object"
+    ? (Object.values(raw.playedMinigames) as MinigameId[])
+    : [];
 
   return {
-    uid: raw.uid,
-    displayName: raw.displayName || "Estudante SENAI",
-    email: raw.email || "",
-    photoURL: raw.photoURL || "",
-    avatar: raw.avatar || "⚡",
-    authProvider: raw.authProvider || "google",
+    uid: String(raw.uid),
+    displayName: String(raw.displayName || "Estudante SENAI"),
+    email: String(raw.email || ""),
+    photoURL: String(raw.photoURL || ""),
+    avatar: String(raw.avatar || "⚡"),
+    authProvider: raw.authProvider === "local" ? "local" : "google",
     xp: xpVal,
     totalXp: xpVal,
     level: rank.currentTier.level,
     rankTitle: rank.currentTier.title,
     totalMatches: matchesVal,
     matchesPlayed: matchesVal,
-    totalHits: raw.totalHits || 0,
-    totalMisses: raw.totalMisses || 0,
-    bestStreak: raw.bestStreak || 0,
-    playedMinigames: raw.playedMinigames || [],
+    totalHits: Number(raw.totalHits || 0),
+    totalMisses: Number(raw.totalMisses || 0),
+    bestStreak: Number(raw.bestStreak || 0),
+    playedMinigames: rawPlayedGames,
     achievements: achMap,
     unlockedAchievements: unlockedList,
     recentMatches: normalizedMatches,
-    updatedAt: raw.updatedAt || Date.now(),
+    updatedAt: Number(raw.updatedAt || Date.now()),
   };
 }
 
@@ -189,11 +228,6 @@ function getLocalUsersMap(): Record<string, UserProfile> {
   return parsed;
 }
 
-/**
- * Salva o mapa local de usuários.
- * IMPORTANTE: emitEvent só deve ser true em ações explícitas de escrita
- * (nunca dentro de leituras/listeners) para evitar loops infinitos de eventos.
- */
 function saveLocalUsersMap(
   map: Record<string, UserProfile>,
   emitEvent = false
@@ -235,29 +269,73 @@ function createInitialProfile(
   });
 }
 
+async function fetchRemoteProfileFromFirebase(
+  uid: string
+): Promise<UserProfile | null> {
+  if (!isFirebaseConfigured || !db) return null;
+
+  // Tenta ler de rooms/global_profiles_v2/users/{uid} e de users/{uid}, escolhendo o que tiver maior XP
+  const results = await Promise.allSettled([
+    safeFirebaseCall(() => get(ref(db!, `${GLOBAL_PROFILES_DB_PATH}/${uid}`)), 2500),
+    safeFirebaseCall(() => get(ref(db!, `users/${uid}`)), 2500),
+  ]);
+
+  let bestProfile: UserProfile | null = null;
+
+  for (const res of results) {
+    if (res.status === "fulfilled" && res.value.exists()) {
+      const candidate = normalizeProfile({
+        ...(res.value.val() as UserProfile),
+        uid,
+      });
+      if (!bestProfile || candidate.totalXp >= bestProfile.totalXp) {
+        bestProfile = candidate;
+      }
+    }
+  }
+
+  return bestProfile;
+}
+
+async function writeRemoteProfileToFirebase(profile: UserProfile): Promise<void> {
+  if (!isFirebaseConfigured || !db) return;
+  const cleanData = sanitizeForFirebase(profile);
+
+  // Grava simultaneamente em rooms/global_profiles_v2/users/{uid} (compatível com rules V1 e V2)
+  // e em users/{uid} (regra V2) para garantir persistência sem erro de permissão
+  await Promise.allSettled([
+    safeFirebaseCall(
+      () => set(ref(db!, `${GLOBAL_PROFILES_DB_PATH}/${profile.uid}`), cleanData),
+      3000
+    ),
+    safeFirebaseCall(
+      () => set(ref(db!, `users/${profile.uid}`), cleanData),
+      3000
+    ),
+  ]);
+}
+
 export async function getOrLoadUserProfile(
   uid: string,
   defaults?: Partial<UserProfile>
 ): Promise<UserProfile> {
   const localMap = getLocalUsersMap();
+  const localExisting = localMap[uid] ? normalizeProfile(localMap[uid]) : null;
 
-  if (isFirebaseConfigured && db) {
-    try {
-      const snap = await withTimeout(get(ref(db, `users/${uid}`)), 2500);
-      if (snap.exists()) {
-        const remote = snap.val() as UserProfile;
-        const normalized = normalizeProfile({ ...remote, uid });
-        localMap[uid] = normalized;
-        saveLocalUsersMap(localMap, false); // NÃO emite evento durante leitura!
-        return normalized;
-      }
-    } catch {
-      // Fallback imediato para local caso o Realtime Database demore ou não tenha regras publicadas
-    }
+  const remoteProfile = await fetchRemoteProfileFromFirebase(uid);
+  if (remoteProfile) {
+    // Mescla mantendo o que tiver maior progresso (caso o aluno tenha jogado offline/local antes)
+    const merged =
+      localExisting && localExisting.totalXp > remoteProfile.totalXp
+        ? localExisting
+        : remoteProfile;
+    localMap[uid] = merged;
+    saveLocalUsersMap(localMap, false);
+    return merged;
   }
 
-  if (localMap[uid]) {
-    return normalizeProfile(localMap[uid]);
+  if (localExisting) {
+    return localExisting;
   }
 
   const created = createInitialProfile(
@@ -266,41 +344,37 @@ export async function getOrLoadUserProfile(
     defaults?.email || "",
     defaults?.photoURL || "",
     defaults?.avatar || "⚡",
-    defaults?.authProvider || "local"
+    defaults?.authProvider || "google"
   );
 
   localMap[uid] = created;
   saveLocalUsersMap(localMap, false);
 
-  if (isFirebaseConfigured && db) {
-    // Sincroniza em background sem bloquear a UI
-    withTimeout(set(ref(db, `users/${uid}`), created), 2500).catch(() => {});
-  }
+  writeRemoteProfileToFirebase(created).catch(() => {});
 
   return created;
 }
 
-export async function saveUserProfile(profile: UserProfile): Promise<void> {
-  const updated = normalizeProfile({
-    ...profile,
-    updatedAt: Date.now(),
-  });
+export async function saveUserProfile(profile: UserProfile): Promise<UserProfile> {
+  const updated = sanitizeForFirebase(
+    normalizeProfile({
+      ...profile,
+      updatedAt: Date.now(),
+    })
+  );
 
   const localMap = getLocalUsersMap();
   localMap[updated.uid] = updated;
-  saveLocalUsersMap(localMap, true); // Emite evento apenas em escrita explícita
+  saveLocalUsersMap(localMap, true);
 
   if (typeof window !== "undefined") {
+    localStorage.setItem(LOCAL_ACTIVE_USER_KEY, updated.uid);
     sessionStorage.setItem("senai_arena_nickname", updated.displayName);
     sessionStorage.setItem("senai_arena_avatar", updated.avatar);
   }
 
-  if (isFirebaseConfigured && db) {
-    // Salva no Firebase com timeout curto para nunca travar a tela do aluno
-    await withTimeout(set(ref(db, `users/${updated.uid}`), updated), 2500).catch(
-      () => {}
-    );
-  }
+  await writeRemoteProfileToFirebase(updated);
+  return updated;
 }
 
 export async function signInWithGoogleAccount(): Promise<UserProfile> {
@@ -320,14 +394,16 @@ export async function signInWithGoogleAccount(): Promise<UserProfile> {
     avatar: "⚡",
     authProvider: "google",
   });
-  if (u.displayName && profile.displayName === "Estudante SENAI") {
+  if (u.displayName) {
     profile.displayName = u.displayName.slice(0, 22);
+  }
+  if (u.email) {
+    profile.email = u.email;
   }
   if (u.photoURL) {
     profile.photoURL = u.photoURL;
   }
-  await saveUserProfile(profile);
-  return profile;
+  return await saveUserProfile(profile);
 }
 
 export async function signInWithQuickGoogleSimulation(
@@ -355,8 +431,7 @@ export async function signInWithQuickGoogleSimulation(
 
   profile.displayName = displayName.trim().slice(0, 22) || profile.displayName;
   profile.avatar = avatar || profile.avatar;
-  await saveUserProfile(profile);
-  return profile;
+  return await saveUserProfile(profile);
 }
 
 export async function signOutCurrentProfile(): Promise<void> {
@@ -366,7 +441,7 @@ export async function signOutCurrentProfile(): Promise<void> {
   }
   if (isFirebaseAuthConfigured && auth) {
     try {
-      await withTimeout(firebaseSignOut(auth), 2000);
+      await safeFirebaseCall(() => firebaseSignOut(auth!), 2000);
     } catch {
       // Ignora
     }
@@ -375,6 +450,10 @@ export async function signOutCurrentProfile(): Promise<void> {
 
 export function getActiveUid(): string | null {
   if (typeof window === "undefined") return null;
+  if (auth?.currentUser?.uid) {
+    localStorage.setItem(LOCAL_ACTIVE_USER_KEY, auth.currentUser.uid);
+    return auth.currentUser.uid;
+  }
   return localStorage.getItem(LOCAL_ACTIVE_USER_KEY);
 }
 
@@ -385,7 +464,6 @@ export function subscribeToActiveProfile(
 
   let isMounted = true;
 
-  // Leitura síncrona local (nunca dispara rede nem eventos recursivos)
   const readFromLocalCache = () => {
     if (!isMounted) return;
     const uid = getActiveUid();
@@ -399,7 +477,6 @@ export function subscribeToActiveProfile(
     }
   };
 
-  // Carregamento inicial: mostra cache local imediatamente e sincroniza uma vez com Firebase
   const initialSync = async () => {
     const uid = getActiveUid();
     if (!uid) {
@@ -426,7 +503,17 @@ export function subscribeToActiveProfile(
             photoURL: user.photoURL || "",
             authProvider: "google",
           });
-          if (isMounted) callback(prof);
+          if (user.displayName && prof.displayName === "Estudante SENAI") {
+            prof.displayName = user.displayName.slice(0, 22);
+          }
+          if (user.email && !prof.email) {
+            prof.email = user.email;
+          }
+          if (user.photoURL && !prof.photoURL) {
+            prof.photoURL = user.photoURL;
+          }
+          const saved = await saveUserProfile(prof);
+          if (isMounted) callback(saved);
         } else {
           readFromLocalCache();
         }
@@ -462,142 +549,163 @@ export async function recordCompletedMatch(params: {
   xpEarned: number;
   newlyUnlockedAchievements: string[];
 }> {
-  let uid = getActiveUid();
-  if (!uid && typeof window !== "undefined") {
-    const savedName = sessionStorage.getItem("senai_arena_nickname");
-    const savedAvatar = sessionStorage.getItem("senai_arena_avatar") || "⚡";
-    if (savedName) {
-      const autoProfile = await signInWithQuickGoogleSimulation(
-        savedName,
-        `${savedName.toLowerCase().replace(/\s+/g, ".")}@aluno.senai.br`,
-        savedAvatar
-      );
-      uid = autoProfile.uid;
-    } else {
-      const guestProfile = await signInWithQuickGoogleSimulation(
-        "Aluno SENAI",
-        "aluno@senai.br",
-        "⚡"
-      );
-      uid = guestProfile.uid;
-    }
-  }
+  try {
+    let uid = getActiveUid();
 
-  if (!uid) {
-    return { profile: null, xpEarned: 0, newlyUnlockedAchievements: [] };
-  }
-
-  const totalAttempts = params.hits + params.misses;
-  if (totalAttempts === 0 && params.score === 0) {
-    return { profile: null, xpEarned: 0, newlyUnlockedAchievements: [] };
-  }
-
-  const resolvedGameId = (params.minigameId ||
-    params.gameId ||
-    "conveyor") as MinigameId;
-
-  const profile = await getOrLoadUserProfile(uid);
-  const accuracyPct =
-    totalAttempts > 0 ? Math.round((params.hits / totalAttempts) * 100) : 0;
-
-  // Calcula XP da partida (pontos + bônus de precisão + bônus de conclusão)
-  const baseXp = Math.max(25, Math.round(params.score * 0.65));
-  const accuracyBonus = accuracyPct >= 85 && params.hits >= 5 ? 90 : 0;
-  let totalXpEarned = baseXp + accuracyBonus;
-
-  const gameMeta =
-    MINIGAMES_CATALOG.find((g) => g.id === resolvedGameId) ||
-    MINIGAMES_CATALOG[0];
-  const resolvedTitle = params.gameTitle || gameMeta.title;
-  const nowTs = Date.now();
-
-  const matchRecord: MatchRecord = {
-    id: "m_" + nowTs + "_" + Math.random().toString(36).slice(2, 6),
-    timestamp: nowTs,
-    playedAt: nowTs,
-    mode: params.mode,
-    roomPin: params.roomPin,
-    minigameId: resolvedGameId,
-    minigameTitle: resolvedTitle,
-    gameTitle: resolvedTitle,
-    score: params.score,
-    xpEarned: totalXpEarned,
-    hits: params.hits,
-    misses: params.misses,
-    accuracyPct,
-    accuracy: accuracyPct,
-    maxStreak: params.maxStreak,
-  };
-
-  const nextMatches = profile.totalMatches + 1;
-  const nextHits = profile.totalHits + params.hits;
-  const nextMisses = profile.totalMisses + params.misses;
-  const nextBestStreak = Math.max(profile.bestStreak || 0, params.maxStreak);
-  const nextPlayedGames = Array.from(
-    new Set([...(profile.playedMinigames || []), resolvedGameId])
-  ) as MinigameId[];
-
-  const unlockedMap: Record<string, number> = {
-    ...(profile.achievements || {}),
-  };
-  const newlyUnlocked: string[] = [];
-
-  const tryUnlock = (achId: string, condition: boolean) => {
-    if (condition && !unlockedMap[achId]) {
-      unlockedMap[achId] = Date.now();
-      newlyUnlocked.push(achId);
-      const achDef = ACHIEVEMENTS_CATALOG.find((a) => a.id === achId);
-      if (achDef) {
-        totalXpEarned += achDef.xpReward;
+    // Se o usuário estiver logado no Firebase Auth mas o localStorage ainda não tinha o UID
+    if (!uid && auth?.currentUser) {
+      uid = auth.currentUser.uid;
+      if (typeof window !== "undefined") {
+        localStorage.setItem(LOCAL_ACTIVE_USER_KEY, uid);
       }
     }
-  };
 
-  tryUnlock("first_match", nextMatches >= 1);
-  tryUnlock("zero_short_circuit", params.hits >= 8 && params.misses === 0);
-  tryUnlock("combo_5", nextBestStreak >= 5);
-  tryUnlock("combo_12", nextBestStreak >= 12);
-  tryUnlock(
-    "resistor_specialist",
-    resolvedGameId === "resistor" && params.score >= 1200
-  );
-  tryUnlock(
-    "radar_specialist",
-    resolvedGameId === "radar" && params.score >= 1200
-  );
-  tryUnlock("all_rounder", nextPlayedGames.length >= 5);
-  tryUnlock("matches_5", nextMatches >= 5);
-  tryUnlock("matches_15", nextMatches >= 15);
-  tryUnlock("hits_50", nextHits >= 50);
-  tryUnlock("hits_200", nextHits >= 200);
-  tryUnlock("high_scorer_2500", params.score >= 2500);
+    // Se jogou com apelido de bancada sem logar antes, cria/vincula perfil automaticamente
+    if (!uid && typeof window !== "undefined") {
+      const savedName = sessionStorage.getItem("senai_arena_nickname");
+      const savedAvatar = sessionStorage.getItem("senai_arena_avatar") || "⚡";
+      if (savedName) {
+        const autoProfile = await signInWithQuickGoogleSimulation(
+          savedName,
+          `${savedName.toLowerCase().replace(/\s+/g, ".")}@aluno.senai.br`,
+          savedAvatar
+        );
+        uid = autoProfile.uid;
+      } else {
+        const guestProfile = await signInWithQuickGoogleSimulation(
+          "Aluno SENAI",
+          "aluno@senai.br",
+          "⚡"
+        );
+        uid = guestProfile.uid;
+      }
+    }
 
-  matchRecord.xpEarned = totalXpEarned;
-  const newTotalXp = (profile.totalXp || profile.xp || 0) + totalXpEarned;
+    if (!uid) {
+      return { profile: null, xpEarned: 0, newlyUnlockedAchievements: [] };
+    }
 
-  const updatedProfile: UserProfile = normalizeProfile({
-    ...profile,
-    xp: newTotalXp,
-    totalXp: newTotalXp,
-    totalMatches: nextMatches,
-    matchesPlayed: nextMatches,
-    totalHits: nextHits,
-    totalMisses: nextMisses,
-    bestStreak: nextBestStreak,
-    playedMinigames: nextPlayedGames,
-    achievements: unlockedMap,
-    unlockedAchievements: Object.keys(unlockedMap),
-    recentMatches: [matchRecord, ...(profile.recentMatches || [])].slice(0, 30),
-    updatedAt: Date.now(),
-  });
+    const totalAttempts = params.hits + params.misses;
+    if (totalAttempts === 0 && params.score <= 0) {
+      return { profile: null, xpEarned: 0, newlyUnlockedAchievements: [] };
+    }
 
-  await saveUserProfile(updatedProfile);
+    const resolvedGameId = (params.minigameId ||
+      params.gameId ||
+      "conveyor") as MinigameId;
 
-  return {
-    profile: updatedProfile,
-    xpEarned: totalXpEarned,
-    newlyUnlockedAchievements: newlyUnlocked,
-  };
+    const profile = await getOrLoadUserProfile(uid);
+    const accuracyPct =
+      totalAttempts > 0 ? Math.round((params.hits / totalAttempts) * 100) : 0;
+
+    // Calcula XP da partida (pontos + bônus de precisão + bônus por acerto)
+    const baseXp = Math.max(
+      30,
+      Math.round(Math.max(0, params.score) * 0.65) + params.hits * 15
+    );
+    const accuracyBonus = accuracyPct >= 85 && params.hits >= 4 ? 90 : 0;
+    let totalXpEarned = baseXp + accuracyBonus;
+
+    const gameMeta =
+      MINIGAMES_CATALOG.find((g) => g.id === resolvedGameId) ||
+      MINIGAMES_CATALOG[0];
+    const resolvedTitle = params.gameTitle || gameMeta.title;
+    const nowTs = Date.now();
+
+    const matchRecord: MatchRecord = {
+      id: "m_" + nowTs + "_" + Math.random().toString(36).slice(2, 6),
+      timestamp: nowTs,
+      playedAt: nowTs,
+      mode: params.mode,
+      roomPin: params.roomPin ? String(params.roomPin) : "SOLO",
+      minigameId: resolvedGameId,
+      minigameTitle: resolvedTitle,
+      gameTitle: resolvedTitle,
+      score: Math.max(0, params.score),
+      xpEarned: totalXpEarned,
+      hits: params.hits,
+      misses: params.misses,
+      accuracyPct,
+      accuracy: accuracyPct,
+      maxStreak: params.maxStreak,
+    };
+
+    const nextMatches = (profile.totalMatches || 0) + 1;
+    const nextHits = (profile.totalHits || 0) + params.hits;
+    const nextMisses = (profile.totalMisses || 0) + params.misses;
+    const nextBestStreak = Math.max(profile.bestStreak || 0, params.maxStreak);
+    const nextPlayedGames = Array.from(
+      new Set([...(profile.playedMinigames || []), resolvedGameId])
+    ) as MinigameId[];
+
+    const unlockedMap: Record<string, number> = {
+      ...(profile.achievements || {}),
+    };
+    const newlyUnlocked: string[] = [];
+
+    const tryUnlock = (achId: string, condition: boolean) => {
+      if (condition && !unlockedMap[achId]) {
+        unlockedMap[achId] = Date.now();
+        newlyUnlocked.push(achId);
+        const achDef = ACHIEVEMENTS_CATALOG.find((a) => a.id === achId);
+        if (achDef) {
+          totalXpEarned += achDef.xpReward;
+        }
+      }
+    };
+
+    tryUnlock("first_match", nextMatches >= 1);
+    tryUnlock("zero_short_circuit", params.hits >= 5 && params.misses === 0);
+    tryUnlock("combo_5", nextBestStreak >= 5);
+    tryUnlock("combo_12", nextBestStreak >= 12);
+    tryUnlock(
+      "resistor_specialist",
+      resolvedGameId === "resistor" && params.score >= 800
+    );
+    tryUnlock(
+      "radar_specialist",
+      resolvedGameId === "radar" && params.score >= 800
+    );
+    tryUnlock("all_rounder", nextPlayedGames.length >= 5);
+    tryUnlock("matches_5", nextMatches >= 5);
+    tryUnlock("matches_15", nextMatches >= 15);
+    tryUnlock("hits_50", nextHits >= 50);
+    tryUnlock("hits_200", nextHits >= 200);
+    tryUnlock("high_scorer_2500", params.score >= 2500);
+
+    matchRecord.xpEarned = totalXpEarned;
+    const newTotalXp = (profile.totalXp || profile.xp || 0) + totalXpEarned;
+
+    const updatedProfile: UserProfile = normalizeProfile({
+      ...profile,
+      xp: newTotalXp,
+      totalXp: newTotalXp,
+      totalMatches: nextMatches,
+      matchesPlayed: nextMatches,
+      totalHits: nextHits,
+      totalMisses: nextMisses,
+      bestStreak: nextBestStreak,
+      playedMinigames: nextPlayedGames,
+      achievements: unlockedMap,
+      unlockedAchievements: Object.keys(unlockedMap),
+      recentMatches: [matchRecord, ...(profile.recentMatches || [])].slice(
+        0,
+        30
+      ),
+      updatedAt: Date.now(),
+    });
+
+    const saved = await saveUserProfile(updatedProfile);
+
+    return {
+      profile: saved,
+      xpEarned: totalXpEarned,
+      newlyUnlockedAchievements: newlyUnlocked,
+    };
+  } catch (err) {
+    console.error("Erro ao registrar partida e atualizar XP:", err);
+    return { profile: null, xpEarned: 0, newlyUnlockedAchievements: [] };
+  }
 }
 
 export function subscribeToGlobalLeaderboard(
@@ -605,54 +713,79 @@ export function subscribeToGlobalLeaderboard(
 ): () => void {
   if (typeof window === "undefined") return () => {};
 
-  const loadLocal = () => {
-    const map = getLocalUsersMap();
-    callback(Object.values(map));
+  let remoteMirrorMap: Record<string, UserProfile> = {};
+  let remoteUsersMap: Record<string, UserProfile> = {};
+
+  const emitCombined = () => {
+    const localMap = getLocalUsersMap();
+    const combined: Record<string, UserProfile> = { ...localMap };
+
+    const mergeSource = (source: Record<string, UserProfile>) => {
+      for (const [k, v] of Object.entries(source)) {
+        if (!v || k.startsWith("seed_") || v.uid?.startsWith("seed_")) {
+          continue;
+        }
+        const norm = normalizeProfile({ ...v, uid: k });
+        if (!combined[k] || norm.totalXp >= combined[k].totalXp) {
+          combined[k] = norm;
+        }
+      }
+    };
+
+    mergeSource(remoteMirrorMap);
+    mergeSource(remoteUsersMap);
+
+    callback(Object.values(combined));
   };
 
-  // Exibe imediatamente os dados locais para nunca travar a renderização
-  loadLocal();
+  emitCombined();
 
   if (isFirebaseConfigured && db) {
     try {
+      const mirrorRef = ref(db, GLOBAL_PROFILES_DB_PATH);
       const usersRef = ref(db, "users");
-      const listener = onValue(
-        usersRef,
+
+      const mirrorListener = onValue(
+        mirrorRef,
         (snap) => {
-          const localMap = getLocalUsersMap();
-          if (snap.exists()) {
-            const remoteMap = snap.val() as Record<string, UserProfile>;
-            const merged: Record<string, UserProfile> = { ...localMap };
-            for (const [k, v] of Object.entries(remoteMap)) {
-              if (k.startsWith("seed_") || v?.uid?.startsWith("seed_")) {
-                continue;
-              }
-              merged[k] = normalizeProfile({ ...v, uid: k });
-            }
-            callback(Object.values(merged));
-          } else {
-            callback(Object.values(localMap));
-          }
+          remoteMirrorMap = snap.exists()
+            ? (snap.val() as Record<string, UserProfile>)
+            : {};
+          emitCombined();
         },
         () => {
-          // Em caso de erro de permissão nas rules do Firebase, mantém a lista local
-          loadLocal();
+          emitCombined();
         }
       );
-      window.addEventListener(PROFILE_EVENT_NAME, loadLocal);
+
+      const usersListener = onValue(
+        usersRef,
+        (snap) => {
+          remoteUsersMap = snap.exists()
+            ? (snap.val() as Record<string, UserProfile>)
+            : {};
+          emitCombined();
+        },
+        () => {
+          emitCombined();
+        }
+      );
+
+      window.addEventListener(PROFILE_EVENT_NAME, emitCombined);
       return () => {
-        off(usersRef, "value", listener);
-        window.removeEventListener(PROFILE_EVENT_NAME, loadLocal);
+        off(mirrorRef, "value", mirrorListener);
+        off(usersRef, "value", usersListener);
+        window.removeEventListener(PROFILE_EVENT_NAME, emitCombined);
       };
     } catch {
       // Fallback para local
     }
   }
 
-  window.addEventListener(PROFILE_EVENT_NAME, loadLocal);
-  window.addEventListener("storage", loadLocal);
+  window.addEventListener(PROFILE_EVENT_NAME, emitCombined);
+  window.addEventListener("storage", emitCombined);
   return () => {
-    window.removeEventListener(PROFILE_EVENT_NAME, loadLocal);
-    window.removeEventListener("storage", loadLocal);
+    window.removeEventListener(PROFILE_EVENT_NAME, emitCombined);
+    window.removeEventListener("storage", emitCombined);
   };
 }

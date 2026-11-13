@@ -10,12 +10,14 @@ import {
   joinRoom,
   subscribeToRoom,
   recordPlayerAction,
+  finishRoomGame,
 } from "@/lib/roomService";
 import {
+  UserProfile,
   subscribeToActiveProfile,
   recordCompletedMatch,
 } from "@/lib/profileService";
-import { ACHIEVEMENTS_CATALOG } from "@/data/achievementsData";
+import { ACHIEVEMENTS_CATALOG, getRankInfoByXp } from "@/data/achievementsData";
 import { ConveyorGame } from "@/components/minigames/ConveyorGame";
 import { CircuitRadarGame } from "@/components/minigames/CircuitRadarGame";
 import { ResistorBuilderGame } from "@/components/minigames/ResistorBuilderGame";
@@ -46,12 +48,21 @@ export default function PlayRoomPage() {
   const [hasJoined, setHasJoined] = useState<boolean>(false);
   const [remainingSec, setRemainingSec] = useState<number>(0);
   const [lastScoreDelta, setLastScoreDelta] = useState<number | null>(null);
+  const [activeProfile, setActiveProfile] = useState<UserProfile | null>(null);
   const [matchSummary, setMatchSummary] = useState<{
     xpEarned: number;
+    newTotalXp?: number;
     unlockedIds: string[];
   } | null>(null);
 
   const recordedRoundRef = useRef<string | null>(null);
+  const localStatsRef = useRef({
+    score: 0,
+    hits: 0,
+    misses: 0,
+    streak: 0,
+    maxStreak: 0,
+  });
 
   useEffect(() => {
     const pid = getOrCreatePlayerId();
@@ -64,15 +75,16 @@ export default function PlayRoomPage() {
       joinRoom(pin, savedName, savedAvatar || AVATARS[0])
         .then(() => setHasJoined(true))
         .catch(() => {});
-    } else {
-      const unsub = subscribeToActiveProfile((prof) => {
-        if (prof) {
-          setNickname((prev) => prev || prof.displayName);
-          setAvatar(prof.avatar || AVATARS[0]);
-        }
-      });
-      return () => unsub();
     }
+
+    const unsub = subscribeToActiveProfile((prof) => {
+      setActiveProfile(prof);
+      if (prof && !sessionStorage.getItem("senai_arena_nickname")) {
+        setNickname((prev) => prev || prof.displayName);
+        setAvatar(prof.avatar || AVATARS[0]);
+      }
+    });
+    return () => unsub();
   }, [pin]);
 
   useEffect(() => {
@@ -94,17 +106,32 @@ export default function PlayRoomPage() {
     const tick = () => {
       const diff = Math.max(0, Math.ceil((room.endsAt! - Date.now()) / 1000));
       setRemainingSec(diff);
+      if (diff <= 0) {
+        finishRoomGame(room.pin);
+      }
     };
     tick();
     const interval = setInterval(tick, 500);
     return () => clearInterval(interval);
   }, [room]);
 
+  // Reset local stats when a new round starts
+  useEffect(() => {
+    if (room?.status === "PLAYING") {
+      localStatsRef.current = {
+        score: 0,
+        hits: 0,
+        misses: 0,
+        streak: 0,
+        maxStreak: 0,
+      };
+    }
+  }, [room?.status, room?.startedAt, room?.minigameId]);
+
   // Automatically record match XP, history & achievements when the round finishes
   useEffect(() => {
     if (!room || room.status !== "FINISHED" || !playerId) return;
     const myPlayer = room.players?.[playerId];
-    if (!myPlayer) return;
 
     const roundKey = `${room.pin}_${room.minigameId}_${room.startedAt || 0}`;
     if (recordedRoundRef.current === roundKey) return;
@@ -114,18 +141,36 @@ export default function PlayRoomPage() {
       MINIGAMES_CATALOG.find((g) => g.id === room.minigameId) ||
       MINIGAMES_CATALOG[0];
 
+    const finalScore = Math.max(
+      myPlayer?.score || 0,
+      localStatsRef.current.score
+    );
+    const finalHits = Math.max(
+      myPlayer?.hits || 0,
+      localStatsRef.current.hits
+    );
+    const finalMisses = Math.max(
+      myPlayer?.misses || 0,
+      localStatsRef.current.misses
+    );
+    const finalMaxStreak = Math.max(
+      myPlayer?.maxStreak || 0,
+      localStatsRef.current.maxStreak
+    );
+
     recordCompletedMatch({
       mode: "room",
       roomPin: room.pin,
       gameId: room.minigameId,
       gameTitle: currentMeta.title,
-      score: myPlayer.score || 0,
-      hits: myPlayer.hits || 0,
-      misses: myPlayer.misses || 0,
-      maxStreak: myPlayer.maxStreak || 0,
+      score: finalScore,
+      hits: finalHits,
+      misses: finalMisses,
+      maxStreak: finalMaxStreak,
     }).then((res) => {
       setMatchSummary({
         xpEarned: res.xpEarned,
+        newTotalXp: res.profile?.totalXp,
         unlockedIds: res.newlyUnlockedAchievements,
       });
     });
@@ -151,6 +196,16 @@ export default function PlayRoomPage() {
       setTimeout(() => {
         setLastScoreDelta((prev) => (prev === deltaScore ? null : prev));
       }, 1800);
+
+      const cur = localStatsRef.current;
+      const nextStreak = isHit ? cur.streak + 1 : 0;
+      localStatsRef.current = {
+        score: Math.max(0, cur.score + deltaScore),
+        hits: isHit ? cur.hits + 1 : cur.hits,
+        misses: !isHit ? cur.misses + 1 : cur.misses,
+        streak: nextStreak,
+        maxStreak: Math.max(cur.maxStreak, nextStreak),
+      };
 
       if (!pin || !playerId) return;
       recordPlayerAction(
@@ -262,6 +317,9 @@ export default function PlayRoomPage() {
   const myPlayer = room.players?.[playerId];
   const myRankIndex = sortedPlayers.findIndex((p) => p.id === playerId);
   const myRank = myRankIndex >= 0 ? myRankIndex + 1 : sortedPlayers.length;
+  const rankInfo = activeProfile
+    ? getRankInfoByXp(activeProfile.totalXp)
+    : null;
 
   const formatTime = (sec: number) => {
     const m = Math.floor(sec / 60);
@@ -277,9 +335,17 @@ export default function PlayRoomPage() {
           <div className="flex items-center gap-2">
             <span className="text-lg">{myPlayer?.avatar || avatar}</span>
             <div>
-              <p className="text-xs sm:text-sm font-bold text-white leading-tight">
-                {myPlayer?.name || nickname}
-              </p>
+              <div className="flex items-center gap-1.5">
+                <p className="text-xs sm:text-sm font-bold text-white leading-tight">
+                  {myPlayer?.name || nickname}
+                </p>
+                {activeProfile && rankInfo && (
+                  <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#0C0E12] text-[#F59E0B] border border-[#2A303C]">
+                    NV {rankInfo.currentTier.level} •{" "}
+                    {activeProfile.totalXp.toLocaleString("pt-BR")} XP
+                  </span>
+                )}
+              </div>
               <span className="text-[10px] font-mono text-zinc-400">
                 PIN {room.pin} • #{myRank}º
               </span>
@@ -305,7 +371,7 @@ export default function PlayRoomPage() {
               </span>
               <div className="flex items-center gap-1">
                 <span className="text-xs sm:text-sm font-mono font-bold text-amber-400">
-                  {myPlayer?.score || 0}
+                  {myPlayer?.score || localStatsRef.current.score || 0}
                 </span>
                 {lastScoreDelta !== null && (
                   <span
@@ -389,7 +455,7 @@ export default function PlayRoomPage() {
               #{myRank}º Lugar
             </h2>
             <p className="text-xl font-mono font-bold text-amber-400 mt-1">
-              {myPlayer?.score || 0} pts
+              {Math.max(myPlayer?.score || 0, localStatsRef.current.score)} pts
             </p>
 
             <div className="grid grid-cols-3 gap-2 mt-4 bg-[#0C0E12] border border-[#242933] rounded-md p-3">
@@ -398,7 +464,7 @@ export default function PlayRoomPage() {
                   ACERTOS
                 </span>
                 <span className="text-base font-mono font-bold text-emerald-400">
-                  {myPlayer?.hits || 0}
+                  {Math.max(myPlayer?.hits || 0, localStatsRef.current.hits)}
                 </span>
               </div>
               <div>
@@ -406,7 +472,7 @@ export default function PlayRoomPage() {
                   FALHAS
                 </span>
                 <span className="text-base font-mono font-bold text-red-400">
-                  {myPlayer?.misses || 0}
+                  {Math.max(myPlayer?.misses || 0, localStatsRef.current.misses)}
                 </span>
               </div>
               <div>
@@ -414,7 +480,11 @@ export default function PlayRoomPage() {
                   COMBO MÁX
                 </span>
                 <span className="text-base font-mono font-bold text-amber-400">
-                  {myPlayer?.maxStreak || 0}x
+                  {Math.max(
+                    myPlayer?.maxStreak || 0,
+                    localStatsRef.current.maxStreak
+                  )}
+                  x
                 </span>
               </div>
             </div>
@@ -425,12 +495,20 @@ export default function PlayRoomPage() {
                 <div className="flex items-center justify-between text-xs font-mono font-bold text-emerald-300">
                   <span className="flex items-center gap-1.5">
                     <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                    XP Sincronizado no Perfil:
+                    XP Salvo no Banco & Perfil:
                   </span>
                   <span className="text-[#F59E0B]">
                     +{matchSummary.xpEarned} XP
                   </span>
                 </div>
+                {matchSummary.newTotalXp !== undefined && (
+                  <p className="text-[11px] font-mono text-zinc-300 mt-1">
+                    Novo saldo acumulado:{" "}
+                    <strong className="text-white">
+                      {matchSummary.newTotalXp.toLocaleString("pt-BR")} XP
+                    </strong>
+                  </p>
+                )}
                 {matchSummary.unlockedIds.length > 0 && (
                   <div className="mt-2 pt-2 border-t border-emerald-500/30 space-y-1">
                     <span className="text-[11px] font-bold text-[#F59E0B] flex items-center gap-1">

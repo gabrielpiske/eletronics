@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, Suspense } from "react";
+import React, { useState, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -29,6 +29,8 @@ import {
   CheckCircle2,
 } from "lucide-react";
 
+const QUESTIONS_PER_SOLO_ROUND = 5;
+
 function PracticeContent() {
   const searchParams = useSearchParams();
   const initialGame = searchParams.get("game") as MinigameId | null;
@@ -50,72 +52,161 @@ function PracticeContent() {
   const [soloHits, setSoloHits] = useState<number>(0);
   const [soloMisses, setSoloMisses] = useState<number>(0);
   const [lastSoloDelta, setLastSoloDelta] = useState<number | null>(null);
+  const [savingXp, setSavingXp] = useState<boolean>(false);
   const [savedReport, setSavedReport] = useState<{
     xpEarned: number;
+    newTotalXp?: number;
     unlockedIds: string[];
   } | null>(null);
 
-  const handleSoloScore = (deltaScore: number, isHit: boolean) => {
-    setSavedReport(null);
-    setSoloScore((prev) => Math.max(0, prev + deltaScore));
-    if (isHit) {
-      setSoloHits((prev) => prev + 1);
-      setSoloStreak((prev) => {
-        const next = prev + 1;
-        setSoloMaxStreak((maxPrev) => Math.max(maxPrev, next));
-        return next;
-      });
-    } else {
-      setSoloStreak(0);
-      setSoloMisses((prev) => prev + 1);
-    }
-    setLastSoloDelta(deltaScore);
-  };
+  // Refs para ter os valores exatos no auto-save ao fim de cada jogatina
+  const statsRef = useRef({
+    score: 0,
+    streak: 0,
+    maxStreak: 0,
+    hits: 0,
+    misses: 0,
+  });
 
-  const handleSaveSessionToProfile = async () => {
-    if (soloHits + soloMisses === 0) return;
-    const gameMeta = MINIGAMES_CATALOG.find((g) => g.id === selectedGame);
-    const result = await recordCompletedMatch({
-      mode: "solo",
-      gameId: selectedGame,
-      gameTitle: gameMeta ? gameMeta.title : selectedGame,
-      score: soloScore,
-      hits: soloHits,
-      misses: soloMisses,
-      maxStreak: soloMaxStreak,
-    });
+  const commitCurrentRoundToDatabase = async (
+    snapScore: number,
+    snapHits: number,
+    snapMisses: number,
+    snapMaxStreak: number,
+    gameId: MinigameId
+  ) => {
+    if (snapHits + snapMisses === 0) return;
 
-    setSavedReport({
-      xpEarned: result.xpEarned,
-      unlockedIds: result.newlyUnlockedAchievements,
-    });
-
+    // Reseta os contadores da rodada atual imediatamente para a próxima jogatina
+    statsRef.current = {
+      score: 0,
+      streak: 0,
+      maxStreak: 0,
+      hits: 0,
+      misses: 0,
+    };
     setSoloScore(0);
     setSoloStreak(0);
     setSoloMaxStreak(0);
     setSoloHits(0);
     setSoloMisses(0);
     setLastSoloDelta(null);
+
+    setSavingXp(true);
+    try {
+      const gameMeta = MINIGAMES_CATALOG.find((g) => g.id === gameId);
+      const result = await recordCompletedMatch({
+        mode: "solo",
+        gameId,
+        gameTitle: gameMeta ? gameMeta.title : gameId,
+        score: snapScore,
+        hits: snapHits,
+        misses: snapMisses,
+        maxStreak: snapMaxStreak,
+      });
+
+      if (result.xpEarned > 0) {
+        setSavedReport({
+          xpEarned: result.xpEarned,
+          newTotalXp: result.profile?.totalXp,
+          unlockedIds: result.newlyUnlockedAchievements,
+        });
+      }
+    } finally {
+      setSavingXp(false);
+    }
+  };
+
+  const handleSoloScore = (deltaScore: number, isHit: boolean) => {
+    const nextScore = Math.max(0, statsRef.current.score + deltaScore);
+    const nextHits = isHit ? statsRef.current.hits + 1 : statsRef.current.hits;
+    const nextMisses = !isHit
+      ? statsRef.current.misses + 1
+      : statsRef.current.misses;
+    const nextStreak = isHit ? statsRef.current.streak + 1 : 0;
+    const nextMaxStreak = Math.max(statsRef.current.maxStreak, nextStreak);
+
+    statsRef.current = {
+      score: nextScore,
+      streak: nextStreak,
+      maxStreak: nextMaxStreak,
+      hits: nextHits,
+      misses: nextMisses,
+    };
+
+    setSoloScore(nextScore);
+    setSoloHits(nextHits);
+    setSoloMisses(nextMisses);
+    setSoloStreak(nextStreak);
+    setSoloMaxStreak(nextMaxStreak);
+    setLastSoloDelta(deltaScore);
+
+    // Ao completar uma jogatina (6 pares no Jogo da Bancada ou 5 desafios nos demais),
+    // salva automaticamente o XP no banco de dados e atualiza o perfil do usuário!
+    const targetActions =
+      selectedGame === "match" ? 6 : QUESTIONS_PER_SOLO_ROUND;
+
+    if (nextHits + nextMisses >= targetActions) {
+      setTimeout(() => {
+        commitCurrentRoundToDatabase(
+          nextScore,
+          nextHits,
+          nextMisses,
+          nextMaxStreak,
+          selectedGame
+        );
+      }, 600);
+    }
+  };
+
+  const handleSaveSessionToProfile = async () => {
+    const { score, hits, misses, maxStreak } = statsRef.current;
+    if (hits + misses === 0) return;
+    await commitCurrentRoundToDatabase(
+      score,
+      hits,
+      misses,
+      maxStreak,
+      selectedGame
+    );
   };
 
   const handleSwitchGame = async (newGameId: MinigameId) => {
-    if (soloHits >= 2) {
-      await handleSaveSessionToProfile();
-    } else {
-      setSoloScore(0);
-      setSoloStreak(0);
-      setSoloMaxStreak(0);
-      setSoloHits(0);
-      setSoloMisses(0);
-      setLastSoloDelta(null);
+    const { score, hits, misses, maxStreak } = statsRef.current;
+    if (hits + misses > 0) {
+      await commitCurrentRoundToDatabase(
+        score,
+        hits,
+        misses,
+        maxStreak,
+        selectedGame
+      );
     }
     setSelectedGame(newGameId);
+  };
+
+  const handleSwitchTab = async (newTab: "catalog" | "solo") => {
+    const { score, hits, misses, maxStreak } = statsRef.current;
+    if (activeTab === "solo" && newTab === "catalog" && hits + misses > 0) {
+      await commitCurrentRoundToDatabase(
+        score,
+        hits,
+        misses,
+        maxStreak,
+        selectedGame
+      );
+    }
+    setActiveTab(newTab);
   };
 
   const filteredComponents =
     categoryFilter === "all"
       ? ELECTRONIC_COMPONENTS
       : ELECTRONIC_COMPONENTS.filter((c) => c.category === categoryFilter);
+
+  const targetActions =
+    selectedGame === "match" ? 6 : QUESTIONS_PER_SOLO_ROUND;
+  const currentActions = soloHits + soloMisses;
 
   return (
     <div className="min-h-screen bg-[#111317] text-zinc-100 flex flex-col">
@@ -136,7 +227,7 @@ function PracticeContent() {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setActiveTab("catalog")}
+              onClick={() => handleSwitchTab("catalog")}
               className={`px-3.5 py-2 rounded-md text-xs font-semibold flex items-center gap-1.5 border transition-colors ${
                 activeTab === "catalog"
                   ? "bg-amber-500 text-zinc-950 border-amber-400 font-bold"
@@ -147,14 +238,14 @@ function PracticeContent() {
             </button>
             <button
               type="button"
-              onClick={() => setActiveTab("solo")}
+              onClick={() => handleSwitchTab("solo")}
               className={`px-3.5 py-2 rounded-md text-xs font-semibold flex items-center gap-1.5 border transition-colors ${
                 activeTab === "solo"
                   ? "bg-[#0047B6] text-white border-[#0057E0] font-bold"
                   : "bg-[#0C0E12] text-zinc-300 border-[#2A303C] hover:text-white"
               }`}
             >
-              <Gamepad2 className="w-3.5 h-3.5" /> Treino Solo (+XP)
+              <Gamepad2 className="w-3.5 h-3.5" /> Treino Solo (+XP Automático)
             </button>
           </div>
         </div>
@@ -164,7 +255,8 @@ function PracticeContent() {
           <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between flex-wrap gap-2 bg-[#181B20] border border-[#2A303C] rounded-lg px-4 py-3">
               <span className="text-xs font-mono uppercase tracking-wider text-zinc-400 font-semibold">
-                Simbologia Normalizada (PCI / IEC / ANSI) — {filteredComponents.length} itens
+                Simbologia Normalizada (PCI / IEC / ANSI) —{" "}
+                {filteredComponents.length} itens
               </span>
 
               <div className="flex items-center gap-1.5 flex-wrap">
@@ -236,7 +328,7 @@ function PracticeContent() {
           </div>
         )}
 
-        {/* ABA 2: TREINO INDIVIDUAL COM REGISTRO DE XP E CONQUISTAS */}
+        {/* ABA 2: TREINO INDIVIDUAL COM ATUALIZAÇÃO AUTOMÁTICA DE XP A CADA JOGATINA */}
         {activeTab === "solo" && (
           <div className="flex flex-col gap-4">
             <div className="bg-[#181B20] border border-[#2A303C] rounded-lg p-3 flex items-center justify-between flex-wrap gap-3">
@@ -258,6 +350,9 @@ function PracticeContent() {
               </div>
 
               <div className="flex items-center gap-2 flex-wrap">
+                <span className="px-2.5 py-1 rounded bg-[#0C0E12] border border-[#0057E0]/60 text-blue-300 text-xs font-mono font-bold">
+                  Jogatina: {currentActions}/{targetActions}
+                </span>
                 <span className="px-2.5 py-1 rounded bg-[#0C0E12] border border-[#2A303C] text-emerald-400 text-xs font-mono font-bold">
                   Acertos: {soloHits}
                 </span>
@@ -288,21 +383,31 @@ function PracticeContent() {
                   )}
                 </span>
 
-                {soloHits + soloMisses > 0 && (
+                {currentActions > 0 && (
                   <button
                     type="button"
+                    disabled={savingXp}
                     onClick={handleSaveSessionToProfile}
-                    className="px-3 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 transition-colors"
-                    title="Registrar pontuação desta sessão no seu Perfil e Ranking Global"
+                    className="px-3 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-1.5 transition-colors"
+                    title="Encerrar jogatina atual e salvar XP imediatamente"
                   >
                     <Save className="w-3.5 h-3.5" />
-                    <span>Salvar XP no Perfil</span>
+                    <span>
+                      {savingXp ? "Salvando..." : "Finalizar & Salvar XP"}
+                    </span>
                   </button>
                 )}
 
                 <button
                   type="button"
                   onClick={() => {
+                    statsRef.current = {
+                      score: 0,
+                      streak: 0,
+                      maxStreak: 0,
+                      hits: 0,
+                      misses: 0,
+                    };
                     setSoloScore(0);
                     setSoloStreak(0);
                     setSoloMaxStreak(0);
@@ -324,8 +429,11 @@ function PracticeContent() {
                   <div className="flex items-center gap-2 text-emerald-300 font-mono text-xs font-bold">
                     <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                     <span>
-                      SESSÃO REGISTRADA NO PERFIL E RANKING GLOBAL: +
-                      {savedReport.xpEarned} XP ACUMULADOS!
+                      FIM DA JOGATINA: +{savedReport.xpEarned} XP SALVOS NO
+                      BANCO DE DADOS E NO PERFIL
+                      {savedReport.newTotalXp
+                        ? ` (TOTAL: ${savedReport.newTotalXp.toLocaleString("pt-BR")} XP)`
+                        : "!"}
                     </span>
                   </div>
                   {savedReport.unlockedIds.length > 0 && (
