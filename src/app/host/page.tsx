@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { QRCodeSVG } from "qrcode.react";
@@ -13,12 +13,17 @@ import {
 import {
   GameRoom,
   PlayerState,
+  SESSION_DURATION_OPTIONS,
+  formatDurationCompact,
+  formatDurationLabel,
   createRoom,
   subscribeToRoom,
+  updateRoomDuration,
   startRoomGame,
   finishRoomGame,
   switchMinigameInRoom,
   recordPlayerAction,
+  pruneRoomEvents,
 } from "@/lib/roomService";
 import { db, isFirebaseConfigured } from "@/lib/firebase";
 import { Footer } from "@/components/Footer";
@@ -53,6 +58,12 @@ function HostContent() {
   const [remainingSec, setRemainingSec] = useState<number>(0);
   const [copied, setCopied] = useState<boolean>(false);
   const [originUrl, setOriginUrl] = useState<string>("");
+  const pruningEventsRef = useRef<boolean>(false);
+
+  const roomPin = room?.pin;
+  const roomStatus = room?.status;
+  const roomEndsAt = room?.endsAt;
+  const roomEvents = room?.events;
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -61,32 +72,54 @@ function HostContent() {
   }, []);
 
   useEffect(() => {
-    if (!room?.pin) return;
-    const unsub = subscribeToRoom(room.pin, (updated) => {
+    if (!roomPin) return;
+    const unsub = subscribeToRoom(roomPin, (updated) => {
       if (updated) {
         setRoom(updated);
       }
     });
     return () => unsub();
-  }, [room?.pin]);
+  }, [roomPin]);
 
   useEffect(() => {
-    if (!room || room.status !== "PLAYING" || !room.endsAt) return;
+    if (!roomPin || roomStatus !== "PLAYING" || !roomEndsAt) return;
 
+    let finishTriggered = false;
     const tick = () => {
-      const diff = Math.max(0, Math.ceil((room.endsAt! - Date.now()) / 1000));
+      const diff = Math.max(0, Math.ceil((roomEndsAt - Date.now()) / 1000));
       setRemainingSec(diff);
-      if (diff <= 0) {
-        finishRoomGame(room.pin);
+      if (diff <= 0 && !finishTriggered) {
+        finishTriggered = true;
+        finishRoomGame(roomPin);
       }
     };
     tick();
     const interval = setInterval(tick, 500);
     return () => clearInterval(interval);
-  }, [room]);
+  }, [roomPin, roomStatus, roomEndsAt]);
 
   useEffect(() => {
-    if (room?.status === "FINISHED") {
+    if (!roomPin || roomStatus !== "PLAYING" || !roomEvents) return;
+    if (pruningEventsRef.current) return;
+
+    const entries = Object.entries(roomEvents);
+    if (entries.length <= 30) return;
+
+    const idsToRemove = entries
+      .sort(([, a], [, b]) => (b.timestamp || 0) - (a.timestamp || 0))
+      .slice(20)
+      .map(([eventKey]) => eventKey);
+
+    if (idsToRemove.length === 0) return;
+
+    pruningEventsRef.current = true;
+    pruneRoomEvents(roomPin, idsToRemove).finally(() => {
+      pruningEventsRef.current = false;
+    });
+  }, [roomPin, roomStatus, roomEvents]);
+
+  useEffect(() => {
+    if (roomStatus === "FINISHED") {
       try {
         confetti({
           particleCount: 90,
@@ -97,16 +130,25 @@ function HostContent() {
         // Ignora caso canvas não esteja pronto
       }
     }
-  }, [room?.status]);
+  }, [roomStatus]);
 
   const handleCreateRoom = async () => {
     const created = await createRoom(selectedGame, durationSec);
     setRoom(created);
   };
 
+  const handleUpdateLobbyDuration = async (newDurationSec: number) => {
+    setDurationSec(newDurationSec);
+    if (!room || room.status !== "LOBBY") return;
+    setRoom((prev) =>
+      prev ? { ...prev, durationSec: newDurationSec } : prev
+    );
+    await updateRoomDuration(room.pin, newDurationSec);
+  };
+
   const handleStartGame = async () => {
     if (!room) return;
-    await startRoomGame(room.pin);
+    await startRoomGame(room.pin, room.durationSec);
   };
 
   const handleStopGame = async () => {
@@ -116,11 +158,16 @@ function HostContent() {
 
   const handleSwitchMinigame = async (
     newGameId: MinigameId,
-    resetScores: boolean
+    resetScores: boolean,
+    targetDurationSec?: number
   ) => {
     if (!room) return;
+    const nextDuration =
+      targetDurationSec ??
+      (room.status === "LOBBY" ? room.durationSec : durationSec);
     setSelectedGame(newGameId);
-    await switchMinigameInRoom(room.pin, newGameId, durationSec, resetScores);
+    setDurationSec(nextDuration);
+    await switchMinigameInRoom(room.pin, newGameId, nextDuration, resetScores);
   };
 
   const handleAddDemoBots = async () => {
@@ -165,24 +212,29 @@ function HostContent() {
     }
   };
 
+  const botIdsKey = Object.values(room?.players || {})
+    .filter((p) => p.id.startsWith("bot_"))
+    .map((p) => p.id)
+    .sort()
+    .join(",");
+
   useEffect(() => {
-    if (!room || room.status !== "PLAYING") return;
-    const playersList = Object.values(room.players || {});
-    const bots = playersList.filter((p) => p.id.startsWith("bot_"));
-    if (bots.length === 0) return;
+    if (!roomPin || roomStatus !== "PLAYING" || !botIdsKey) return;
+    const botIds = botIdsKey.split(",").filter(Boolean);
+    if (botIds.length === 0) return;
 
     const timer = setInterval(() => {
-      const randomBot = bots[Math.floor(Math.random() * bots.length)];
+      const randomBotId = botIds[Math.floor(Math.random() * botIds.length)];
       const isHit = Math.random() > 0.2;
       const pts = isHit ? Math.floor(50 + Math.random() * 65) : -40;
       const msg = isHit
         ? "Identificou componente com precisão"
         : "Curto-circuito na bancada (-40 pts)";
-      recordPlayerAction(room.pin, randomBot.id, pts, isHit, msg);
+      recordPlayerAction(roomPin, randomBotId, pts, isHit, msg);
     }, 2600);
 
     return () => clearInterval(timer);
-  }, [room]);
+  }, [roomPin, roomStatus, botIdsKey]);
 
   const handleExportCSV = () => {
     if (!room) return;
@@ -342,18 +394,18 @@ function HostContent() {
                   <span className="text-xs font-mono uppercase text-zinc-400 flex items-center gap-1.5 mr-1">
                     <Clock className="w-3.5 h-3.5 text-amber-400" /> Tempo:
                   </span>
-                  {[90, 120, 180, 240].map((sec) => (
+                  {SESSION_DURATION_OPTIONS.map((opt) => (
                     <button
-                      key={sec}
+                      key={opt.seconds}
                       type="button"
-                      onClick={() => setDurationSec(sec)}
+                      onClick={() => setDurationSec(opt.seconds)}
                       className={`px-3 py-1.5 rounded-md text-xs font-mono font-bold border transition-colors ${
-                        durationSec === sec
+                        durationSec === opt.seconds
                           ? "bg-amber-500 text-zinc-950 border-amber-400"
                           : "bg-[#0C0E12] text-zinc-300 border-[#2A303C] hover:border-zinc-500"
                       }`}
                     >
-                      {sec}s ({sec / 60}m)
+                      {opt.shortLabel}
                     </button>
                   ))}
                 </div>
@@ -381,7 +433,7 @@ function HostContent() {
                   CREDENCIAL DE ACESSO
                 </span>
                 <span className="font-mono text-xs text-amber-400 font-bold">
-                  {room.durationSec}s
+                  {formatDurationLabel(room.durationSec)}
                 </span>
               </div>
 
@@ -498,26 +550,53 @@ function HostContent() {
                 )}
               </div>
 
-              {/* Alternar módulo na mesma sala */}
-              <div className="bg-[#181B20] border border-[#2A303C] rounded-lg p-4">
-                <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block mb-2.5">
-                  Alternar Módulo (Mantém PIN {room.pin}):
-                </span>
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                  {MINIGAMES_CATALOG.map((mg) => (
-                    <button
-                      key={mg.id}
-                      type="button"
-                      onClick={() => handleSwitchMinigame(mg.id, true)}
-                      className={`p-2 rounded-md border text-left text-xs font-semibold transition-colors ${
-                        room.minigameId === mg.id
-                          ? "bg-[#0047B6]/25 border-[#0047B6] text-white"
-                          : "bg-[#0C0E12] border-[#262B35] text-zinc-400 hover:text-zinc-200"
-                      }`}
-                    >
-                      {mg.title}
-                    </button>
-                  ))}
+              {/* Alternar módulo e tempo na mesma sala */}
+              <div className="bg-[#181B20] border border-[#2A303C] rounded-lg p-4 space-y-4">
+                <div>
+                  <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block mb-2.5">
+                    Alternar Módulo (Mantém PIN {room.pin}):
+                  </span>
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                    {MINIGAMES_CATALOG.map((mg) => (
+                      <button
+                        key={mg.id}
+                        type="button"
+                        onClick={() =>
+                          handleSwitchMinigame(mg.id, true, room.durationSec)
+                        }
+                        className={`p-2 rounded-md border text-left text-xs font-semibold transition-colors ${
+                          room.minigameId === mg.id
+                            ? "bg-[#0047B6]/25 border-[#0047B6] text-white"
+                            : "bg-[#0C0E12] border-[#262B35] text-zinc-400 hover:text-zinc-200"
+                        }`}
+                      >
+                        {mg.title}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-[#242933]">
+                  <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 font-semibold flex items-center gap-1.5 mb-2.5">
+                    <Clock className="w-3.5 h-3.5 text-amber-400" />
+                    Duração da Rodada (Mantém PIN {room.pin}):
+                  </span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {SESSION_DURATION_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.seconds}
+                        type="button"
+                        onClick={() => handleUpdateLobbyDuration(opt.seconds)}
+                        className={`px-2.5 py-1.5 rounded-md text-xs font-mono font-bold border transition-colors ${
+                          room.durationSec === opt.seconds
+                            ? "bg-amber-500 text-zinc-950 border-amber-400"
+                            : "bg-[#0C0E12] text-zinc-300 border-[#2A303C] hover:border-zinc-500"
+                        }`}
+                      >
+                        {opt.shortLabel}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
@@ -532,7 +611,8 @@ function HostContent() {
               <div className="flex items-center justify-between flex-wrap gap-3 pb-4 mb-4 border-b border-[#242933]">
                 <div>
                   <span className="text-[11px] font-mono uppercase tracking-wider text-emerald-400 font-semibold block">
-                    RODADA EM EXECUÇÃO • PIN {room.pin}
+                    RODADA EM EXECUÇÃO • PIN {room.pin} •{" "}
+                    {formatDurationCompact(room.durationSec)}
                   </span>
                   <h2 className="text-xl font-bold text-white mt-0.5">
                     {currentGameMeta.title}
@@ -679,7 +759,8 @@ function HostContent() {
           <div className="flex flex-col gap-5">
             <div className="bg-[#181B20] border border-[#2A303C] rounded-lg p-6 text-center">
               <span className="font-mono text-xs uppercase tracking-wider text-amber-400 font-bold">
-                RELATÓRIO FINAL • SALA {room.pin}
+                RELATÓRIO FINAL • SALA {room.pin} •{" "}
+                {formatDurationCompact(room.durationSec)}
               </span>
               <h2 className="text-2xl font-bold text-white mt-1">
                 Classificação — {currentGameMeta.title}
@@ -756,10 +837,13 @@ function HostContent() {
               <div className="flex items-center justify-center gap-3 flex-wrap mt-6">
                 <button
                   type="button"
-                  onClick={() => handleSwitchMinigame(room.minigameId, true)}
+                  onClick={() =>
+                    handleSwitchMinigame(room.minigameId, true, durationSec)
+                  }
                   className="px-4 py-2.5 rounded-md bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs uppercase tracking-wider flex items-center gap-1.5"
                 >
-                  <RefreshCw className="w-3.5 h-3.5" /> Repetir Módulo
+                  <RefreshCw className="w-3.5 h-3.5" /> Repetir Módulo (
+                  {formatDurationCompact(durationSec)})
                 </button>
                 <button
                   type="button"
@@ -773,26 +857,53 @@ function HostContent() {
             </div>
 
             {/* Selecionar próximo módulo */}
-            <div className="bg-[#181B20] border border-[#2A303C] rounded-lg p-4">
-              <span className="text-xs font-mono uppercase text-zinc-400 font-semibold block mb-2.5">
-                Iniciar próximo módulo na mesma sala (PIN {room.pin}):
-              </span>
-              <div className="grid grid-cols-1 sm:grid-cols-5 gap-2.5">
-                {MINIGAMES_CATALOG.map((mg) => (
-                  <button
-                    key={mg.id}
-                    type="button"
-                    onClick={() => handleSwitchMinigame(mg.id, true)}
-                    className="p-3 rounded-md bg-[#0C0E12] hover:bg-[#14181F] border border-[#262B35] hover:border-amber-400 text-left transition-colors"
-                  >
-                    <span className="text-[10px] font-mono text-amber-400 uppercase font-semibold block">
-                      {mg.badge}
-                    </span>
-                    <p className="text-xs font-bold text-white mt-1">
-                      {mg.title}
-                    </p>
-                  </button>
-                ))}
+            <div className="bg-[#181B20] border border-[#2A303C] rounded-lg p-4 space-y-4">
+              <div className="pb-3 border-b border-[#242933] flex items-center justify-between flex-wrap gap-2">
+                <span className="text-xs font-mono uppercase text-zinc-400 font-semibold flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-amber-400" />
+                  Tempo da próxima rodada:
+                </span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {SESSION_DURATION_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.seconds}
+                      type="button"
+                      onClick={() => setDurationSec(opt.seconds)}
+                      className={`px-2.5 py-1.5 rounded-md text-xs font-mono font-bold border transition-colors ${
+                        durationSec === opt.seconds
+                          ? "bg-amber-500 text-zinc-950 border-amber-400"
+                          : "bg-[#0C0E12] text-zinc-300 border-[#2A303C] hover:border-zinc-500"
+                      }`}
+                    >
+                      {opt.shortLabel}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <span className="text-xs font-mono uppercase text-zinc-400 font-semibold block mb-2.5">
+                  Iniciar próximo módulo na mesma sala (PIN {room.pin}):
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-5 gap-2.5">
+                  {MINIGAMES_CATALOG.map((mg) => (
+                    <button
+                      key={mg.id}
+                      type="button"
+                      onClick={() =>
+                        handleSwitchMinigame(mg.id, true, durationSec)
+                      }
+                      className="p-3 rounded-md bg-[#0C0E12] hover:bg-[#14181F] border border-[#262B35] hover:border-amber-400 text-left transition-colors"
+                    >
+                      <span className="text-[10px] font-mono text-amber-400 uppercase font-semibold block">
+                        {mg.badge}
+                      </span>
+                      <p className="text-xs font-bold text-white mt-1">
+                        {mg.title}
+                      </p>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </div>

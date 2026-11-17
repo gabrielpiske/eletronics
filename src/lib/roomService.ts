@@ -48,8 +48,53 @@ export interface GameRoom {
   events?: Record<string, RoomEvent>;
 }
 
+export interface SessionDurationOption {
+  seconds: number;
+  label: string;
+  shortLabel: string;
+  tier: "standard" | "extended";
+}
+
+export const SESSION_DURATION_OPTIONS: SessionDurationOption[] = [
+  { seconds: 90, label: "1m30", shortLabel: "1m30 (90s)", tier: "standard" },
+  { seconds: 120, label: "2 min", shortLabel: "2m (120s)", tier: "standard" },
+  { seconds: 180, label: "3 min", shortLabel: "3m (180s)", tier: "standard" },
+  { seconds: 240, label: "4 min", shortLabel: "4m (240s)", tier: "standard" },
+  { seconds: 300, label: "5 min", shortLabel: "5m (300s)", tier: "extended" },
+  { seconds: 420, label: "7 min", shortLabel: "7m (420s)", tier: "extended" },
+  { seconds: 600, label: "10 min", shortLabel: "10m (600s)", tier: "extended" },
+];
+
+export function formatDurationCompact(durationSec: number): string {
+  const safeSec = Math.max(0, Math.round(durationSec));
+  const mins = Math.floor(safeSec / 60);
+  const secs = safeSec % 60;
+  if (mins === 0) return `${secs}s`;
+  if (secs === 0) return `${mins} min`;
+  return `${mins}m${String(secs).padStart(2, "0")}`;
+}
+
+export function formatDurationLabel(durationSec: number): string {
+  const safeSec = Math.max(0, Math.round(durationSec));
+  return `${formatDurationCompact(safeSec)} (${safeSec}s)`;
+}
+
 const LOCAL_STORAGE_PREFIX = "senai_arena_room_";
 const CHANNEL_NAME = "senai_arena_sync_channel";
+const MAX_LOCAL_ROOM_EVENTS = 24;
+
+function trimRoomEvents(
+  events: Record<string, RoomEvent> | undefined,
+  maxCount = MAX_LOCAL_ROOM_EVENTS
+): Record<string, RoomEvent> {
+  if (!events) return {};
+  const entries = Object.entries(events);
+  if (entries.length <= maxCount) return events;
+  const kept = entries
+    .sort(([, a], [, b]) => (b.timestamp || 0) - (a.timestamp || 0))
+    .slice(0, maxCount);
+  return Object.fromEntries(kept);
+}
 
 async function withDbTimeout<T>(
   promise: Promise<T>,
@@ -230,13 +275,53 @@ export async function joinRoom(
   return playerState;
 }
 
-export async function startRoomGame(pin: string): Promise<void> {
+export async function updateRoomDuration(
+  pin: string,
+  durationSec: number
+): Promise<void> {
+  const cleanPin = pin.trim();
+  const safeDuration = Math.max(30, Math.round(durationSec));
+
+  const localRoom = getLocalRoom(cleanPin);
+  if (localRoom && localRoom.status === "LOBBY") {
+    localRoom.durationSec = safeDuration;
+    saveLocalRoom(localRoom);
+  }
+
+  if (isFirebaseConfigured && db) {
+    try {
+      const statusSnap = await withDbTimeout(
+        get(ref(db, `rooms/${cleanPin}/status`)),
+        2000
+      );
+      if (statusSnap.exists() && statusSnap.val() === "LOBBY") {
+        await withDbTimeout(
+          update(ref(db, `rooms/${cleanPin}`), {
+            durationSec: safeDuration,
+          })
+        );
+      }
+    } catch {
+      // Fallback local já aplicado
+    }
+  }
+}
+
+export async function startRoomGame(
+  pin: string,
+  overrideDurationSec?: number
+): Promise<void> {
   const now = Date.now();
   const localRoom = getLocalRoom(pin);
   if (localRoom) {
+    const activeDuration =
+      overrideDurationSec !== undefined
+        ? Math.max(30, Math.round(overrideDurationSec))
+        : localRoom.durationSec;
+    localRoom.durationSec = activeDuration;
     localRoom.status = "PLAYING";
     localRoom.startedAt = now;
-    localRoom.endsAt = now + localRoom.durationSec * 1000;
+    localRoom.endsAt = now + activeDuration * 1000;
     localRoom.events = {};
     if (localRoom.players) {
       Object.keys(localRoom.players).forEach((pid) => {
@@ -262,6 +347,10 @@ export async function startRoomGame(pin: string): Promise<void> {
       const snap = await withDbTimeout(get(ref(db, `rooms/${pin}`)));
       if (!snap.exists()) return;
       const room = snap.val() as GameRoom;
+      const activeDuration =
+        overrideDurationSec !== undefined
+          ? Math.max(30, Math.round(overrideDurationSec))
+          : room.durationSec;
       const players = room.players || {};
       Object.keys(players).forEach((pid) => {
         players[pid] = {
@@ -279,9 +368,10 @@ export async function startRoomGame(pin: string): Promise<void> {
       });
       await withDbTimeout(
         update(ref(db, `rooms/${pin}`), {
+          durationSec: activeDuration,
           status: "PLAYING",
           startedAt: now,
-          endsAt: now + room.durationSec * 1000,
+          endsAt: now + activeDuration * 1000,
           players,
           events: {},
         })
@@ -452,22 +542,30 @@ export async function recordPlayerAction(
       timestamp: now,
     };
 
+    localRoom.events = trimRoomEvents(localRoom.events);
     saveLocalRoom(localRoom);
   }
 
   if (isFirebaseConfigured && db) {
     try {
-      const roomRef = ref(db, `rooms/${pin}`);
-      const roomSnap = await withDbTimeout(get(roomRef), 2000);
-      if (!roomSnap.exists()) return;
-      const room = roomSnap.val() as GameRoom;
-      if (room.status !== "PLAYING") return;
+      const [statusSnap, startedAtSnap, playerSnap] = await withDbTimeout(
+        Promise.all([
+          get(ref(db, `rooms/${pin}/status`)),
+          get(ref(db, `rooms/${pin}/startedAt`)),
+          get(ref(db, `rooms/${pin}/players/${playerId}`)),
+        ]),
+        2500
+      );
+      if (!statusSnap.exists() || statusSnap.val() !== "PLAYING") return;
+      if (!playerSnap.exists()) return;
 
-      const p = room.players?.[playerId];
-      if (!p) return;
+      const roomStartedAt = startedAtSnap.exists()
+        ? (startedAtSnap.val() as number | null)
+        : null;
+      const p = playerSnap.val() as PlayerState;
 
       const isCurrentRound = Boolean(
-        room.startedAt && p.roundStartedAt === room.startedAt
+        roomStartedAt && p.roundStartedAt === roomStartedAt
       );
       const baseScore = isCurrentRound ? p.score || 0 : 0;
       const baseStreak = isCurrentRound ? p.streak || 0 : 0;
@@ -486,7 +584,7 @@ export async function recordPlayerAction(
         hits: isHit ? baseHits + 1 : baseHits,
         misses: !isHit ? baseMisses + 1 : baseMisses,
         level: newLevel ?? baseLevel,
-        roundStartedAt: room.startedAt || now,
+        roundStartedAt: roomStartedAt || now,
         lastAction: actionMessage,
         updatedAt: now,
       };
@@ -529,6 +627,43 @@ export async function recordPlayerAction(
       }
     } catch {
       // Fallback local já atualizado
+    }
+  }
+}
+
+export async function pruneRoomEvents(
+  pin: string,
+  eventIdsToRemove: string[]
+): Promise<void> {
+  if (!eventIdsToRemove.length) return;
+  const cleanPin = pin.trim();
+
+  const localRoom = getLocalRoom(cleanPin);
+  if (localRoom?.events) {
+    let changed = false;
+    for (const id of eventIdsToRemove) {
+      if (id in localRoom.events) {
+        delete localRoom.events[id];
+        changed = true;
+      }
+    }
+    if (changed) {
+      saveLocalRoom(localRoom);
+    }
+  }
+
+  if (isFirebaseConfigured && db) {
+    try {
+      const updates: Record<string, null> = {};
+      for (const id of eventIdsToRemove) {
+        updates[id] = null;
+      }
+      await withDbTimeout(
+        update(ref(db, `rooms/${cleanPin}/events`), updates),
+        2500
+      );
+    } catch {
+      // Silencioso: próxima tentativa ocorrerá se ainda houver excesso
     }
   }
 }

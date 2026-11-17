@@ -6,6 +6,7 @@ import Link from "next/link";
 import { MINIGAMES_CATALOG } from "@/data/electronicsData";
 import {
   GameRoom,
+  formatDurationCompact,
   getOrCreatePlayerId,
   joinRoom,
   subscribeToRoom,
@@ -109,20 +110,26 @@ export default function PlayRoomPage() {
     return () => unsub();
   }, [pin]);
 
+  const roomPin = room?.pin;
+  const roomStatus = room?.status;
+  const roomEndsAt = room?.endsAt;
+
   useEffect(() => {
-    if (!room || room.status !== "PLAYING" || !room.endsAt) return;
+    if (!roomPin || roomStatus !== "PLAYING" || !roomEndsAt) return;
     setMatchSummary(null);
+    let finishTriggered = false;
     const tick = () => {
-      const diff = Math.max(0, Math.ceil((room.endsAt! - Date.now()) / 1000));
+      const diff = Math.max(0, Math.ceil((roomEndsAt - Date.now()) / 1000));
       setRemainingSec(diff);
-      if (diff <= 0) {
-        finishRoomGame(room.pin);
+      if (diff <= 0 && !finishTriggered) {
+        finishTriggered = true;
+        finishRoomGame(roomPin);
       }
     };
     tick();
     const interval = setInterval(tick, 500);
     return () => clearInterval(interval);
-  }, [room]);
+  }, [roomPin, roomStatus, roomEndsAt]);
 
   // Reset local stats when a new round starts or returns to lobby
   useEffect(() => {
@@ -494,7 +501,11 @@ export default function PlayRoomPage() {
             <h2 className="text-lg font-bold text-white mt-1">
               {currentMeta.title}
             </h2>
-            <p className="text-xs text-zinc-400 mt-2 leading-relaxed">
+            <div className="inline-flex items-center gap-1.5 mt-2 px-2.5 py-1 rounded bg-[#0C0E12] border border-[#2A303C] text-[11px] font-mono text-amber-400 font-bold">
+              <Clock className="w-3.5 h-3.5" />
+              Duração da rodada: {formatDurationCompact(room.durationSec)}
+            </div>
+            <p className="text-xs text-zinc-400 mt-2.5 leading-relaxed">
               {currentMeta.howToPlay}
             </p>
           </div>
