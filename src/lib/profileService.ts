@@ -50,9 +50,38 @@ export interface UserProfile {
 
 const LOCAL_ACTIVE_USER_KEY = "senai_arena_v2_active_uid";
 const LOCAL_USERS_DB_KEY = "senai_arena_v2_users_db";
+const PROCESSED_ROUNDS_KEY = "senai_arena_v2_processed_rounds";
 const PROFILE_EVENT_NAME = "senai_profile_updated";
 // Caminho espelhado dentro de rooms/ para garantir permissão de escrita mesmo com regras V1
 const GLOBAL_PROFILES_DB_PATH = "rooms/global_profiles_v2/users";
+const inFlightRoundKeys = new Set<string>();
+
+function hasProcessedRoundKey(uid: string, roundKey: string): boolean {
+  if (typeof window === "undefined" || !roundKey) return false;
+  try {
+    const raw = localStorage.getItem(PROCESSED_ROUNDS_KEY);
+    if (!raw) return false;
+    const map = JSON.parse(raw) as Record<string, string[]>;
+    return Array.isArray(map[uid]) && map[uid].includes(roundKey);
+  } catch {
+    return false;
+  }
+}
+
+function markProcessedRoundKey(uid: string, roundKey: string): void {
+  if (typeof window === "undefined" || !roundKey) return;
+  try {
+    const raw = localStorage.getItem(PROCESSED_ROUNDS_KEY);
+    const map: Record<string, string[]> = raw ? JSON.parse(raw) : {};
+    const list = Array.isArray(map[uid]) ? map[uid] : [];
+    if (!list.includes(roundKey)) {
+      map[uid] = [roundKey, ...list].slice(0, 100);
+      localStorage.setItem(PROCESSED_ROUNDS_KEY, JSON.stringify(map));
+    }
+  } catch {
+    // ignore
+  }
+}
 
 /**
  * Remove qualquer propriedade `undefined` do objeto antes de enviar ao Firebase Realtime Database.
@@ -159,6 +188,7 @@ function normalizeProfile(
 
   const normalizedMatches: MatchRecord[] = rawMatches.map((m, idx) => ({
     id: m.id || `m_${Date.now()}_${idx}`,
+    ...(m.roundKey ? { roundKey: String(m.roundKey) } : {}),
     timestamp: Number(m.timestamp || m.playedAt || Date.now()),
     playedAt: Number(m.playedAt || m.timestamp || Date.now()),
     mode: m.mode === "room" ? "room" : "solo",
@@ -659,6 +689,7 @@ export function subscribeToActiveProfile(
 
 export async function recordCompletedMatch(params: {
   mode: "room" | "solo";
+  roundKey?: string;
   roomPin?: string;
   minigameId?: MinigameId;
   gameId?: string;
@@ -672,7 +703,20 @@ export async function recordCompletedMatch(params: {
   xpEarned: number;
   newlyUnlockedAchievements: string[];
 }> {
+  const cleanRoundKey = params.roundKey?.trim() || "";
+  if (cleanRoundKey && inFlightRoundKeys.has(cleanRoundKey)) {
+    return { profile: null, xpEarned: 0, newlyUnlockedAchievements: [] };
+  }
+  if (cleanRoundKey) {
+    inFlightRoundKeys.add(cleanRoundKey);
+  }
+
   try {
+    // Exige pelo menos 1 acerto válido e pontuação positiva na rodada para conceder XP
+    if (params.hits <= 0 || params.score <= 0) {
+      return { profile: null, xpEarned: 0, newlyUnlockedAchievements: [] };
+    }
+
     let uid = getActiveUid();
 
     // Se o usuário estiver logado no Firebase Auth mas o localStorage ainda não tinha o UID
@@ -708,8 +752,12 @@ export async function recordCompletedMatch(params: {
       return { profile: null, xpEarned: 0, newlyUnlockedAchievements: [] };
     }
 
+    if (cleanRoundKey && hasProcessedRoundKey(uid, cleanRoundKey)) {
+      return { profile: null, xpEarned: 0, newlyUnlockedAchievements: [] };
+    }
+
     const totalAttempts = params.hits + params.misses;
-    if (totalAttempts === 0 && params.score <= 0) {
+    if (totalAttempts === 0 || params.hits <= 0 || params.score <= 0) {
       return { profile: null, xpEarned: 0, newlyUnlockedAchievements: [] };
     }
 
@@ -718,6 +766,21 @@ export async function recordCompletedMatch(params: {
       "conveyor") as MinigameId;
 
     const profile = await getOrLoadUserProfile(uid);
+
+    // Impede duplicação caso a rodada já conste no histórico do perfil (ex.: F5 ou outra aba)
+    if (
+      cleanRoundKey &&
+      (hasProcessedRoundKey(uid, cleanRoundKey) ||
+        (profile.recentMatches || []).some((m) => m.roundKey === cleanRoundKey))
+    ) {
+      markProcessedRoundKey(uid, cleanRoundKey);
+      return { profile, xpEarned: 0, newlyUnlockedAchievements: [] };
+    }
+
+    if (cleanRoundKey) {
+      markProcessedRoundKey(uid, cleanRoundKey);
+    }
+
     const accuracyPct =
       totalAttempts > 0 ? Math.round((params.hits / totalAttempts) * 100) : 0;
 
@@ -737,6 +800,7 @@ export async function recordCompletedMatch(params: {
 
     const matchRecord: MatchRecord = {
       id: "m_" + nowTs + "_" + Math.random().toString(36).slice(2, 6),
+      ...(cleanRoundKey ? { roundKey: cleanRoundKey } : {}),
       timestamp: nowTs,
       playedAt: nowTs,
       mode: params.mode,
@@ -875,6 +939,10 @@ export async function recordCompletedMatch(params: {
   } catch (err) {
     console.error("Erro ao registrar partida e atualizar XP:", err);
     return { profile: null, xpEarned: 0, newlyUnlockedAchievements: [] };
+  } finally {
+    if (cleanRoundKey) {
+      inFlightRoundKeys.delete(cleanRoundKey);
+    }
   }
 }
 

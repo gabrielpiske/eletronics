@@ -56,7 +56,16 @@ export default function PlayRoomPage() {
   } | null>(null);
 
   const recordedRoundRef = useRef<string | null>(null);
-  const localStatsRef = useRef({
+  const activeRoundStartedAtRef = useRef<number | null>(null);
+  const localStatsRef = useRef<{
+    roundStartedAt: number | null;
+    score: number;
+    hits: number;
+    misses: number;
+    streak: number;
+    maxStreak: number;
+  }>({
+    roundStartedAt: null,
     score: 0,
     hits: 0,
     misses: 0,
@@ -115,51 +124,82 @@ export default function PlayRoomPage() {
     return () => clearInterval(interval);
   }, [room]);
 
-  // Reset local stats when a new round starts
+  // Reset local stats when a new round starts or returns to lobby
   useEffect(() => {
-    if (room?.status === "PLAYING") {
+    if (room?.status === "PLAYING" && room.startedAt) {
+      activeRoundStartedAtRef.current = room.startedAt;
+      if (localStatsRef.current.roundStartedAt !== room.startedAt) {
+        localStatsRef.current = {
+          roundStartedAt: room.startedAt,
+          score: 0,
+          hits: 0,
+          misses: 0,
+          streak: 0,
+          maxStreak: 0,
+        };
+      }
+      setMatchSummary(null);
+    } else if (room?.status === "LOBBY") {
+      activeRoundStartedAtRef.current = null;
       localStatsRef.current = {
+        roundStartedAt: null,
         score: 0,
         hits: 0,
         misses: 0,
         streak: 0,
         maxStreak: 0,
       };
+      setMatchSummary(null);
+    } else {
+      activeRoundStartedAtRef.current = null;
     }
   }, [room?.status, room?.startedAt, room?.minigameId]);
 
   // Automatically record match XP, history & achievements when the round finishes
   useEffect(() => {
-    if (!room || room.status !== "FINISHED" || !playerId) return;
+    if (!room || room.status !== "FINISHED" || !room.startedAt || !playerId) {
+      return;
+    }
     const myPlayer = room.players?.[playerId];
 
-    const roundKey = `${room.pin}_${room.minigameId}_${room.startedAt || 0}`;
+    const roundKey = `room_${room.pin}_${room.minigameId}_${room.startedAt}`;
     if (recordedRoundRef.current === roundKey) return;
     recordedRoundRef.current = roundKey;
+
+    const isRemoteFromThisRound = myPlayer?.roundStartedAt === room.startedAt;
+    const isLocalFromThisRound =
+      localStatsRef.current.roundStartedAt === room.startedAt;
+
+    const finalScore = Math.max(
+      isRemoteFromThisRound ? myPlayer?.score || 0 : 0,
+      isLocalFromThisRound ? localStatsRef.current.score : 0
+    );
+    const finalHits = Math.max(
+      isRemoteFromThisRound ? myPlayer?.hits || 0 : 0,
+      isLocalFromThisRound ? localStatsRef.current.hits : 0
+    );
+    const finalMisses = Math.max(
+      isRemoteFromThisRound ? myPlayer?.misses || 0 : 0,
+      isLocalFromThisRound ? localStatsRef.current.misses : 0
+    );
+    const finalMaxStreak = Math.max(
+      isRemoteFromThisRound ? myPlayer?.maxStreak || 0 : 0,
+      isLocalFromThisRound ? localStatsRef.current.maxStreak : 0
+    );
+
+    // Só registra partida e concede XP se o aluno realmente acertou questões nesta rodada
+    if (finalHits <= 0 || finalScore <= 0) {
+      setMatchSummary(null);
+      return;
+    }
 
     const currentMeta =
       MINIGAMES_CATALOG.find((g) => g.id === room.minigameId) ||
       MINIGAMES_CATALOG[0];
 
-    const finalScore = Math.max(
-      myPlayer?.score || 0,
-      localStatsRef.current.score
-    );
-    const finalHits = Math.max(
-      myPlayer?.hits || 0,
-      localStatsRef.current.hits
-    );
-    const finalMisses = Math.max(
-      myPlayer?.misses || 0,
-      localStatsRef.current.misses
-    );
-    const finalMaxStreak = Math.max(
-      myPlayer?.maxStreak || 0,
-      localStatsRef.current.maxStreak
-    );
-
     recordCompletedMatch({
       mode: "room",
+      roundKey,
       roomPin: room.pin,
       gameId: room.minigameId,
       gameTitle: currentMeta.title,
@@ -168,11 +208,13 @@ export default function PlayRoomPage() {
       misses: finalMisses,
       maxStreak: finalMaxStreak,
     }).then((res) => {
-      setMatchSummary({
-        xpEarned: res.xpEarned,
-        newTotalXp: res.profile?.totalXp,
-        unlockedIds: res.newlyUnlockedAchievements,
-      });
+      if (res.xpEarned > 0) {
+        setMatchSummary({
+          xpEarned: res.xpEarned,
+          newTotalXp: res.profile?.totalXp,
+          unlockedIds: res.newlyUnlockedAchievements,
+        });
+      }
     });
   }, [room, playerId]);
 
@@ -192,14 +234,28 @@ export default function PlayRoomPage() {
       actionMessage: string,
       newLevel?: number
     ) => {
+      const roundTs = activeRoundStartedAtRef.current;
+      if (!roundTs) return;
+
       setLastScoreDelta(deltaScore);
       setTimeout(() => {
         setLastScoreDelta((prev) => (prev === deltaScore ? null : prev));
       }, 1800);
 
-      const cur = localStatsRef.current;
+      const cur =
+        localStatsRef.current.roundStartedAt === roundTs
+          ? localStatsRef.current
+          : {
+              roundStartedAt: roundTs,
+              score: 0,
+              hits: 0,
+              misses: 0,
+              streak: 0,
+              maxStreak: 0,
+            };
       const nextStreak = isHit ? cur.streak + 1 : 0;
       localStatsRef.current = {
+        roundStartedAt: roundTs,
         score: Math.max(0, cur.score + deltaScore),
         hits: isHit ? cur.hits + 1 : cur.hits,
         misses: !isHit ? cur.misses + 1 : cur.misses,
@@ -315,6 +371,28 @@ export default function PlayRoomPage() {
     (a, b) => b.score - a.score
   );
   const myPlayer = room.players?.[playerId];
+  const isRemoteCurrentRound = Boolean(
+    room.startedAt && myPlayer?.roundStartedAt === room.startedAt
+  );
+  const isLocalCurrentRound = Boolean(
+    room.startedAt && localStatsRef.current.roundStartedAt === room.startedAt
+  );
+  const displayScore = Math.max(
+    isRemoteCurrentRound ? myPlayer?.score || 0 : 0,
+    isLocalCurrentRound ? localStatsRef.current.score : 0
+  );
+  const displayHits = Math.max(
+    isRemoteCurrentRound ? myPlayer?.hits || 0 : 0,
+    isLocalCurrentRound ? localStatsRef.current.hits : 0
+  );
+  const displayMisses = Math.max(
+    isRemoteCurrentRound ? myPlayer?.misses || 0 : 0,
+    isLocalCurrentRound ? localStatsRef.current.misses : 0
+  );
+  const displayMaxStreak = Math.max(
+    isRemoteCurrentRound ? myPlayer?.maxStreak || 0 : 0,
+    isLocalCurrentRound ? localStatsRef.current.maxStreak : 0
+  );
   const myRankIndex = sortedPlayers.findIndex((p) => p.id === playerId);
   const myRank = myRankIndex >= 0 ? myRankIndex + 1 : sortedPlayers.length;
   const rankInfo = activeProfile
@@ -373,7 +451,7 @@ export default function PlayRoomPage() {
               </span>
               <div className="flex items-center gap-1">
                 <span className="text-xs sm:text-sm font-mono font-bold text-amber-400">
-                  {myPlayer?.score || localStatsRef.current.score || 0}
+                  {displayScore}
                 </span>
                 {lastScoreDelta !== null && (
                   <span
@@ -457,7 +535,7 @@ export default function PlayRoomPage() {
               #{myRank}º Lugar
             </h2>
             <p className="text-xl font-mono font-bold text-amber-400 mt-1">
-              {Math.max(myPlayer?.score || 0, localStatsRef.current.score)} pts
+              {displayScore} pts
             </p>
 
             <div className="grid grid-cols-3 gap-2 mt-4 bg-[#0C0E12] border border-[#242933] rounded-md p-3">
@@ -466,7 +544,7 @@ export default function PlayRoomPage() {
                   ACERTOS
                 </span>
                 <span className="text-base font-mono font-bold text-emerald-400">
-                  {Math.max(myPlayer?.hits || 0, localStatsRef.current.hits)}
+                  {displayHits}
                 </span>
               </div>
               <div>
@@ -474,7 +552,7 @@ export default function PlayRoomPage() {
                   FALHAS
                 </span>
                 <span className="text-base font-mono font-bold text-red-400">
-                  {Math.max(myPlayer?.misses || 0, localStatsRef.current.misses)}
+                  {displayMisses}
                 </span>
               </div>
               <div>
@@ -482,11 +560,7 @@ export default function PlayRoomPage() {
                   COMBO MÁX
                 </span>
                 <span className="text-base font-mono font-bold text-amber-400">
-                  {Math.max(
-                    myPlayer?.maxStreak || 0,
-                    localStatsRef.current.maxStreak
-                  )}
-                  x
+                  {displayMaxStreak}x
                 </span>
               </div>
             </div>

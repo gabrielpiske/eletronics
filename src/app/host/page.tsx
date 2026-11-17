@@ -508,7 +508,7 @@ function HostContent() {
                     <button
                       key={mg.id}
                       type="button"
-                      onClick={() => handleSwitchMinigame(mg.id, false)}
+                      onClick={() => handleSwitchMinigame(mg.id, true)}
                       className={`p-2 rounded-md border text-left text-xs font-semibold transition-colors ${
                         room.minigameId === mg.id
                           ? "bg-[#0047B6]/25 border-[#0047B6] text-white"
@@ -756,7 +756,7 @@ function HostContent() {
               <div className="flex items-center justify-center gap-3 flex-wrap mt-6">
                 <button
                   type="button"
-                  onClick={() => handleSwitchMinigame(room.minigameId, false)}
+                  onClick={() => handleSwitchMinigame(room.minigameId, true)}
                   className="px-4 py-2.5 rounded-md bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs uppercase tracking-wider flex items-center gap-1.5"
                 >
                   <RefreshCw className="w-3.5 h-3.5" /> Repetir Módulo
@@ -782,7 +782,7 @@ function HostContent() {
                   <button
                     key={mg.id}
                     type="button"
-                    onClick={() => handleSwitchMinigame(mg.id, false)}
+                    onClick={() => handleSwitchMinigame(mg.id, true)}
                     className="p-3 rounded-md bg-[#0C0E12] hover:bg-[#14181F] border border-[#262B35] hover:border-amber-400 text-left transition-colors"
                   >
                     <span className="text-[10px] font-mono text-amber-400 uppercase font-semibold block">

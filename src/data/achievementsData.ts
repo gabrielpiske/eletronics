@@ -853,6 +853,7 @@ export const ACHIEVEMENTS_CATALOG: AchievementDef[] = [
 
 export interface MatchRecord {
   id: string;
+  roundKey?: string;
   timestamp: number;
   playedAt: number;
   mode: "room" | "solo";

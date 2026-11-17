@@ -22,6 +22,7 @@ export interface PlayerState {
   hits: number;
   misses: number;
   level: number;
+  roundStartedAt?: number | null;
   lastAction?: string;
   updatedAt: number;
 }
@@ -236,6 +237,23 @@ export async function startRoomGame(pin: string): Promise<void> {
     localRoom.status = "PLAYING";
     localRoom.startedAt = now;
     localRoom.endsAt = now + localRoom.durationSec * 1000;
+    localRoom.events = {};
+    if (localRoom.players) {
+      Object.keys(localRoom.players).forEach((pid) => {
+        localRoom.players![pid] = {
+          ...localRoom.players![pid],
+          score: 0,
+          streak: 0,
+          maxStreak: 0,
+          hits: 0,
+          misses: 0,
+          level: 1,
+          roundStartedAt: now,
+          lastAction: "Rodada iniciada!",
+          updatedAt: now,
+        };
+      });
+    }
     saveLocalRoom(localRoom);
   }
 
@@ -244,11 +262,28 @@ export async function startRoomGame(pin: string): Promise<void> {
       const snap = await withDbTimeout(get(ref(db, `rooms/${pin}`)));
       if (!snap.exists()) return;
       const room = snap.val() as GameRoom;
+      const players = room.players || {};
+      Object.keys(players).forEach((pid) => {
+        players[pid] = {
+          ...players[pid],
+          score: 0,
+          streak: 0,
+          maxStreak: 0,
+          hits: 0,
+          misses: 0,
+          level: 1,
+          roundStartedAt: now,
+          lastAction: "Rodada iniciada!",
+          updatedAt: now,
+        };
+      });
       await withDbTimeout(
         update(ref(db, `rooms/${pin}`), {
           status: "PLAYING",
           startedAt: now,
           endsAt: now + room.durationSec * 1000,
+          players,
+          events: {},
         })
       );
     } catch {
@@ -281,7 +316,7 @@ export async function switchMinigameInRoom(
   pin: string,
   newMinigameId: MinigameId,
   durationSec: number,
-  resetScores: boolean = false
+  resetScores: boolean = true
 ): Promise<void> {
   const localRoom = getLocalRoom(pin);
   if (localRoom) {
@@ -301,6 +336,7 @@ export async function switchMinigameInRoom(
         }
         localRoom.players![pid].streak = 0;
         localRoom.players![pid].level = 1;
+        localRoom.players![pid].roundStartedAt = null;
         localRoom.players![pid].lastAction = "Pronto!";
       });
     }
@@ -323,6 +359,7 @@ export async function switchMinigameInRoom(
             hits: 0,
             misses: 0,
             level: 1,
+            roundStartedAt: null,
             lastAction: "Pronto para o próximo desafio!",
           };
         });
@@ -332,6 +369,7 @@ export async function switchMinigameInRoom(
             ...players[pid],
             streak: 0,
             level: 1,
+            roundStartedAt: null,
             lastAction: "Novo minigame selecionado!",
           };
         });
@@ -364,19 +402,35 @@ export async function recordPlayerAction(
   const now = Date.now();
 
   const localRoom = getLocalRoom(pin);
-  if (localRoom && localRoom.players && localRoom.players[playerId]) {
+  if (
+    localRoom &&
+    localRoom.status === "PLAYING" &&
+    localRoom.players &&
+    localRoom.players[playerId]
+  ) {
     const p = localRoom.players[playerId];
-    const newStreak = isHit ? (p.streak || 0) + 1 : 0;
-    const newMaxStreak = Math.max(p.maxStreak || 0, newStreak);
+    const isCurrentRound = Boolean(
+      localRoom.startedAt && p.roundStartedAt === localRoom.startedAt
+    );
+    const baseScore = isCurrentRound ? p.score || 0 : 0;
+    const baseStreak = isCurrentRound ? p.streak || 0 : 0;
+    const baseMaxStreak = isCurrentRound ? p.maxStreak || 0 : 0;
+    const baseHits = isCurrentRound ? p.hits || 0 : 0;
+    const baseMisses = isCurrentRound ? p.misses || 0 : 0;
+    const baseLevel = isCurrentRound ? p.level || 1 : 1;
+
+    const newStreak = isHit ? baseStreak + 1 : 0;
+    const newMaxStreak = Math.max(baseMaxStreak, newStreak);
 
     localRoom.players[playerId] = {
       ...p,
-      score: Math.max(0, (p.score || 0) + deltaScore),
+      score: Math.max(0, baseScore + deltaScore),
       streak: newStreak,
       maxStreak: newMaxStreak,
-      hits: isHit ? (p.hits || 0) + 1 : p.hits || 0,
-      misses: !isHit ? (p.misses || 0) + 1 : p.misses || 0,
-      level: newLevel ?? p.level ?? 1,
+      hits: isHit ? baseHits + 1 : baseHits,
+      misses: !isHit ? baseMisses + 1 : baseMisses,
+      level: newLevel ?? baseLevel,
+      roundStartedAt: localRoom.startedAt || now,
       lastAction: actionMessage,
       updatedAt: now,
     };
@@ -390,7 +444,7 @@ export async function recordPlayerAction(
       message: actionMessage,
       type: !isHit
         ? "short_circuit"
-        : newLevel && newLevel > (p.level || 1)
+        : newLevel && newLevel > baseLevel
         ? "level"
         : newStreak >= 3
         ? "streak"
@@ -403,32 +457,48 @@ export async function recordPlayerAction(
 
   if (isFirebaseConfigured && db) {
     try {
-      const playerRef = ref(db, `rooms/${pin}/players/${playerId}`);
-      const snap = await withDbTimeout(get(playerRef), 2000);
-      if (!snap.exists()) return;
-      const p = snap.val() as PlayerState;
+      const roomRef = ref(db, `rooms/${pin}`);
+      const roomSnap = await withDbTimeout(get(roomRef), 2000);
+      if (!roomSnap.exists()) return;
+      const room = roomSnap.val() as GameRoom;
+      if (room.status !== "PLAYING") return;
 
-      const newStreak = isHit ? (p.streak || 0) + 1 : 0;
-      const newMaxStreak = Math.max(p.maxStreak || 0, newStreak);
+      const p = room.players?.[playerId];
+      if (!p) return;
+
+      const isCurrentRound = Boolean(
+        room.startedAt && p.roundStartedAt === room.startedAt
+      );
+      const baseScore = isCurrentRound ? p.score || 0 : 0;
+      const baseStreak = isCurrentRound ? p.streak || 0 : 0;
+      const baseMaxStreak = isCurrentRound ? p.maxStreak || 0 : 0;
+      const baseHits = isCurrentRound ? p.hits || 0 : 0;
+      const baseMisses = isCurrentRound ? p.misses || 0 : 0;
+      const baseLevel = isCurrentRound ? p.level || 1 : 1;
+
+      const newStreak = isHit ? baseStreak + 1 : 0;
+      const newMaxStreak = Math.max(baseMaxStreak, newStreak);
       const updatedPlayer: PlayerState = {
         ...p,
-        score: Math.max(0, (p.score || 0) + deltaScore),
+        score: Math.max(0, baseScore + deltaScore),
         streak: newStreak,
         maxStreak: newMaxStreak,
-        hits: isHit ? (p.hits || 0) + 1 : p.hits || 0,
-        misses: !isHit ? (p.misses || 0) + 1 : p.misses || 0,
-        level: newLevel ?? p.level ?? 1,
+        hits: isHit ? baseHits + 1 : baseHits,
+        misses: !isHit ? baseMisses + 1 : baseMisses,
+        level: newLevel ?? baseLevel,
+        roundStartedAt: room.startedAt || now,
         lastAction: actionMessage,
         updatedAt: now,
       };
 
+      const playerRef = ref(db, `rooms/${pin}/players/${playerId}`);
       await withDbTimeout(set(playerRef, updatedPlayer), 2000);
 
       if (
         isHit &&
         (newStreak >= 3 ||
           deltaScore >= 200 ||
-          (newLevel && newLevel > (p.level || 1)))
+          (newLevel && newLevel > baseLevel))
       ) {
         const evRef = push(ref(db, `rooms/${pin}/events`));
         const ev: RoomEvent = {
@@ -437,7 +507,7 @@ export async function recordPlayerAction(
           avatar: p.avatar,
           message: actionMessage,
           type:
-            newLevel && newLevel > (p.level || 1)
+            newLevel && newLevel > baseLevel
               ? "level"
               : newStreak >= 3
               ? "streak"
