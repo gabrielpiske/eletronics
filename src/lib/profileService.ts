@@ -12,7 +12,7 @@ import {
   signOut as firebaseSignOut,
   onAuthStateChanged,
 } from "firebase/auth";
-import { ref, get, set, onValue, off } from "firebase/database";
+import { ref, get, set, remove, onValue, off } from "firebase/database";
 import {
   ACHIEVEMENTS_CATALOG,
   AchievementDef,
@@ -20,6 +20,23 @@ import {
   getRankInfoByXp,
 } from "@/data/achievementsData";
 import { MINIGAMES_CATALOG, MinigameId } from "@/data/electronicsData";
+
+export type LeaderboardPeriod = "weekly" | "monthly" | "all";
+
+export interface LeaderboardMeta {
+  periodResetAt: number;
+  seasonNumber: number;
+  updatedAt: number;
+}
+
+export interface PeriodStats {
+  xp: number;
+  matches: number;
+  hits: number;
+  misses: number;
+  accuracyPct: number;
+  bestStreak: number;
+}
 
 export interface UserProfile {
   uid: string;
@@ -45,16 +62,221 @@ export interface UserProfile {
   achievements: Record<string, number>;
   unlockedAchievements: string[];
   recentMatches: MatchRecord[];
+  weekKey?: string;
+  weeklyXp?: number;
+  weeklyMatches?: number;
+  weeklyHits?: number;
+  weeklyMisses?: number;
+  weeklyBestStreak?: number;
+  monthKey?: string;
+  monthlyXp?: number;
+  monthlyMatches?: number;
+  monthlyHits?: number;
+  monthlyMisses?: number;
+  monthlyBestStreak?: number;
+  periodUpdatedAt?: number;
+  adminOverrideAt?: number;
   updatedAt: number;
 }
 
+export const ADMIN_FIXED_PIN = "01487654";
+
 const LOCAL_ACTIVE_USER_KEY = "senai_arena_v2_active_uid";
 const LOCAL_USERS_DB_KEY = "senai_arena_v2_users_db";
+const LOCAL_LEADERBOARD_META_KEY = "senai_arena_v2_leaderboard_meta";
 const PROCESSED_ROUNDS_KEY = "senai_arena_v2_processed_rounds";
 const PROFILE_EVENT_NAME = "senai_profile_updated";
 // Caminho espelhado dentro de rooms/ para garantir permissão de escrita mesmo com regras V1
 const GLOBAL_PROFILES_DB_PATH = "rooms/global_profiles_v2/users";
+const LEADERBOARD_META_DB_PATH = "rooms/global_profiles_v2/meta";
 const inFlightRoundKeys = new Set<string>();
+
+export function getCurrentWeekStartTs(now = Date.now()): number {
+  const d = new Date(now);
+  const day = d.getDay(); // 0 = Dom, 1 = Seg, ..., 6 = Sáb
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diffToMonday);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+export function getNextWeekResetTs(now = Date.now()): number {
+  return getCurrentWeekStartTs(now) + 7 * 24 * 60 * 60 * 1000;
+}
+
+export function getCurrentWeekKey(now = Date.now()): string {
+  const d = new Date(getCurrentWeekStartTs(now));
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `W_${y}-${m}-${day}`;
+}
+
+export function getCurrentMonthStartTs(now = Date.now()): number {
+  const d = new Date(now);
+  return new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0).getTime();
+}
+
+export function getCurrentMonthKey(now = Date.now()): string {
+  const d = new Date(now);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  return `M_${y}-${m}`;
+}
+
+export function getLocalLeaderboardMeta(): LeaderboardMeta {
+  if (typeof window === "undefined") {
+    return { periodResetAt: 0, seasonNumber: 1, updatedAt: 0 };
+  }
+  try {
+    const raw = localStorage.getItem(LOCAL_LEADERBOARD_META_KEY);
+    if (!raw) return { periodResetAt: 0, seasonNumber: 1, updatedAt: 0 };
+    const parsed = JSON.parse(raw) as Partial<LeaderboardMeta>;
+    return {
+      periodResetAt: Number(parsed.periodResetAt || 0),
+      seasonNumber: Math.max(1, Number(parsed.seasonNumber || 1)),
+      updatedAt: Number(parsed.updatedAt || 0),
+    };
+  } catch {
+    return { periodResetAt: 0, seasonNumber: 1, updatedAt: 0 };
+  }
+}
+
+function saveLocalLeaderboardMeta(meta: LeaderboardMeta, emitEvent = false) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(LOCAL_LEADERBOARD_META_KEY, JSON.stringify(meta));
+  if (emitEvent) {
+    window.dispatchEvent(new CustomEvent(PROFILE_EVENT_NAME));
+  }
+}
+
+export function getProfilePeriodStats(
+  profile: UserProfile,
+  period: LeaderboardPeriod,
+  meta?: LeaderboardMeta | null
+): PeriodStats {
+  if (period === "all") {
+    const totalAtt = (profile.totalHits || 0) + (profile.totalMisses || 0);
+    return {
+      xp: Math.max(0, profile.totalXp || 0),
+      matches: Math.max(0, profile.matchesPlayed || 0),
+      hits: Math.max(0, profile.totalHits || 0),
+      misses: Math.max(0, profile.totalMisses || 0),
+      accuracyPct:
+        totalAtt > 0
+          ? Math.round(((profile.totalHits || 0) / totalAtt) * 100)
+          : 0,
+      bestStreak: Math.max(0, profile.bestStreak || 0),
+    };
+  }
+
+  const resetAt = meta?.periodResetAt || 0;
+  const now = Date.now();
+
+  if (period === "weekly") {
+    const weekStart = Math.max(getCurrentWeekStartTs(now), resetAt);
+    const curWeekKey = getCurrentWeekKey(now);
+
+    if (profile.weekKey) {
+      const isCurrentWeekValid =
+        profile.weekKey === curWeekKey &&
+        (profile.periodUpdatedAt || 0) >= weekStart;
+      if (!isCurrentWeekValid) {
+        return {
+          xp: 0,
+          matches: 0,
+          hits: 0,
+          misses: 0,
+          accuracyPct: 0,
+          bestStreak: 0,
+        };
+      }
+      const hits = Math.max(0, profile.weeklyHits || 0);
+      const misses = Math.max(0, profile.weeklyMisses || 0);
+      const totalAtt = hits + misses;
+      return {
+        xp: Math.min(profile.totalXp || 0, Math.max(0, profile.weeklyXp || 0)),
+        matches: Math.max(0, profile.weeklyMatches || 0),
+        hits,
+        misses,
+        accuracyPct: totalAtt > 0 ? Math.round((hits / totalAtt) * 100) : 0,
+        bestStreak: Math.max(0, profile.weeklyBestStreak || 0),
+      };
+    }
+
+    // Fallback retrocompatível para perfis que jogaram antes da adição de weekKey
+    const weekMatches = (profile.recentMatches || []).filter(
+      (m) => (m.timestamp || m.playedAt || 0) >= weekStart
+    );
+    const hits = weekMatches.reduce((acc, m) => acc + (m.hits || 0), 0);
+    const misses = weekMatches.reduce((acc, m) => acc + (m.misses || 0), 0);
+    const totalAtt = hits + misses;
+    const xp = weekMatches.reduce((acc, m) => acc + (m.xpEarned || 0), 0);
+    const bestStreak = weekMatches.reduce(
+      (max, m) => Math.max(max, m.maxStreak || 0),
+      0
+    );
+    return {
+      xp: Math.min(profile.totalXp || 0, Math.max(0, xp)),
+      matches: weekMatches.length,
+      hits,
+      misses,
+      accuracyPct: totalAtt > 0 ? Math.round((hits / totalAtt) * 100) : 0,
+      bestStreak,
+    };
+  }
+
+  // period === "monthly"
+  const monthStart = Math.max(getCurrentMonthStartTs(now), resetAt);
+  const curMonthKey = getCurrentMonthKey(now);
+
+  if (profile.monthKey) {
+    const isCurrentMonthValid =
+      profile.monthKey === curMonthKey &&
+      (profile.periodUpdatedAt || 0) >= monthStart;
+    if (!isCurrentMonthValid) {
+      return {
+        xp: 0,
+        matches: 0,
+        hits: 0,
+        misses: 0,
+        accuracyPct: 0,
+        bestStreak: 0,
+      };
+    }
+    const hits = Math.max(0, profile.monthlyHits || 0);
+    const misses = Math.max(0, profile.monthlyMisses || 0);
+    const totalAtt = hits + misses;
+    return {
+      xp: Math.min(profile.totalXp || 0, Math.max(0, profile.monthlyXp || 0)),
+      matches: Math.max(0, profile.monthlyMatches || 0),
+      hits,
+      misses,
+      accuracyPct: totalAtt > 0 ? Math.round((hits / totalAtt) * 100) : 0,
+      bestStreak: Math.max(0, profile.monthlyBestStreak || 0),
+    };
+  }
+
+  const monthMatches = (profile.recentMatches || []).filter(
+    (m) => (m.timestamp || m.playedAt || 0) >= monthStart
+  );
+  const hits = monthMatches.reduce((acc, m) => acc + (m.hits || 0), 0);
+  const misses = monthMatches.reduce((acc, m) => acc + (m.misses || 0), 0);
+  const totalAtt = hits + misses;
+  const xp = monthMatches.reduce((acc, m) => acc + (m.xpEarned || 0), 0);
+  const bestStreak = monthMatches.reduce(
+    (max, m) => Math.max(max, m.maxStreak || 0),
+    0
+  );
+  return {
+    xp: Math.min(profile.totalXp || 0, Math.max(0, xp)),
+    matches: monthMatches.length,
+    hits,
+    misses,
+    accuracyPct: totalAtt > 0 ? Math.round((hits / totalAtt) * 100) : 0,
+    bestStreak,
+  };
+}
 
 function hasProcessedRoundKey(uid: string, roundKey: string): boolean {
   if (typeof window === "undefined" || !roundKey) return false;
@@ -261,8 +483,58 @@ function normalizeProfile(
     achievements: achMap,
     unlockedAchievements: unlockedList,
     recentMatches: normalizedMatches,
+    ...(raw.weekKey ? { weekKey: String(raw.weekKey) } : {}),
+    ...(raw.weeklyXp !== undefined
+      ? { weeklyXp: Math.max(0, Number(raw.weeklyXp) || 0) }
+      : {}),
+    ...(raw.weeklyMatches !== undefined
+      ? { weeklyMatches: Math.max(0, Number(raw.weeklyMatches) || 0) }
+      : {}),
+    ...(raw.weeklyHits !== undefined
+      ? { weeklyHits: Math.max(0, Number(raw.weeklyHits) || 0) }
+      : {}),
+    ...(raw.weeklyMisses !== undefined
+      ? { weeklyMisses: Math.max(0, Number(raw.weeklyMisses) || 0) }
+      : {}),
+    ...(raw.weeklyBestStreak !== undefined
+      ? { weeklyBestStreak: Math.max(0, Number(raw.weeklyBestStreak) || 0) }
+      : {}),
+    ...(raw.monthKey ? { monthKey: String(raw.monthKey) } : {}),
+    ...(raw.monthlyXp !== undefined
+      ? { monthlyXp: Math.max(0, Number(raw.monthlyXp) || 0) }
+      : {}),
+    ...(raw.monthlyMatches !== undefined
+      ? { monthlyMatches: Math.max(0, Number(raw.monthlyMatches) || 0) }
+      : {}),
+    ...(raw.monthlyHits !== undefined
+      ? { monthlyHits: Math.max(0, Number(raw.monthlyHits) || 0) }
+      : {}),
+    ...(raw.monthlyMisses !== undefined
+      ? { monthlyMisses: Math.max(0, Number(raw.monthlyMisses) || 0) }
+      : {}),
+    ...(raw.monthlyBestStreak !== undefined
+      ? { monthlyBestStreak: Math.max(0, Number(raw.monthlyBestStreak) || 0) }
+      : {}),
+    ...(raw.periodUpdatedAt !== undefined
+      ? { periodUpdatedAt: Number(raw.periodUpdatedAt) || 0 }
+      : {}),
+    ...(raw.adminOverrideAt !== undefined
+      ? { adminOverrideAt: Number(raw.adminOverrideAt) || 0 }
+      : {}),
     updatedAt: Number(raw.updatedAt || Date.now()),
   };
+}
+
+function pickPreferredProfile(a: UserProfile, b: UserProfile): UserProfile {
+  const aAdmin = a.adminOverrideAt || 0;
+  const bAdmin = b.adminOverrideAt || 0;
+  if (aAdmin !== bAdmin) {
+    return aAdmin > bAdmin ? a : b;
+  }
+  if (a.totalXp !== b.totalXp) {
+    return a.totalXp > b.totalXp ? a : b;
+  }
+  return (a.updatedAt || 0) >= (b.updatedAt || 0) ? a : b;
 }
 
 export function getAchievementProgressForProfile(
@@ -427,7 +699,7 @@ async function fetchRemoteProfileFromFirebase(
 ): Promise<UserProfile | null> {
   if (!isFirebaseConfigured || !db) return null;
 
-  // Tenta ler de rooms/global_profiles_v2/users/{uid} e de users/{uid}, escolhendo o que tiver maior XP
+  // Tenta ler de rooms/global_profiles_v2/users/{uid} e de users/{uid}, respeitando adminOverrideAt
   const results = await Promise.allSettled([
     safeFirebaseCall(() => get(ref(db!, `${GLOBAL_PROFILES_DB_PATH}/${uid}`)), 2500),
     safeFirebaseCall(() => get(ref(db!, `users/${uid}`)), 2500),
@@ -441,9 +713,9 @@ async function fetchRemoteProfileFromFirebase(
         ...(res.value.val() as UserProfile),
         uid,
       });
-      if (!bestProfile || candidate.totalXp >= bestProfile.totalXp) {
-        bestProfile = candidate;
-      }
+      bestProfile = bestProfile
+        ? pickPreferredProfile(bestProfile, candidate)
+        : candidate;
     }
   }
 
@@ -477,11 +749,9 @@ export async function getOrLoadUserProfile(
 
   const remoteProfile = await fetchRemoteProfileFromFirebase(uid);
   if (remoteProfile) {
-    // Mescla mantendo o que tiver maior progresso (caso o aluno tenha jogado offline/local antes)
-    const merged =
-      localExisting && localExisting.totalXp > remoteProfile.totalXp
-        ? localExisting
-        : remoteProfile;
+    const merged = localExisting
+      ? pickPreferredProfile(localExisting, remoteProfile)
+      : remoteProfile;
     localMap[uid] = merged;
     saveLocalUsersMap(localMap, false);
     return merged;
@@ -907,6 +1177,10 @@ export async function recordCompletedMatch(params: {
     matchRecord.xpEarned = totalXpEarned;
     const newTotalXp = (profile.totalXp || profile.xp || 0) + totalXpEarned;
 
+    const meta = getLocalLeaderboardMeta();
+    const prevWeekStats = getProfilePeriodStats(profile, "weekly", meta);
+    const prevMonthStats = getProfilePeriodStats(profile, "monthly", meta);
+
     const updatedProfile: UserProfile = normalizeProfile({
       ...profile,
       xp: newTotalXp,
@@ -926,7 +1200,20 @@ export async function recordCompletedMatch(params: {
         0,
         30
       ),
-      updatedAt: Date.now(),
+      weekKey: getCurrentWeekKey(nowTs),
+      weeklyXp: prevWeekStats.xp + totalXpEarned,
+      weeklyMatches: prevWeekStats.matches + 1,
+      weeklyHits: prevWeekStats.hits + params.hits,
+      weeklyMisses: prevWeekStats.misses + params.misses,
+      weeklyBestStreak: Math.max(prevWeekStats.bestStreak, params.maxStreak),
+      monthKey: getCurrentMonthKey(nowTs),
+      monthlyXp: prevMonthStats.xp + totalXpEarned,
+      monthlyMatches: prevMonthStats.matches + 1,
+      monthlyHits: prevMonthStats.hits + params.hits,
+      monthlyMisses: prevMonthStats.misses + params.misses,
+      monthlyBestStreak: Math.max(prevMonthStats.bestStreak, params.maxStreak),
+      periodUpdatedAt: nowTs,
+      updatedAt: nowTs,
     });
 
     const saved = await saveUserProfile(updatedProfile);
@@ -944,6 +1231,210 @@ export async function recordCompletedMatch(params: {
       inFlightRoundKeys.delete(cleanRoundKey);
     }
   }
+}
+
+export function verifyAdminPin(inputPin: string): boolean {
+  return inputPin.trim() === ADMIN_FIXED_PIN;
+}
+
+export async function adminTriggerPeriodReset(): Promise<LeaderboardMeta> {
+  const currentMeta = getLocalLeaderboardMeta();
+  const now = Date.now();
+  const nextMeta: LeaderboardMeta = {
+    periodResetAt: now,
+    seasonNumber: (currentMeta.seasonNumber || 1) + 1,
+    updatedAt: now,
+  };
+
+  saveLocalLeaderboardMeta(nextMeta, true);
+
+  if (isFirebaseConfigured && db) {
+    try {
+      await safeFirebaseCall(
+        () => set(ref(db!, LEADERBOARD_META_DB_PATH), sanitizeForFirebase(nextMeta)),
+        3000
+      );
+    } catch {
+      // Fallback local já salvo
+    }
+  }
+
+  return nextMeta;
+}
+
+export async function adminAdjustUserXp(
+  uid: string,
+  options: {
+    deltaXp?: number;
+    setExactXp?: number;
+    target: "both" | "weekly" | "total";
+  }
+): Promise<UserProfile | null> {
+  const profile = await getOrLoadUserProfile(uid);
+  if (!profile) return null;
+
+  const now = Date.now();
+  const meta = getLocalLeaderboardMeta();
+  const curWeekStats = getProfilePeriodStats(profile, "weekly", meta);
+  const curMonthStats = getProfilePeriodStats(profile, "monthly", meta);
+
+  let nextTotalXp = profile.totalXp || 0;
+  let nextWeeklyXp = curWeekStats.xp;
+  let nextMonthlyXp = curMonthStats.xp;
+
+  if (options.setExactXp !== undefined) {
+    const exact = Math.max(0, Math.round(options.setExactXp));
+    if (options.target === "weekly") {
+      nextWeeklyXp = Math.min(nextTotalXp, exact);
+    } else if (options.target === "total") {
+      nextTotalXp = exact;
+      nextWeeklyXp = Math.min(nextTotalXp, nextWeeklyXp);
+      nextMonthlyXp = Math.min(nextTotalXp, nextMonthlyXp);
+    } else {
+      nextTotalXp = exact;
+      nextWeeklyXp = exact;
+      nextMonthlyXp = exact;
+    }
+  } else if (options.deltaXp !== undefined) {
+    const delta = Math.round(options.deltaXp);
+    if (options.target === "weekly") {
+      nextWeeklyXp = Math.max(0, Math.min(nextTotalXp, nextWeeklyXp + delta));
+    } else if (options.target === "total") {
+      nextTotalXp = Math.max(0, nextTotalXp + delta);
+      nextWeeklyXp = Math.min(nextTotalXp, nextWeeklyXp);
+      nextMonthlyXp = Math.min(nextTotalXp, nextMonthlyXp);
+    } else {
+      nextTotalXp = Math.max(0, nextTotalXp + delta);
+      nextWeeklyXp = Math.max(0, Math.min(nextTotalXp, nextWeeklyXp + delta));
+      nextMonthlyXp = Math.max(0, Math.min(nextTotalXp, nextMonthlyXp + delta));
+    }
+  }
+
+  // Se zerou o XP total, zera também as conquistas de carreira incompatíveis e estatísticas se for 0
+  const isFullZero = nextTotalXp === 0 && options.target !== "weekly";
+
+  const updated = normalizeProfile({
+    ...profile,
+    xp: nextTotalXp,
+    totalXp: nextTotalXp,
+    ...(isFullZero
+      ? {
+          totalMatches: 0,
+          matchesPlayed: 0,
+          totalHits: 0,
+          totalMisses: 0,
+          bestStreak: 0,
+          perfectMatches: 0,
+          highScoreMatch: 0,
+          minigameBestScores: {},
+          playedMinigames: [],
+          achievements: {},
+          unlockedAchievements: [],
+          recentMatches: [],
+          weeklyMatches: 0,
+          weeklyHits: 0,
+          weeklyMisses: 0,
+          weeklyBestStreak: 0,
+          monthlyMatches: 0,
+          monthlyHits: 0,
+          monthlyMisses: 0,
+          monthlyBestStreak: 0,
+        }
+      : {}),
+    weekKey: getCurrentWeekKey(now),
+    weeklyXp: nextWeeklyXp,
+    monthKey: getCurrentMonthKey(now),
+    monthlyXp: nextMonthlyXp,
+    periodUpdatedAt: now,
+    adminOverrideAt: now,
+    updatedAt: now,
+  });
+
+  const cleanData = sanitizeForFirebase(updated);
+  const localMap = getLocalUsersMap();
+  localMap[uid] = cleanData;
+  saveLocalUsersMap(localMap, true);
+
+  await writeRemoteProfileToFirebase(cleanData);
+  return cleanData;
+}
+
+export async function adminDeleteUserProfile(uid: string): Promise<void> {
+  if (typeof window !== "undefined") {
+    const localMap = getLocalUsersMap();
+    if (localMap[uid]) {
+      delete localMap[uid];
+      saveLocalUsersMap(localMap, true);
+    }
+  }
+
+  if (isFirebaseConfigured && db) {
+    await Promise.allSettled([
+      safeFirebaseCall(
+        () => remove(ref(db!, `${GLOBAL_PROFILES_DB_PATH}/${uid}`)),
+        3000
+      ),
+      safeFirebaseCall(() => remove(ref(db!, `users/${uid}`)), 3000),
+    ]);
+  }
+}
+
+export function subscribeToLeaderboardMeta(
+  callback: (meta: LeaderboardMeta) => void
+): () => void {
+  if (typeof window === "undefined") return () => {};
+
+  const emitLocal = () => {
+    callback(getLocalLeaderboardMeta());
+  };
+
+  emitLocal();
+
+  if (isFirebaseConfigured && db) {
+    try {
+      const metaRef = ref(db, LEADERBOARD_META_DB_PATH);
+      const listener = onValue(
+        metaRef,
+        (snap) => {
+          if (snap.exists()) {
+            const val = snap.val() as Partial<LeaderboardMeta>;
+            const remoteMeta: LeaderboardMeta = {
+              periodResetAt: Number(val.periodResetAt || 0),
+              seasonNumber: Math.max(1, Number(val.seasonNumber || 1)),
+              updatedAt: Number(val.updatedAt || 0),
+            };
+            const localMeta = getLocalLeaderboardMeta();
+            if (remoteMeta.updatedAt >= localMeta.updatedAt) {
+              saveLocalLeaderboardMeta(remoteMeta, false);
+              callback(remoteMeta);
+            } else {
+              callback(localMeta);
+            }
+          } else {
+            emitLocal();
+          }
+        },
+        () => {
+          emitLocal();
+        }
+      );
+
+      window.addEventListener(PROFILE_EVENT_NAME, emitLocal);
+      return () => {
+        off(metaRef, "value", listener);
+        window.removeEventListener(PROFILE_EVENT_NAME, emitLocal);
+      };
+    } catch {
+      // Fallback local
+    }
+  }
+
+  window.addEventListener(PROFILE_EVENT_NAME, emitLocal);
+  window.addEventListener("storage", emitLocal);
+  return () => {
+    window.removeEventListener(PROFILE_EVENT_NAME, emitLocal);
+    window.removeEventListener("storage", emitLocal);
+  };
 }
 
 export function subscribeToGlobalLeaderboard(
@@ -964,9 +1455,9 @@ export function subscribeToGlobalLeaderboard(
           continue;
         }
         const norm = normalizeProfile({ ...v, uid: k });
-        if (!combined[k] || norm.totalXp >= combined[k].totalXp) {
-          combined[k] = norm;
-        }
+        combined[k] = combined[k]
+          ? pickPreferredProfile(combined[k], norm)
+          : norm;
       }
     };
 
