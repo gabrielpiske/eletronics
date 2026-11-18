@@ -43,7 +43,11 @@ export interface UserProfile {
   displayName: string;
   email: string;
   photoURL: string;
+  googlePhotoURL?: string;
   avatar: string;
+  avatarMode?: "photo" | "emoji";
+  classGroup?: string;
+  profileUpdatedAt?: number;
   authProvider: "google" | "local";
   xp: number;
   totalXp: number;
@@ -464,7 +468,24 @@ function normalizeProfile(
     displayName: String(raw.displayName || "Estudante SENAI"),
     email: String(raw.email || ""),
     photoURL: String(raw.photoURL || ""),
+    ...(raw.googlePhotoURL
+      ? { googlePhotoURL: String(raw.googlePhotoURL) }
+      : {}),
     avatar: String(raw.avatar || "⚡"),
+    avatarMode:
+      raw.avatarMode === "photo"
+        ? "photo"
+        : raw.avatarMode === "emoji"
+        ? "emoji"
+        : raw.photoURL
+        ? "photo"
+        : "emoji",
+    ...(raw.classGroup !== undefined && String(raw.classGroup).trim()
+      ? { classGroup: String(raw.classGroup).trim().slice(0, 36) }
+      : {}),
+    ...(raw.profileUpdatedAt !== undefined
+      ? { profileUpdatedAt: Number(raw.profileUpdatedAt) || 0 }
+      : {}),
     authProvider: raw.authProvider === "local" ? "local" : "google",
     xp: xpVal,
     totalXp: xpVal,
@@ -525,16 +546,52 @@ function normalizeProfile(
   };
 }
 
+export function getEffectiveAvatarString(
+  profile: Pick<UserProfile, "avatar" | "photoURL" | "avatarMode">
+): string {
+  const hasPhoto = Boolean(profile.photoURL && profile.photoURL.trim());
+  if (profile.avatarMode === "emoji") {
+    return profile.avatar || "⚡";
+  }
+  if (hasPhoto && (profile.avatarMode === "photo" || !profile.avatarMode)) {
+    return profile.photoURL.trim();
+  }
+  return profile.avatar || "⚡";
+}
+
 function pickPreferredProfile(a: UserProfile, b: UserProfile): UserProfile {
   const aAdmin = a.adminOverrideAt || 0;
   const bAdmin = b.adminOverrideAt || 0;
+  let base: UserProfile;
   if (aAdmin !== bAdmin) {
-    return aAdmin > bAdmin ? a : b;
+    base = aAdmin > bAdmin ? a : b;
+  } else if (a.totalXp !== b.totalXp) {
+    base = a.totalXp > b.totalXp ? a : b;
+  } else {
+    base = (a.updatedAt || 0) >= (b.updatedAt || 0) ? a : b;
   }
-  if (a.totalXp !== b.totalXp) {
-    return a.totalXp > b.totalXp ? a : b;
+
+  // Preserva as edições manuais mais recentes de identidade (nome, foto, emoji, turma)
+  const aProfTs = a.profileUpdatedAt || 0;
+  const bProfTs = b.profileUpdatedAt || 0;
+  if (aProfTs !== bProfTs) {
+    const newerIdentity = aProfTs > bProfTs ? a : b;
+    if (newerIdentity !== base) {
+      return normalizeProfile({
+        ...base,
+        displayName: newerIdentity.displayName,
+        email: newerIdentity.email || base.email,
+        photoURL: newerIdentity.photoURL,
+        googlePhotoURL: newerIdentity.googlePhotoURL || base.googlePhotoURL,
+        avatar: newerIdentity.avatar,
+        avatarMode: newerIdentity.avatarMode,
+        classGroup: newerIdentity.classGroup,
+        profileUpdatedAt: newerIdentity.profileUpdatedAt,
+        updatedAt: Math.max(base.updatedAt || 0, newerIdentity.updatedAt || 0),
+      });
+    }
   }
-  return (a.updatedAt || 0) >= (b.updatedAt || 0) ? a : b;
+  return base;
 }
 
 export function getAchievementProgressForProfile(
@@ -793,7 +850,10 @@ export async function saveUserProfile(profile: UserProfile): Promise<UserProfile
   if (typeof window !== "undefined") {
     localStorage.setItem(LOCAL_ACTIVE_USER_KEY, updated.uid);
     sessionStorage.setItem("senai_arena_nickname", updated.displayName);
-    sessionStorage.setItem("senai_arena_avatar", updated.avatar);
+    sessionStorage.setItem(
+      "senai_arena_avatar",
+      getEffectiveAvatarString(updated)
+    );
   }
 
   await writeRemoteProfileToFirebase(updated);
@@ -814,17 +874,25 @@ export async function signInWithGoogleAccount(): Promise<UserProfile> {
     displayName: u.displayName || u.email?.split("@")[0] || "Aluno SENAI",
     email: u.email || "",
     photoURL: u.photoURL || "",
+    googlePhotoURL: u.photoURL || undefined,
     avatar: "⚡",
+    avatarMode: u.photoURL ? "photo" : "emoji",
     authProvider: "google",
   });
-  if (u.displayName) {
-    profile.displayName = u.displayName.slice(0, 22);
+  if (u.displayName && !profile.profileUpdatedAt) {
+    profile.displayName = u.displayName.slice(0, 24);
   }
   if (u.email) {
     profile.email = u.email;
   }
   if (u.photoURL) {
-    profile.photoURL = u.photoURL;
+    profile.googlePhotoURL = u.photoURL;
+    if (!profile.photoURL) {
+      profile.photoURL = u.photoURL;
+      if (!profile.profileUpdatedAt) {
+        profile.avatarMode = "photo";
+      }
+    }
   }
   return await saveUserProfile(profile);
 }
@@ -832,7 +900,12 @@ export async function signInWithGoogleAccount(): Promise<UserProfile> {
 export async function signInWithQuickGoogleSimulation(
   displayName: string,
   email: string,
-  avatar: string
+  avatar: string,
+  options?: {
+    photoURL?: string;
+    avatarMode?: "photo" | "emoji";
+    classGroup?: string;
+  }
 ): Promise<UserProfile> {
   const cleanEmail =
     email.trim().toLowerCase() ||
@@ -844,17 +917,205 @@ export async function signInWithQuickGoogleSimulation(
     localStorage.setItem(LOCAL_ACTIVE_USER_KEY, uid);
   }
 
+  const isAvatarAnImage =
+    avatar.trim().startsWith("data:image/") ||
+    avatar.trim().startsWith("http://") ||
+    avatar.trim().startsWith("https://");
+  const cleanPhoto =
+    options?.photoURL?.trim() || (isAvatarAnImage ? avatar.trim() : "");
+  const cleanEmoji = isAvatarAnImage ? "⚡" : avatar || "⚡";
+  const resolvedMode: "photo" | "emoji" =
+    options?.avatarMode || (cleanPhoto ? "photo" : "emoji");
+
   const profile = await getOrLoadUserProfile(uid, {
-    displayName: displayName.trim().slice(0, 22) || "Aluno SENAI",
+    displayName: displayName.trim().slice(0, 24) || "Aluno SENAI",
     email: cleanEmail,
-    photoURL: "",
-    avatar: avatar || "⚡",
-    authProvider: "google",
+    photoURL: cleanPhoto,
+    avatar: cleanEmoji,
+    avatarMode: resolvedMode,
+    ...(options?.classGroup
+      ? { classGroup: options.classGroup.trim().slice(0, 36) }
+      : {}),
+    authProvider: "local",
   });
 
-  profile.displayName = displayName.trim().slice(0, 22) || profile.displayName;
-  profile.avatar = avatar || profile.avatar;
+  profile.displayName = displayName.trim().slice(0, 24) || profile.displayName;
+  if (!isAvatarAnImage && avatar) {
+    profile.avatar = avatar;
+  }
+  if (cleanPhoto) {
+    profile.photoURL = cleanPhoto;
+    profile.avatarMode = resolvedMode;
+  } else if (options?.avatarMode === "emoji") {
+    profile.avatarMode = "emoji";
+  }
+  if (options?.classGroup !== undefined) {
+    profile.classGroup = options.classGroup.trim().slice(0, 36) || undefined;
+  }
+  profile.profileUpdatedAt = Date.now();
   return await saveUserProfile(profile);
+}
+
+export async function updateUserProfileDetails(
+  uid: string,
+  updates: {
+    displayName?: string;
+    email?: string;
+    classGroup?: string;
+    avatar?: string;
+    photoURL?: string;
+    avatarMode?: "photo" | "emoji";
+  }
+): Promise<UserProfile> {
+  const current = await getOrLoadUserProfile(uid);
+  const now = Date.now();
+
+  const nextDisplayName =
+    updates.displayName !== undefined
+      ? updates.displayName.trim().slice(0, 24) || current.displayName
+      : current.displayName;
+
+  const nextEmail =
+    updates.email !== undefined
+      ? updates.email.trim().toLowerCase() || current.email
+      : current.email;
+
+  const nextClassGroup =
+    updates.classGroup !== undefined
+      ? updates.classGroup.trim().slice(0, 36)
+      : current.classGroup || "";
+
+  const nextAvatar =
+    updates.avatar !== undefined
+      ? updates.avatar.trim() || current.avatar || "⚡"
+      : current.avatar || "⚡";
+
+  const nextPhotoURL =
+    updates.photoURL !== undefined
+      ? updates.photoURL.trim()
+      : current.photoURL || "";
+
+  const nextAvatarMode: "photo" | "emoji" =
+    updates.avatarMode !== undefined
+      ? updates.avatarMode
+      : nextPhotoURL
+      ? current.avatarMode || "photo"
+      : "emoji";
+
+  const updated: UserProfile = normalizeProfile({
+    ...current,
+    displayName: nextDisplayName,
+    email: nextEmail,
+    classGroup: nextClassGroup || undefined,
+    avatar: nextAvatar,
+    photoURL: nextPhotoURL,
+    avatarMode: nextPhotoURL ? nextAvatarMode : "emoji",
+    profileUpdatedAt: now,
+    updatedAt: now,
+  });
+
+  if (!nextClassGroup) {
+    delete updated.classGroup;
+  }
+
+  return await saveUserProfile(updated);
+}
+
+export function getSavedLocalProfiles(): UserProfile[] {
+  if (typeof window === "undefined") return [];
+  const map = getLocalUsersMap();
+  return Object.values(map).sort(
+    (a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)
+  );
+}
+
+export async function switchActiveProfile(
+  uid: string
+): Promise<UserProfile | null> {
+  if (typeof window === "undefined" || !uid) return null;
+  if (isFirebaseAuthConfigured && auth?.currentUser && auth.currentUser.uid !== uid) {
+    try {
+      await safeFirebaseCall(() => firebaseSignOut(auth!), 1800);
+    } catch {
+      // Ignora
+    }
+  }
+  localStorage.setItem(LOCAL_ACTIVE_USER_KEY, uid);
+  const profile = await getOrLoadUserProfile(uid);
+  return await saveUserProfile(profile);
+}
+
+export function removeLocalSavedProfileOnly(uid: string): void {
+  if (typeof window === "undefined" || !uid) return;
+  const localMap = getLocalUsersMap();
+  if (localMap[uid]) {
+    delete localMap[uid];
+    saveLocalUsersMap(localMap, true);
+  }
+}
+
+export async function resetOwnProfileProgress(
+  uid: string
+): Promise<UserProfile | null> {
+  const profile = await getOrLoadUserProfile(uid);
+  if (!profile) return null;
+  const now = Date.now();
+
+  const resetProfile = normalizeProfile({
+    ...profile,
+    xp: 0,
+    totalXp: 0,
+    totalMatches: 0,
+    matchesPlayed: 0,
+    totalHits: 0,
+    totalMisses: 0,
+    bestStreak: 0,
+    perfectMatches: 0,
+    highScoreMatch: 0,
+    minigameBestScores: {},
+    playedMinigames: [],
+    achievements: {},
+    unlockedAchievements: [],
+    recentMatches: [],
+    weekKey: getCurrentWeekKey(now),
+    weeklyXp: 0,
+    weeklyMatches: 0,
+    weeklyHits: 0,
+    weeklyMisses: 0,
+    weeklyBestStreak: 0,
+    monthKey: getCurrentMonthKey(now),
+    monthlyXp: 0,
+    monthlyMatches: 0,
+    monthlyHits: 0,
+    monthlyMisses: 0,
+    monthlyBestStreak: 0,
+    periodUpdatedAt: now,
+    adminOverrideAt: now,
+    updatedAt: now,
+  });
+
+  if (typeof window !== "undefined") {
+    try {
+      const raw = localStorage.getItem(PROCESSED_ROUNDS_KEY);
+      if (raw) {
+        const map = JSON.parse(raw) as Record<string, string[]>;
+        delete map[uid];
+        localStorage.setItem(PROCESSED_ROUNDS_KEY, JSON.stringify(map));
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  return await saveUserProfile(resetProfile);
+}
+
+export async function deleteOwnUserProfile(uid: string): Promise<void> {
+  const activeUid = getActiveUid();
+  await adminDeleteUserProfile(uid);
+  if (activeUid === uid) {
+    await signOutCurrentProfile();
+  }
 }
 
 export async function signOutCurrentProfile(): Promise<void> {
@@ -926,14 +1187,20 @@ export function subscribeToActiveProfile(
             photoURL: user.photoURL || "",
             authProvider: "google",
           });
-          if (user.displayName && prof.displayName === "Estudante SENAI") {
-            prof.displayName = user.displayName.slice(0, 22);
+          if (user.displayName && prof.displayName === "Estudante SENAI" && !prof.profileUpdatedAt) {
+            prof.displayName = user.displayName.slice(0, 24);
           }
           if (user.email && !prof.email) {
             prof.email = user.email;
           }
-          if (user.photoURL && !prof.photoURL) {
-            prof.photoURL = user.photoURL;
+          if (user.photoURL) {
+            prof.googlePhotoURL = user.photoURL;
+            if (!prof.photoURL) {
+              prof.photoURL = user.photoURL;
+              if (!prof.profileUpdatedAt) {
+                prof.avatarMode = "photo";
+              }
+            }
           }
           const saved = await saveUserProfile(prof);
           if (isMounted) callback(saved);

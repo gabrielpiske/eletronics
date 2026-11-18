@@ -1,8 +1,12 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
+import {
+  UserAvatar,
+  processAvatarFileToDataUrl,
+} from "@/components/UserAvatar";
 import {
   UserProfile,
   subscribeToActiveProfile,
@@ -11,6 +15,12 @@ import {
   signOutCurrentProfile,
   formatGoogleAuthError,
   getAchievementProgressForProfile,
+  updateUserProfileDetails,
+  getSavedLocalProfiles,
+  switchActiveProfile,
+  removeLocalSavedProfileOnly,
+  resetOwnProfileProgress,
+  deleteOwnUserProfile,
 } from "@/lib/profileService";
 import {
   ACHIEVEMENTS_CATALOG,
@@ -26,25 +36,35 @@ import { AVATARS } from "@/data/electronicsData";
 import {
   AlertTriangle,
   Award,
+  Camera,
   CheckCircle2,
-  ChevronRight,
   Clock,
   Crown,
   Flame,
+  GraduationCap,
+  Image as ImageIcon,
   Layers,
+  Link2,
   Lock,
   LogOut,
   Percent,
   Play,
+  RotateCcw,
+  Save,
+  Settings,
   ShieldCheck,
   Sparkles,
+  Smile,
   Target,
-  Trophy,
+  Trash2,
+  Upload,
   UserCheck,
+  Users,
+  X,
   Zap,
 } from "lucide-react";
 
-type ProfileTab = "patents" | "achievements" | "history";
+type ProfileTab = "patents" | "achievements" | "history" | "settings";
 type PatentFilter = "all" | "unlocked" | "locked";
 type DifficultyFilter = "all" | AchievementDifficulty;
 
@@ -122,11 +142,21 @@ function getDifficultyBadgeStyle(diff: AchievementDifficulty): string {
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [savedProfiles, setSavedProfiles] = useState<UserProfile[]>([]);
+
+  // Estados do formulário de login rápido (deslogado)
   const [simName, setSimName] = useState("");
   const [simEmail, setSimEmail] = useState("");
+  const [simClassGroup, setSimClassGroup] = useState("");
   const [simAvatar, setSimAvatar] = useState(AVATARS[0]);
+  const [simPhotoURL, setSimPhotoURL] = useState("");
+  const [simAvatarMode, setSimAvatarMode] = useState<"photo" | "emoji">(
+    "emoji"
+  );
+  const [simUrlInput, setSimUrlInput] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
   const [authErrorMsg, setAuthErrorMsg] = useState<string | null>(null);
+  const simFileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Estado das abas e filtros dentro do perfil
   const [activeTab, setActiveTab] = useState<ProfileTab>("patents");
@@ -135,10 +165,49 @@ export default function ProfilePage() {
   const [difficultyFilter, setDifficultyFilter] =
     useState<DifficultyFilter>("all");
 
+  // Estados do formulário de Gerenciamento de Perfil (logado)
+  const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editClassGroup, setEditClassGroup] = useState("");
+  const [editAvatar, setEditAvatar] = useState(AVATARS[0]);
+  const [editPhotoURL, setEditPhotoURL] = useState("");
+  const [editAvatarMode, setEditAvatarMode] = useState<"photo" | "emoji">(
+    "emoji"
+  );
+  const [customUrlInput, setCustomUrlInput] = useState("");
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileFeedback, setProfileFeedback] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
+  const [confirmResetProgress, setConfirmResetProgress] = useState(false);
+  const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(false);
+  const editFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const refreshSavedProfiles = () => {
+    setSavedProfiles(getSavedLocalProfiles());
+  };
+
   useEffect(() => {
+    refreshSavedProfiles();
     const unsub = subscribeToActiveProfile((prof) => {
       setProfile(prof);
+      refreshSavedProfiles();
       if (prof) {
+        setEditName(prof.displayName || "");
+        setEditEmail(prof.email || "");
+        setEditClassGroup(prof.classGroup || "");
+        setEditAvatar(prof.avatar || AVATARS[0]);
+        setEditPhotoURL(prof.photoURL || "");
+        setEditAvatarMode(
+          prof.avatarMode || (prof.photoURL ? "photo" : "emoji")
+        );
+        setCustomUrlInput(
+          prof.photoURL && !prof.photoURL.startsWith("data:image/")
+            ? prof.photoURL
+            : ""
+        );
+
         const r = getRankInfoByXp(prof.totalXp);
         const bucket = Math.min(
           4,
@@ -149,6 +218,13 @@ export default function ProfilePage() {
     });
     return () => unsub();
   }, []);
+
+  const showProfileMessage = (type: "success" | "error", text: string) => {
+    setProfileFeedback({ type, text });
+    setTimeout(() => {
+      setProfileFeedback((prev) => (prev?.text === text ? null : prev));
+    }, 4500);
+  };
 
   const handleGoogleOAuthClick = async () => {
     setAuthLoading(true);
@@ -162,15 +238,160 @@ export default function ProfilePage() {
     }
   };
 
+  const handleSimFileUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAuthErrorMsg(null);
+    try {
+      const dataUrl = await processAvatarFileToDataUrl(file);
+      setSimPhotoURL(dataUrl);
+      setSimAvatarMode("photo");
+    } catch (err) {
+      setAuthErrorMsg(
+        err instanceof Error ? err.message : "Erro ao processar a foto."
+      );
+    } finally {
+      e.target.value = "";
+    }
+  };
+
   const handleQuickLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!simName.trim()) return;
     setAuthLoading(true);
     setAuthErrorMsg(null);
     try {
-      await signInWithQuickGoogleSimulation(simName, simEmail, simAvatar);
+      await signInWithQuickGoogleSimulation(simName, simEmail, simAvatar, {
+        photoURL: simPhotoURL,
+        avatarMode: simPhotoURL ? simAvatarMode : "emoji",
+        classGroup: simClassGroup,
+      });
     } finally {
       setAuthLoading(false);
+    }
+  };
+
+  const handleEditFileUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const dataUrl = await processAvatarFileToDataUrl(file);
+      setEditPhotoURL(dataUrl);
+      setEditAvatarMode("photo");
+      showProfileMessage(
+        "success",
+        "Foto carregada e ajustada! Clique em 'Salvar Alterações do Perfil' para confirmar."
+      );
+    } catch (err) {
+      showProfileMessage(
+        "error",
+        err instanceof Error ? err.message : "Erro ao processar a imagem."
+      );
+    } finally {
+      e.target.value = "";
+    }
+  };
+
+  const handleApplyExternalPhotoUrl = () => {
+    const clean = customUrlInput.trim();
+    if (
+      !clean ||
+      (!clean.startsWith("https://") &&
+        !clean.startsWith("http://") &&
+        !clean.startsWith("data:image/"))
+    ) {
+      showProfileMessage(
+        "error",
+        "Informe um link de imagem válido começando com https:// ou http://"
+      );
+      return;
+    }
+    setEditPhotoURL(clean);
+    setEditAvatarMode("photo");
+    showProfileMessage(
+      "success",
+      "Link da foto aplicado na pré-visualização! Clique em 'Salvar Alterações' para gravar."
+    );
+  };
+
+  const handleSaveProfileChanges = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profile) return;
+    if (!editName.trim()) {
+      showProfileMessage("error", "O nome de perfil não pode ficar em branco.");
+      return;
+    }
+
+    setProfileSaving(true);
+    try {
+      await updateUserProfileDetails(profile.uid, {
+        displayName: editName.trim(),
+        email: editEmail.trim(),
+        classGroup: editClassGroup.trim(),
+        avatar: editAvatar,
+        photoURL: editPhotoURL,
+        avatarMode: editPhotoURL ? editAvatarMode : "emoji",
+      });
+      refreshSavedProfiles();
+      showProfileMessage(
+        "success",
+        "Perfil atualizado e sincronizado com sucesso!"
+      );
+    } catch {
+      showProfileMessage(
+        "error",
+        "Não foi possível salvar as alterações. Tente novamente."
+      );
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
+  const handleSwitchSavedProfile = async (targetUid: string) => {
+    setProfileSaving(true);
+    try {
+      const switched = await switchActiveProfile(targetUid);
+      refreshSavedProfiles();
+      if (switched) {
+        showProfileMessage(
+          "success",
+          `Perfil ativo alterado para ${switched.displayName}.`
+        );
+      }
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
+  const handleResetMyProgress = async () => {
+    if (!profile) return;
+    setProfileSaving(true);
+    try {
+      await resetOwnProfileProgress(profile.uid);
+      setConfirmResetProgress(false);
+      refreshSavedProfiles();
+      showProfileMessage(
+        "success",
+        "Seu progresso (XP, partidas e conquistas) foi zerado mantendo seu perfil e foto."
+      );
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
+  const handleDeleteMyProfile = async () => {
+    if (!profile) return;
+    setProfileSaving(true);
+    try {
+      await deleteOwnUserProfile(profile.uid);
+      setConfirmDeleteAccount(false);
+      refreshSavedProfiles();
+    } finally {
+      setProfileSaving(false);
     }
   };
 
@@ -307,39 +528,140 @@ export default function ProfilePage() {
                       className="w-full px-3 py-2.5 rounded-md bg-[#0C0E12] border border-[#2A303C] focus:border-[#0047B6] focus:outline-none text-xs text-white"
                     />
                   </div>
-                  <div>
-                    <label className="block font-mono text-[10px] uppercase tracking-wider text-[#94A3B8] mb-1">
-                      E-mail Google (@gmail.com / @aluno.senai.br)
-                    </label>
-                    <input
-                      type="email"
-                      value={simEmail}
-                      onChange={(e) => setSimEmail(e.target.value)}
-                      placeholder="lucas.almeida@aluno.senai.br"
-                      className="w-full px-3 py-2.5 rounded-md bg-[#0C0E12] border border-[#2A303C] focus:border-[#0047B6] focus:outline-none text-xs text-white font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-mono text-[10px] uppercase tracking-wider text-[#94A3B8] mb-1">
-                      Insígnia Técnica
-                    </label>
-                    <div className="grid grid-cols-6 gap-1.5">
-                      {AVATARS.map((av) => (
-                        <button
-                          key={av}
-                          type="button"
-                          onClick={() => setSimAvatar(av)}
-                          className={`h-9 rounded flex items-center justify-center text-base border ${
-                            simAvatar === av
-                              ? "bg-[#0047B6]/25 border-[#F59E0B]"
-                              : "bg-[#0C0E12] border-[#2A303C]"
-                          }`}
-                        >
-                          {av}
-                        </button>
-                      ))}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="block font-mono text-[10px] uppercase tracking-wider text-[#94A3B8] mb-1">
+                        E-mail (@gmail / @aluno.senai.br)
+                      </label>
+                      <input
+                        type="email"
+                        value={simEmail}
+                        onChange={(e) => setSimEmail(e.target.value)}
+                        placeholder="lucas@aluno.senai.br"
+                        className="w-full px-3 py-2 rounded-md bg-[#0C0E12] border border-[#2A303C] focus:border-[#0047B6] focus:outline-none text-xs text-white font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-mono text-[10px] uppercase tracking-wider text-[#94A3B8] mb-1">
+                        Turma / Unidade SENAI (Opcional)
+                      </label>
+                      <input
+                        type="text"
+                        maxLength={36}
+                        value={simClassGroup}
+                        onChange={(e) => setSimClassGroup(e.target.value)}
+                        placeholder="Ex: Eletrotécnica • T1"
+                        className="w-full px-3 py-2 rounded-md bg-[#0C0E12] border border-[#2A303C] focus:border-[#0047B6] focus:outline-none text-xs text-white"
+                      />
                     </div>
                   </div>
+
+                  {/* Escolha entre Foto Própria ou Insígnia Emoji */}
+                  <div className="p-3 rounded-md bg-[#0C0E12] border border-[#2A303C] space-y-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5">
+                        <UserAvatar
+                          avatar={simAvatar}
+                          photoURL={simPhotoURL}
+                          avatarMode={simPhotoURL ? simAvatarMode : "emoji"}
+                          name={simName || "Preview"}
+                          size="md"
+                          className="border border-[#0057E0]"
+                        />
+                        <div>
+                          <span className="block font-mono text-[10px] uppercase tracking-wider text-[#94A3B8]">
+                            Representação na Plataforma
+                          </span>
+                          <span className="text-xs font-bold text-white">
+                            {simPhotoURL && simAvatarMode === "photo"
+                              ? "Foto Própria Ativa"
+                              : `Insígnia Emoji (${simAvatar})`}
+                          </span>
+                        </div>
+                      </div>
+                      <input
+                        ref={simFileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleSimFileUpload}
+                        className="hidden"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => simFileInputRef.current?.click()}
+                        className="px-2.5 py-1.5 rounded bg-[#181B20] hover:bg-[#0047B6]/30 border border-[#0057E0] text-xs font-bold text-white inline-flex items-center gap-1.5 transition-colors"
+                      >
+                        <Camera className="w-3.5 h-3.5 text-[#F59E0B]" />
+                        <span>Enviar Foto</span>
+                      </button>
+                    </div>
+
+                    {/* Link de imagem opcional */}
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="url"
+                        value={simUrlInput}
+                        onChange={(e) => setSimUrlInput(e.target.value)}
+                        placeholder="Ou cole o link (URL https://...) de uma foto"
+                        className="w-full px-2.5 py-1.5 rounded bg-[#181B20] border border-[#2A303C] text-[11px] text-white font-mono focus:border-[#0047B6] focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (simUrlInput.trim()) {
+                            setSimPhotoURL(simUrlInput.trim());
+                            setSimAvatarMode("photo");
+                          }
+                        }}
+                        className="px-2.5 py-1.5 rounded bg-[#181B20] hover:bg-[#242933] border border-[#2A303C] text-[11px] font-mono font-bold text-[#F59E0B] shrink-0"
+                      >
+                        Usar URL
+                      </button>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-mono text-[10px] uppercase tracking-wider text-[#94A3B8]">
+                          Ou escolha uma Insígnia Emoji:
+                        </span>
+                        {simPhotoURL && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setSimAvatarMode((m) =>
+                                m === "photo" ? "emoji" : "photo"
+                              )
+                            }
+                            className="font-mono text-[10px] text-[#F59E0B] hover:underline"
+                          >
+                            {simAvatarMode === "photo"
+                              ? "Usar Emoji em vez da foto"
+                              : "Voltar para Minha Foto"}
+                          </button>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-6 gap-1.5">
+                        {AVATARS.map((av) => (
+                          <button
+                            key={av}
+                            type="button"
+                            onClick={() => {
+                              setSimAvatar(av);
+                              setSimAvatarMode("emoji");
+                            }}
+                            className={`h-8 rounded flex items-center justify-center text-base border ${
+                              simAvatar === av && simAvatarMode === "emoji"
+                                ? "bg-[#0047B6]/25 border-[#F59E0B]"
+                                : "bg-[#181B20] border-[#2A303C]"
+                            }`}
+                          >
+                            {av}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
                   <button
                     type="submit"
                     className="w-full py-3 rounded-md bg-[#0047B6] hover:bg-[#0057E0] text-white font-bold text-xs uppercase tracking-wider transition-colors"
@@ -347,6 +669,45 @@ export default function ProfilePage() {
                     Criar / Acessar Perfil Técnico
                   </button>
                 </form>
+
+                {/* Lista rápida de perfis já salvos neste computador */}
+                {savedProfiles.length > 0 && (
+                  <div className="mt-5 pt-4 border-t border-[#2A303C] space-y-2">
+                    <span className="font-mono text-[10px] uppercase tracking-wider text-[#94A3B8] flex items-center gap-1.5 font-semibold">
+                      <Users className="w-3.5 h-3.5 text-[#F59E0B]" />
+                      Perfis Salvos neste Computador ({savedProfiles.length})
+                    </span>
+                    <div className="space-y-1.5 max-h-44 overflow-y-auto pr-1">
+                      {savedProfiles.map((sp) => (
+                        <div
+                          key={sp.uid}
+                          className="flex items-center justify-between gap-2 p-2 rounded-md bg-[#0C0E12] border border-[#2A303C]"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <UserAvatar profile={sp} size="sm" />
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-white truncate">
+                                {sp.displayName}
+                              </p>
+                              <p className="text-[10px] font-mono text-[#94A3B8] truncate">
+                                NV {sp.level} •{" "}
+                                {sp.totalXp.toLocaleString("pt-BR")} XP
+                                {sp.classGroup ? ` • ${sp.classGroup}` : ""}
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleSwitchSavedProfile(sp.uid)}
+                            className="px-2.5 py-1 rounded bg-[#0047B6] hover:bg-[#0057E0] text-white font-mono text-[11px] font-bold shrink-0"
+                          >
+                            Entrar
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -413,8 +774,21 @@ export default function ProfilePage() {
               <div className="h-1 w-full bg-gradient-to-r from-[#0047B6] via-[#F59E0B] to-emerald-500" />
               <div className="p-6 flex flex-col xl:flex-row xl:items-center justify-between gap-6">
                 <div className="flex items-start sm:items-center gap-4">
-                  <div className="w-16 h-16 rounded-lg bg-[#0C0E12] border-2 border-[#0057E0] flex items-center justify-center text-3xl shrink-0 relative">
-                    {profile.avatar}
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("settings")}
+                    title="Clique para trocar sua foto ou editar seu perfil"
+                    className="relative group shrink-0"
+                  >
+                    <UserAvatar
+                      profile={profile}
+                      size="xl"
+                      roundedClassName="rounded-lg"
+                      className="border-2 border-[#0057E0] group-hover:border-[#F59E0B] transition-colors"
+                    />
+                    <span className="absolute inset-0 rounded-lg bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                      <Camera className="w-5 h-5 text-[#F59E0B]" />
+                    </span>
                     {rankInfo && (
                       <span
                         title={rankInfo.currentPatent.title}
@@ -423,7 +797,7 @@ export default function ProfilePage() {
                         {rankInfo.currentPatent.icon}
                       </span>
                     )}
-                  </div>
+                  </button>
                   <div>
                     <div className="flex flex-wrap items-center gap-2 mb-1">
                       <span className="font-mono text-[11px] font-bold uppercase px-2 py-0.5 rounded bg-[#F59E0B]/15 text-[#F59E0B] border border-[#F59E0B]/40">
@@ -433,6 +807,12 @@ export default function ProfilePage() {
                         {rankInfo?.currentPatent.badgeCode} •{" "}
                         {rankInfo?.currentPatent.divisionLabel}
                       </span>
+                      {profile.classGroup && (
+                        <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-300 border border-emerald-500/40 inline-flex items-center gap-1">
+                          <GraduationCap className="w-3.5 h-3.5" />
+                          {profile.classGroup}
+                        </span>
+                      )}
                     </div>
                     <h2 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2 flex-wrap">
                       <span>{profile.displayName}</span>
@@ -511,6 +891,18 @@ export default function ProfilePage() {
                 )}
 
                 <div className="flex flex-wrap items-center gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("settings")}
+                    className={`inline-flex items-center gap-2 px-3.5 py-2.5 rounded-md text-xs font-bold border transition-colors ${
+                      activeTab === "settings"
+                        ? "bg-[#F59E0B] text-slate-950 border-[#F59E0B]"
+                        : "bg-[#0C0E12] hover:bg-[#14181F] text-white border-[#F59E0B]/50"
+                    }`}
+                  >
+                    <Camera className="w-3.5 h-3.5 text-[#F59E0B] shrink-0" />
+                    <span>Editar Perfil & Foto</span>
+                  </button>
                   <Link
                     href="/practice"
                     className="inline-flex items-center gap-2 px-4 py-2.5 rounded-md bg-[#0047B6] hover:bg-[#0057E0] text-white text-xs font-bold transition-colors"
@@ -647,6 +1039,19 @@ export default function ProfilePage() {
                 <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-black/40 text-zinc-300">
                   {profile.recentMatches.length}
                 </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab("settings")}
+                className={`flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-md text-xs font-bold border transition-all ${
+                  activeTab === "settings"
+                    ? "bg-[#0047B6] border-[#0057E0] text-white shadow"
+                    : "bg-[#0C0E12] border-[#2A303C] text-[#94A3B8] hover:text-white"
+                }`}
+              >
+                <Settings className="w-4 h-4 text-[#F59E0B]" />
+                <span>Gerenciar Perfil & Foto</span>
               </button>
             </div>
 
@@ -1169,6 +1574,532 @@ export default function ProfilePage() {
                   </div>
                 )}
               </section>
+            )}
+
+            {/* ABA 4: GERENCIAR PERFIL, FOTO PRÓPRIA & CONTAS */}
+            {activeTab === "settings" && (
+              <div className="space-y-6">
+                {profileFeedback && (
+                  <div
+                    className={`rounded-md px-4 py-3 border border-l-4 flex items-center justify-between gap-3 text-xs font-mono ${
+                      profileFeedback.type === "success"
+                        ? "bg-[#12241D] border-emerald-500/50 border-l-emerald-400 text-emerald-200"
+                        : "bg-red-950/60 border-red-500/50 border-l-red-500 text-red-200"
+                    }`}
+                  >
+                    <span className="flex items-center gap-2 font-bold">
+                      {profileFeedback.type === "success" ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                      ) : (
+                        <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+                      )}
+                      {profileFeedback.text}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setProfileFeedback(null)}
+                      className="text-zinc-400 hover:text-white"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                  {/* Coluna Principal (7 cols): Identidade Técnica & Foto Própria */}
+                  <section className="lg:col-span-7 bg-[#181B20] border border-[#2A303C] rounded-lg overflow-hidden shadow-lg">
+                    <div className="h-1 w-full bg-[#0047B6]" />
+                    <form
+                      onSubmit={handleSaveProfileChanges}
+                      className="p-6 space-y-5"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <Settings className="w-5 h-5 text-[#F59E0B]" />
+                            <h3 className="text-base font-bold text-white">
+                              Personalizar Identidade & Foto de Perfil
+                            </h3>
+                          </div>
+                          <p className="text-xs text-[#94A3B8] mt-0.5">
+                            Altere seu nome de perfil, informe sua turma e
+                            escolha uma foto própria do seu dispositivo (ou link)
+                            para representá-lo no Ranking e nas Salas de Aula.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Card de Pré-visualização ao Vivo */}
+                      <div className="p-4 rounded-lg bg-[#0C0E12] border border-[#2A303C] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="flex items-center gap-3.5">
+                          <div className="relative">
+                            <UserAvatar
+                              avatar={editAvatar}
+                              photoURL={editPhotoURL}
+                              avatarMode={
+                                editPhotoURL ? editAvatarMode : "emoji"
+                              }
+                              name={editName || profile.displayName}
+                              size="xl"
+                              roundedClassName="rounded-lg"
+                              className="border-2 border-[#0057E0]"
+                            />
+                            {rankInfo && (
+                              <span className="absolute -bottom-1.5 -right-1.5 w-6 h-6 rounded-full bg-[#181B20] border border-[#F59E0B] flex items-center justify-center text-xs">
+                                {rankInfo.currentPatent.icon}
+                              </span>
+                            )}
+                          </div>
+                          <div>
+                            <span className="font-mono text-[10px] uppercase tracking-wider text-[#F59E0B] font-bold block">
+                              PRÉ-VISUALIZAÇÃO DO PERFIL
+                            </span>
+                            <h4 className="text-base font-bold text-white">
+                              {editName.trim() || "Sem Nome"}
+                            </h4>
+                            <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                              <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-[#181B20] border border-[#2A303C] text-emerald-400 font-bold">
+                                {editPhotoURL && editAvatarMode === "photo"
+                                  ? "📷 FOTO PRÓPRIA ATIVA"
+                                  : `⚡ INSÍGNIA EMOJI (${editAvatar})`}
+                              </span>
+                              {editClassGroup.trim() && (
+                                <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 font-bold">
+                                  {editClassGroup.trim()}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Alternador Rápido Foto vs Emoji */}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (editPhotoURL) {
+                                setEditAvatarMode("photo");
+                              } else {
+                                editFileInputRef.current?.click();
+                              }
+                            }}
+                            className={`px-3 py-1.5 rounded text-xs font-mono font-bold border inline-flex items-center gap-1.5 transition-colors ${
+                              editPhotoURL && editAvatarMode === "photo"
+                                ? "bg-[#0047B6] border-[#0057E0] text-white"
+                                : "bg-[#181B20] border-[#2A303C] text-[#94A3B8] hover:text-white"
+                            }`}
+                          >
+                            <ImageIcon className="w-3.5 h-3.5 text-[#F59E0B]" />
+                            <span>Usar Foto</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditAvatarMode("emoji")}
+                            className={`px-3 py-1.5 rounded text-xs font-mono font-bold border inline-flex items-center gap-1.5 transition-colors ${
+                              !editPhotoURL || editAvatarMode === "emoji"
+                                ? "bg-[#0047B6] border-[#0057E0] text-white"
+                                : "bg-[#181B20] border-[#2A303C] text-[#94A3B8] hover:text-white"
+                            }`}
+                          >
+                            <Smile className="w-3.5 h-3.5 text-[#F59E0B]" />
+                            <span>Usar Emoji</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Campos de Nome, Turma e E-mail */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block font-mono text-[10px] uppercase tracking-wider text-[#94A3B8] mb-1.5">
+                            Nome de Perfil / Apelido Técnico *
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            maxLength={24}
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            placeholder="Ex: Gabriel Silva"
+                            className="w-full px-3.5 py-2.5 rounded-md bg-[#0C0E12] border border-[#2A303C] focus:border-[#0057E0] focus:outline-none text-xs font-semibold text-white"
+                          />
+                          <span className="font-mono text-[10px] text-[#94A3B8] mt-1 block">
+                            Exibido no Ranking Global, Perfil e Salas PIN (máx.
+                            24 caracteres).
+                          </span>
+                        </div>
+
+                        <div>
+                          <label className="block font-mono text-[10px] uppercase tracking-wider text-[#94A3B8] mb-1.5">
+                            Turma / Unidade SENAI (Opcional)
+                          </label>
+                          <input
+                            type="text"
+                            maxLength={36}
+                            value={editClassGroup}
+                            onChange={(e) => setEditClassGroup(e.target.value)}
+                            placeholder="Ex: Eletrotécnica 2026 • T1"
+                            className="w-full px-3.5 py-2.5 rounded-md bg-[#0C0E12] border border-[#2A303C] focus:border-[#0057E0] focus:outline-none text-xs text-white"
+                          />
+                          <span className="font-mono text-[10px] text-[#94A3B8] mt-1 block">
+                            Identifica sua turma ou unidade no Dossiê e no
+                            Ranking.
+                          </span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block font-mono text-[10px] uppercase tracking-wider text-[#94A3B8] mb-1.5">
+                          E-mail de Identificação
+                        </label>
+                        <input
+                          type="email"
+                          value={editEmail}
+                          onChange={(e) => setEditEmail(e.target.value)}
+                          placeholder="aluno@aluno.senai.br"
+                          className="w-full px-3.5 py-2.5 rounded-md bg-[#0C0E12] border border-[#2A303C] focus:border-[#0057E0] focus:outline-none text-xs text-white font-mono"
+                        />
+                      </div>
+
+                      {/* Bloco 1: Escolha de Foto Própria */}
+                      <div className="p-4 rounded-lg bg-[#0C0E12] border border-[#2A303C] space-y-3.5">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <Camera className="w-4 h-4 text-[#F59E0B]" />
+                            <h4 className="text-xs font-mono uppercase tracking-wider font-bold text-white">
+                              Opção 1 • Foto Própria do Usuário
+                            </h4>
+                          </div>
+                          {editPhotoURL && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditPhotoURL("");
+                                setCustomUrlInput("");
+                                setEditAvatarMode("emoji");
+                              }}
+                              className="text-[11px] font-mono text-red-400 hover:underline inline-flex items-center gap-1"
+                            >
+                              <Trash2 className="w-3 h-3" /> Remover foto
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2.5">
+                          <input
+                            ref={editFileInputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={handleEditFileUpload}
+                            className="hidden"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => editFileInputRef.current?.click()}
+                            className="px-3.5 py-2.5 rounded-md bg-[#0047B6] hover:bg-[#0057E0] text-white text-xs font-bold inline-flex items-center gap-2 transition-colors shadow"
+                          >
+                            <Upload className="w-3.5 h-3.5 text-[#F59E0B]" />
+                            <span>
+                              Enviar Foto do Dispositivo (PC / Celular)
+                            </span>
+                          </button>
+
+                          {profile.googlePhotoURL && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditPhotoURL(profile.googlePhotoURL || "");
+                                setEditAvatarMode("photo");
+                              }}
+                              className="px-3 py-2.5 rounded-md bg-[#181B20] hover:bg-[#242933] border border-[#2A303C] text-xs font-semibold text-zinc-200 inline-flex items-center gap-1.5"
+                            >
+                              <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
+                              <span>Usar Foto da Conta Google</span>
+                            </button>
+                          )}
+                        </div>
+
+                        <div>
+                          <label className="block font-mono text-[10px] uppercase tracking-wider text-[#94A3B8] mb-1">
+                            Ou informe o link direto (URL) de uma imagem:
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <div className="relative flex-1">
+                              <Link2 className="w-3.5 h-3.5 text-[#94A3B8] absolute left-3 top-1/2 -translate-y-1/2" />
+                              <input
+                                type="url"
+                                value={customUrlInput}
+                                onChange={(e) =>
+                                  setCustomUrlInput(e.target.value)
+                                }
+                                placeholder="https://exemplo.com/minha-foto.jpg"
+                                className="w-full pl-8 pr-3 py-2 rounded-md bg-[#181B20] border border-[#2A303C] focus:border-[#0057E0] focus:outline-none text-xs text-white font-mono"
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={handleApplyExternalPhotoUrl}
+                              className="px-3.5 py-2 rounded-md bg-[#181B20] hover:bg-[#242933] border border-[#F59E0B]/50 text-[#F59E0B] font-mono text-xs font-bold shrink-0"
+                            >
+                              Aplicar Link
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Bloco 2: Insígnia Emoji Técnica */}
+                      <div className="p-4 rounded-lg bg-[#0C0E12] border border-[#2A303C] space-y-2.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-mono text-xs uppercase tracking-wider font-bold text-white flex items-center gap-2">
+                            <Smile className="w-4 h-4 text-[#F59E0B]" />
+                            <span>
+                              Opção 2 • Insígnia Técnica (Emoji ou Fallback)
+                            </span>
+                          </span>
+                          <span className="font-mono text-[10px] text-[#94A3B8]">
+                            Clique em um emoji para selecioná-lo
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-6 sm:grid-cols-12 gap-1.5">
+                          {AVATARS.map((av) => {
+                            const isSelectedEmoji = editAvatar === av;
+                            const isActiveEmojiMode =
+                              isSelectedEmoji &&
+                              (!editPhotoURL || editAvatarMode === "emoji");
+                            return (
+                              <button
+                                key={av}
+                                type="button"
+                                onClick={() => {
+                                  setEditAvatar(av);
+                                  setEditAvatarMode("emoji");
+                                }}
+                                className={`h-10 rounded-md flex items-center justify-center text-lg border transition-all ${
+                                  isActiveEmojiMode
+                                    ? "bg-[#0047B6]/30 border-2 border-[#F59E0B] shadow"
+                                    : isSelectedEmoji
+                                    ? "bg-[#181B20] border-[#0057E0]"
+                                    : "bg-[#181B20] border-[#2A303C] hover:border-slate-500"
+                                }`}
+                              >
+                                {av}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div className="pt-2 flex items-center justify-end gap-3">
+                        <button
+                          type="submit"
+                          disabled={profileSaving}
+                          className="w-full sm:w-auto px-6 py-3 rounded-md bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold text-xs uppercase tracking-wider inline-flex items-center justify-center gap-2 transition-colors shadow-lg"
+                        >
+                          <Save className="w-4 h-4" />
+                          <span>
+                            {profileSaving
+                              ? "Salvando Perfil..."
+                              : "Salvar Alterações do Perfil"}
+                          </span>
+                        </button>
+                      </div>
+                    </form>
+                  </section>
+
+                  {/* Coluna Lateral (5 cols): Contas no Computador & Zona de Segurança */}
+                  <div className="lg:col-span-5 space-y-6">
+                    {/* Card 1: Alternar Perfis Salvos neste Computador (Modo Laboratório) */}
+                    <section className="bg-[#181B20] border border-[#2A303C] rounded-lg p-6 space-y-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <Users className="w-5 h-5 text-[#F59E0B]" />
+                          <h3 className="text-sm font-bold uppercase tracking-wider text-white">
+                            Perfis neste Computador ({savedProfiles.length})
+                          </h3>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => signOutCurrentProfile()}
+                          className="px-2.5 py-1 rounded bg-[#0C0E12] hover:bg-[#14181F] border border-[#2A303C] text-[11px] font-mono font-bold text-[#F59E0B]"
+                        >
+                          + Outra Conta
+                        </button>
+                      </div>
+                      <p className="text-xs text-[#94A3B8] leading-relaxed">
+                        Em computadores compartilhados de laboratório, você pode
+                        alternar rapidamente entre perfis salvos ou remover sua
+                        conta da máquina ao terminar a aula.
+                      </p>
+
+                      <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                        {savedProfiles.map((sp) => {
+                          const isCurrent = sp.uid === profile.uid;
+                          const spRank = getRankInfoByXp(sp.totalXp);
+                          return (
+                            <div
+                              key={sp.uid}
+                              className={`p-3 rounded-md border flex items-center justify-between gap-3 ${
+                                isCurrent
+                                  ? "bg-[#0047B6]/15 border-[#0057E0]"
+                                  : "bg-[#0C0E12] border-[#2A303C]"
+                              }`}
+                            >
+                              <div className="flex items-center gap-3 min-w-0">
+                                <UserAvatar
+                                  profile={sp}
+                                  size="md"
+                                  className="border border-[#2A303C]"
+                                />
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5">
+                                    <p className="text-xs font-bold text-white truncate">
+                                      {sp.displayName}
+                                    </p>
+                                    {isCurrent && (
+                                      <span className="font-mono text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold">
+                                        ATIVO
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-[11px] font-mono text-[#F59E0B] truncate">
+                                    {spRank.currentPatent.icon} NV{" "}
+                                    {spRank.currentTier.level} •{" "}
+                                    {sp.totalXp.toLocaleString("pt-BR")} XP
+                                  </p>
+                                  {sp.classGroup && (
+                                    <p className="text-[10px] font-mono text-[#94A3B8] truncate">
+                                      {sp.classGroup}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+
+                              {!isCurrent && (
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <button
+                                    type="button"
+                                    disabled={profileSaving}
+                                    onClick={() =>
+                                      handleSwitchSavedProfile(sp.uid)
+                                    }
+                                    className="px-2.5 py-1.5 rounded bg-[#0047B6] hover:bg-[#0057E0] text-white font-mono text-[11px] font-bold"
+                                  >
+                                    Ativar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    title="Remover este perfil apenas deste computador"
+                                    onClick={() => {
+                                      removeLocalSavedProfileOnly(sp.uid);
+                                      refreshSavedProfiles();
+                                    }}
+                                    className="p-1.5 rounded bg-[#181B20] hover:bg-red-950/50 border border-[#2A303C] text-[#94A3B8] hover:text-red-400"
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </section>
+
+                    {/* Card 2: Zona de Segurança & Gerenciamento de Dados */}
+                    <section className="bg-[#181B20] border border-red-500/30 rounded-lg p-6 space-y-4">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className="w-5 h-5 text-amber-400" />
+                        <h3 className="text-sm font-bold uppercase tracking-wider text-white">
+                          Gerenciamento de Progresso & Conta
+                        </h3>
+                      </div>
+
+                      {/* Ação 1: Zerar Progresso Próprio */}
+                      <div className="p-3.5 rounded-md bg-[#0C0E12] border border-[#2A303C] space-y-2.5">
+                        <div>
+                          <h4 className="text-xs font-bold text-amber-400">
+                            Redefinir Meu Progresso (Zerar XP e Histórico)
+                          </h4>
+                          <p className="text-[11px] text-[#94A3B8] mt-0.5 leading-relaxed">
+                            Zera seu XP acumulado, conquistas e histórico de
+                            partidas para recomeçar do Nível 1, mantendo seu
+                            nome, foto e turma.
+                          </p>
+                        </div>
+                        {confirmResetProgress ? (
+                          <div className="flex items-center gap-2 pt-1">
+                            <button
+                              type="button"
+                              disabled={profileSaving}
+                              onClick={handleResetMyProgress}
+                              className="px-3 py-1.5 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 font-mono text-xs font-bold"
+                            >
+                              Confirmar Reset de XP
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmResetProgress(false)}
+                              className="px-3 py-1.5 rounded bg-[#181B20] border border-[#2A303C] text-xs text-zinc-300"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setConfirmResetProgress(true)}
+                            className="px-3 py-1.5 rounded bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-300 font-mono text-xs font-bold inline-flex items-center gap-1.5"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                            <span>Zerar Meu Progresso</span>
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Ação 2: Excluir Perfil Permanentemente */}
+                      <div className="p-3.5 rounded-md bg-[#0C0E12] border border-red-500/30 space-y-2.5">
+                        <div>
+                          <h4 className="text-xs font-bold text-red-400">
+                            Excluir Meu Perfil Permanentemente
+                          </h4>
+                          <p className="text-[11px] text-[#94A3B8] mt-0.5 leading-relaxed">
+                            Remove sua conta deste computador e do Ranking
+                            Global da plataforma SENAI. Esta ação não pode ser
+                            desfeita.
+                          </p>
+                        </div>
+                        {confirmDeleteAccount ? (
+                          <div className="flex items-center gap-2 pt-1">
+                            <button
+                              type="button"
+                              disabled={profileSaving}
+                              onClick={handleDeleteMyProfile}
+                              className="px-3 py-1.5 rounded bg-red-600 hover:bg-red-500 text-white font-mono text-xs font-bold"
+                            >
+                              Confirmar Exclusão Definitiva
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmDeleteAccount(false)}
+                              className="px-3 py-1.5 rounded bg-[#181B20] border border-[#2A303C] text-xs text-zinc-300"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setConfirmDeleteAccount(true)}
+                            className="px-3 py-1.5 rounded bg-red-950/60 hover:bg-red-900/70 border border-red-500/40 text-red-300 font-mono text-xs font-bold inline-flex items-center gap-1.5"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Excluir Meu Perfil</span>
+                          </button>
+                        )}
+                      </div>
+                    </section>
+                  </div>
+                </div>
+              </div>
             )}
           </>
         )}

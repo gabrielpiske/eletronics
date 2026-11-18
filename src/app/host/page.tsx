@@ -26,6 +26,7 @@ import {
   pruneRoomEvents,
 } from "@/lib/roomService";
 import { db, isFirebaseConfigured } from "@/lib/firebase";
+import { UserAvatar } from "@/components/UserAvatar";
 import { Footer } from "@/components/Footer";
 import { ref, set } from "firebase/database";
 import {
@@ -602,7 +603,12 @@ function HostContent() {
                         key={p.id}
                         className="bg-[#0C0E12] border border-[#262B35] rounded-md px-3 py-2.5 flex items-center gap-2.5"
                       >
-                        <span className="text-lg">{p.avatar}</span>
+                        <UserAvatar
+                          avatar={p.avatar}
+                          name={p.name}
+                          size="sm"
+                          className="border border-[#2A303C]"
+                        />
                         <div className="overflow-hidden">
                           <p className="text-xs font-bold text-zinc-100 truncate">
                             {p.name}
@@ -744,7 +750,12 @@ function HostContent() {
                             >
                               {idx + 1}
                             </span>
-                            <span className="text-base">{p.avatar}</span>
+                            <UserAvatar
+                              avatar={p.avatar}
+                              name={p.name}
+                              size="xs"
+                              className="border border-[#2A303C]"
+                            />
                             <span className="font-bold text-zinc-100 text-sm">
                               {p.name}
                             </span>
@@ -811,7 +822,11 @@ function HostContent() {
                         }`}
                       >
                         <div className="flex items-center gap-1.5 font-bold">
-                          <span>{ev.avatar}</span>
+                          <UserAvatar
+                            avatar={ev.avatar}
+                            name={ev.playerName}
+                            size="xs"
+                          />
                           <span>{ev.playerName}</span>
                         </div>
                         <p className="mt-0.5 text-[11px] font-mono opacity-85">
@@ -845,9 +860,13 @@ function HostContent() {
                     <span className="text-[11px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-zinc-300 text-zinc-950">
                       2º Lugar
                     </span>
-                    <span className="text-3xl my-2">
-                      {sortedPlayers[1].avatar}
-                    </span>
+                    <UserAvatar
+                      avatar={sortedPlayers[1].avatar}
+                      name={sortedPlayers[1].name}
+                      size="lg"
+                      roundedClassName="rounded-lg"
+                      className="my-2 border border-zinc-500"
+                    />
                     <h3 className="text-base font-bold text-white">
                       {sortedPlayers[1].name}
                     </h3>
@@ -867,9 +886,13 @@ function HostContent() {
                     <span className="text-xs font-mono font-bold uppercase px-2.5 py-0.5 rounded bg-amber-400 text-zinc-950 flex items-center gap-1">
                       <Trophy className="w-3.5 h-3.5" /> 1º Lugar
                     </span>
-                    <span className="text-4xl my-2.5">
-                      {sortedPlayers[0].avatar}
-                    </span>
+                    <UserAvatar
+                      avatar={sortedPlayers[0].avatar}
+                      name={sortedPlayers[0].name}
+                      size="xl"
+                      roundedClassName="rounded-lg"
+                      className="my-2.5 border-2 border-amber-400"
+                    />
                     <h3 className="text-lg font-bold text-white">
                       {sortedPlayers[0].name}
                     </h3>
@@ -889,9 +912,13 @@ function HostContent() {
                     <span className="text-[11px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-amber-700 text-white">
                       3º Lugar
                     </span>
-                    <span className="text-3xl my-2">
-                      {sortedPlayers[2].avatar}
-                    </span>
+                    <UserAvatar
+                      avatar={sortedPlayers[2].avatar}
+                      name={sortedPlayers[2].name}
+                      size="lg"
+                      roundedClassName="rounded-lg"
+                      className="my-2 border border-amber-700"
+                    />
                     <h3 className="text-base font-bold text-white">
                       {sortedPlayers[2].name}
                     </h3>

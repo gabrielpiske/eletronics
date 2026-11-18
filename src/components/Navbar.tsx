@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -15,7 +15,13 @@ import {
   Award,
   Radio,
   AlertTriangle,
+  Camera,
+  Users,
 } from "lucide-react";
+import {
+  UserAvatar,
+  processAvatarFileToDataUrl,
+} from "@/components/UserAvatar";
 import {
   UserProfile,
   subscribeToActiveProfile,
@@ -23,6 +29,8 @@ import {
   signInWithQuickGoogleSimulation,
   signOutCurrentProfile,
   formatGoogleAuthError,
+  getSavedLocalProfiles,
+  switchActiveProfile,
 } from "@/lib/profileService";
 import { getRankInfoByXp } from "@/data/achievementsData";
 import { AVATARS } from "@/data/electronicsData";
@@ -30,19 +38,47 @@ import { AVATARS } from "@/data/electronicsData";
 export default function Navbar() {
   const pathname = usePathname();
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [savedProfiles, setSavedProfiles] = useState<UserProfile[]>([]);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [simName, setSimName] = useState("");
   const [simEmail, setSimEmail] = useState("");
+  const [simClassGroup, setSimClassGroup] = useState("");
   const [simAvatar, setSimAvatar] = useState(AVATARS[0]);
+  const [simPhotoURL, setSimPhotoURL] = useState("");
+  const [simAvatarMode, setSimAvatarMode] = useState<"photo" | "emoji">(
+    "emoji"
+  );
   const [authLoading, setAuthLoading] = useState(false);
   const [authErrorMsg, setAuthErrorMsg] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
+    setSavedProfiles(getSavedLocalProfiles());
     const unsub = subscribeToActiveProfile((prof) => {
       setProfile(prof);
+      setSavedProfiles(getSavedLocalProfiles());
     });
     return () => unsub();
   }, []);
+
+  const handlePhotoFileChange = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAuthErrorMsg(null);
+    try {
+      const dataUrl = await processAvatarFileToDataUrl(file);
+      setSimPhotoURL(dataUrl);
+      setSimAvatarMode("photo");
+    } catch (err) {
+      setAuthErrorMsg(
+        err instanceof Error ? err.message : "Erro ao processar a foto."
+      );
+    } finally {
+      e.target.value = "";
+    }
+  };
 
   const handleGoogleLogin = async () => {
     setAuthLoading(true);
@@ -66,10 +102,16 @@ export default function Navbar() {
     setAuthLoading(true);
     setAuthErrorMsg(null);
     try {
-      await signInWithQuickGoogleSimulation(simName, simEmail, simAvatar);
+      await signInWithQuickGoogleSimulation(simName, simEmail, simAvatar, {
+        photoURL: simPhotoURL,
+        avatarMode: simPhotoURL ? simAvatarMode : "emoji",
+        classGroup: simClassGroup,
+      });
       setShowAuthModal(false);
       setSimName("");
       setSimEmail("");
+      setSimClassGroup("");
+      setSimPhotoURL("");
     } finally {
       setAuthLoading(false);
     }
@@ -143,9 +185,13 @@ export default function Navbar() {
                 <Link
                   href="/profile"
                   className="flex items-center gap-2.5 px-3 py-1.5 rounded-md bg-[#0C0E12] border border-[#2A303C] hover:border-[#0057E0] transition-colors"
-                  title="Ver Perfil, Histórico e Conquistas"
+                  title="Ver Perfil, Editar Foto e Conquistas"
                 >
-                  <span className="text-base leading-none">{profile.avatar}</span>
+                  <UserAvatar
+                    profile={profile}
+                    size="sm"
+                    className="border border-[#2A303C]"
+                  />
                   <div className="text-left">
                     <div className="flex items-center gap-1.5">
                       <span className="text-xs font-bold text-white truncate max-w-[110px]">
@@ -302,33 +348,81 @@ export default function Navbar() {
                   />
                 </div>
 
-                <div>
-                  <label className="block font-mono text-[10px] uppercase tracking-wider text-[#94A3B8] mb-1">
-                    E-mail Google (@gmail.com / @aluno.senai.br)
-                  </label>
-                  <input
-                    type="email"
-                    value={simEmail}
-                    onChange={(e) => setSimEmail(e.target.value)}
-                    placeholder="gabriel.silva@aluno.senai.br"
-                    className="w-full px-3 py-2 rounded-md bg-[#0C0E12] border border-[#2A303C] focus:border-[#0047B6] focus:outline-none text-xs text-white font-mono"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block font-mono text-[10px] uppercase tracking-wider text-[#94A3B8] mb-1">
+                      E-mail (@gmail / @aluno.senai.br)
+                    </label>
+                    <input
+                      type="email"
+                      value={simEmail}
+                      onChange={(e) => setSimEmail(e.target.value)}
+                      placeholder="gabriel@aluno.senai.br"
+                      className="w-full px-3 py-2 rounded-md bg-[#0C0E12] border border-[#2A303C] focus:border-[#0047B6] focus:outline-none text-xs text-white font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-mono text-[10px] uppercase tracking-wider text-[#94A3B8] mb-1">
+                      Turma / Unidade (Opcional)
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={36}
+                      value={simClassGroup}
+                      onChange={(e) => setSimClassGroup(e.target.value)}
+                      placeholder="Ex: Eletrotécnica • T1"
+                      className="w-full px-3 py-2 rounded-md bg-[#0C0E12] border border-[#2A303C] focus:border-[#0047B6] focus:outline-none text-xs text-white"
+                    />
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block font-mono text-[10px] uppercase tracking-wider text-[#94A3B8] mb-1">
-                    Insígnia do Perfil
-                  </label>
+                <div className="p-2.5 rounded-md bg-[#0C0E12] border border-[#2A303C] space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <UserAvatar
+                        avatar={simAvatar}
+                        photoURL={simPhotoURL}
+                        avatarMode={simPhotoURL ? simAvatarMode : "emoji"}
+                        name={simName || "Preview"}
+                        size="sm"
+                        className="border border-[#0057E0]"
+                      />
+                      <span className="font-mono text-[10px] uppercase tracking-wider text-[#94A3B8]">
+                        {simPhotoURL && simAvatarMode === "photo"
+                          ? "Foto Própria Selecionada"
+                          : `Insígnia (${simAvatar})`}
+                      </span>
+                    </div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handlePhotoFileChange}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="px-2.5 py-1 rounded bg-[#181B20] hover:bg-[#0047B6]/30 border border-[#0057E0] text-[11px] font-bold text-white inline-flex items-center gap-1"
+                    >
+                      <Camera className="w-3 h-3 text-[#F59E0B]" />
+                      <span>Enviar Foto</span>
+                    </button>
+                  </div>
+
                   <div className="grid grid-cols-6 gap-1.5">
                     {AVATARS.map((av) => (
                       <button
                         key={av}
                         type="button"
-                        onClick={() => setSimAvatar(av)}
+                        onClick={() => {
+                          setSimAvatar(av);
+                          setSimAvatarMode("emoji");
+                        }}
                         className={`h-8 rounded flex items-center justify-center text-base border transition-all ${
-                          simAvatar === av
+                          simAvatar === av && simAvatarMode === "emoji"
                             ? "bg-[#0047B6]/25 border-[#F59E0B]"
-                            : "bg-[#0C0E12] border-[#2A303C]"
+                            : "bg-[#181B20] border-[#2A303C]"
                         }`}
                       >
                         {av}
@@ -345,6 +439,43 @@ export default function Navbar() {
                   Vincular Conta & Iniciar Perfil
                 </button>
               </form>
+
+              {savedProfiles.length > 0 && (
+                <div className="mt-4 pt-3 border-t border-[#2A303C] space-y-1.5">
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-[#94A3B8] flex items-center gap-1.5 font-semibold">
+                    <Users className="w-3 h-3 text-[#F59E0B]" />
+                    Perfis Salvos neste Computador ({savedProfiles.length})
+                  </span>
+                  <div className="space-y-1 max-h-32 overflow-y-auto pr-1">
+                    {savedProfiles.map((sp) => (
+                      <div
+                        key={sp.uid}
+                        className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded bg-[#0C0E12] border border-[#2A303C]"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <UserAvatar profile={sp} size="xs" />
+                          <span className="text-xs font-bold text-white truncate">
+                            {sp.displayName}
+                          </span>
+                          <span className="text-[10px] font-mono text-[#F59E0B] shrink-0">
+                            NV {sp.level}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await switchActiveProfile(sp.uid);
+                            setShowAuthModal(false);
+                          }}
+                          className="px-2 py-0.5 rounded bg-[#0047B6] hover:bg-[#0057E0] text-white font-mono text-[10px] font-bold shrink-0"
+                        >
+                          Ativar
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

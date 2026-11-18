@@ -17,7 +17,13 @@ import {
   UserProfile,
   subscribeToActiveProfile,
   recordCompletedMatch,
+  getEffectiveAvatarString,
 } from "@/lib/profileService";
+import {
+  UserAvatar,
+  isImageAvatarString,
+  processAvatarFileToDataUrl,
+} from "@/components/UserAvatar";
 import { ACHIEVEMENTS_CATALOG, getRankInfoByXp } from "@/data/achievementsData";
 import { ConveyorGame } from "@/components/minigames/ConveyorGame";
 import { CircuitRadarGame } from "@/components/minigames/CircuitRadarGame";
@@ -34,6 +40,7 @@ import {
   Radio,
   Award,
   CheckCircle2,
+  Camera,
 } from "lucide-react";
 
 const AVATARS = ["⚡", "🔧", "🤖", "🔋", "💡", "🛠️", "📟", "🚀"];
@@ -58,6 +65,7 @@ export default function PlayRoomPage() {
   } | null>(null);
 
   const recordedRoundRef = useRef<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const activeRoundStartedAtRef = useRef<number | null>(null);
   const localStatsRef = useRef<{
     roundStartedAt: number | null;
@@ -92,11 +100,24 @@ export default function PlayRoomPage() {
       setActiveProfile(prof);
       if (prof && !sessionStorage.getItem("senai_arena_nickname")) {
         setNickname((prev) => prev || prof.displayName);
-        setAvatar(prof.avatar || AVATARS[0]);
+        setAvatar(getEffectiveAvatarString(prof));
       }
     });
     return () => unsub();
   }, [pin]);
+
+  const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const dataUrl = await processAvatarFileToDataUrl(file);
+      setAvatar(dataUrl);
+    } catch {
+      // ignore
+    } finally {
+      e.target.value = "";
+    }
+  };
 
   useEffect(() => {
     if (!pin) return;
@@ -331,9 +352,67 @@ export default function PlayRoomPage() {
               />
             </div>
             <div>
-              <label className="text-xs font-mono uppercase text-zinc-400 block mb-1">
-                Marcador
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-mono uppercase text-zinc-400">
+                  Foto ou Marcador
+                </label>
+                <div className="flex items-center gap-1.5">
+                  {activeProfile?.photoURL && (
+                    <button
+                      type="button"
+                      onClick={() => setAvatar(activeProfile.photoURL)}
+                      className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold border ${
+                        avatar === activeProfile.photoURL
+                          ? "bg-amber-500/20 border-amber-400 text-amber-300"
+                          : "bg-[#0C0E12] border-[#2A303C] text-zinc-400"
+                      }`}
+                    >
+                      Foto do Perfil
+                    </button>
+                  )}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePhotoSelect}
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="px-2 py-0.5 rounded text-[10px] font-mono font-bold border bg-[#0C0E12] border-[#2A303C] text-zinc-200 inline-flex items-center gap-1"
+                  >
+                    <Camera className="w-3 h-3 text-amber-400" />
+                    <span>Enviar Foto</span>
+                  </button>
+                </div>
+              </div>
+
+              {isImageAvatarString(avatar) && (
+                <div className="mb-2 px-3 py-2 rounded-md bg-[#0C0E12] border border-amber-400/60 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <UserAvatar
+                      avatar={avatar}
+                      name={nickname || "Aluno"}
+                      size="sm"
+                      className="border border-amber-400"
+                    />
+                    <span className="text-xs font-semibold text-amber-300">
+                      Foto própria selecionada
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setAvatar(activeProfile?.avatar || AVATARS[0])
+                    }
+                    className="text-[10px] font-mono text-zinc-400 hover:text-white"
+                  >
+                    Usar Emoji
+                  </button>
+                </div>
+              )}
+
               <div className="grid grid-cols-8 gap-1.5">
                 {AVATARS.map((av) => (
                   <button
@@ -418,8 +497,13 @@ export default function PlayRoomPage() {
       {/* HUD Superior do Aluno */}
       <header className="border-b border-[#242933] bg-[#16191E] sticky top-0 z-30 px-3 py-2">
         <div className="max-w-3xl mx-auto flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <span className="text-lg">{myPlayer?.avatar || avatar}</span>
+          <div className="flex items-center gap-2.5">
+            <UserAvatar
+              avatar={myPlayer?.avatar || avatar}
+              name={myPlayer?.name || nickname}
+              size="sm"
+              className="border border-[#2A303C]"
+            />
             <div>
               <div className="flex items-center gap-1.5">
                 <p className="text-xs sm:text-sm font-bold text-white leading-tight">

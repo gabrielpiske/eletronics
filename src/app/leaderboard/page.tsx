@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
+import { UserAvatar } from "@/components/UserAvatar";
 import {
   UserProfile,
   LeaderboardPeriod,
@@ -476,8 +477,13 @@ export default function LeaderboardPage() {
                   </div>
 
                   <div className="flex items-center gap-3.5 mb-4">
-                    <div className="w-12 h-12 rounded-lg bg-[#0C0E12] border border-[#2A303C] flex items-center justify-center text-2xl relative">
-                      {player.avatar}
+                    <div className="relative shrink-0">
+                      <UserAvatar
+                        profile={player}
+                        size="lg"
+                        roundedClassName="rounded-lg"
+                        className="border border-[#2A303C]"
+                      />
                       <span
                         title={rankInfo.currentPatent.title}
                         className="absolute -bottom-1.5 -right-1.5 w-5 h-5 rounded-full bg-[#181B20] border border-[#F59E0B] flex items-center justify-center text-[11px]"
@@ -502,6 +508,7 @@ export default function LeaderboardPage() {
                       </p>
                       <p className="text-[10px] font-mono text-[#94A3B8] truncate">
                         Carreira: {player.totalXp.toLocaleString("pt-BR")} XP
+                        {player.classGroup ? ` • ${player.classGroup}` : ""}
                       </p>
                     </div>
                   </div>
@@ -642,15 +649,24 @@ export default function LeaderboardPage() {
                         </td>
                         <td className="py-3.5 px-4">
                           <div className="flex items-center gap-3">
-                            <span className="text-xl">{player.avatar}</span>
+                            <UserAvatar
+                              profile={player}
+                              size="sm"
+                              className="border border-[#2A303C]"
+                            />
                             <div>
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <span className="font-bold text-white">
                                   {player.displayName}
                                 </span>
                                 {isMe && (
                                   <span className="font-mono text-[9px] px-1.5 py-0.5 rounded bg-[#0047B6] text-white font-bold">
                                     VOCÊ
+                                  </span>
+                                )}
+                                {player.classGroup && (
+                                  <span className="font-mono text-[9px] px-1.5 py-0.5 rounded bg-[#0C0E12] text-[#94A3B8] border border-[#2A303C]">
+                                    {player.classGroup}
                                   </span>
                                 )}
                               </div>
@@ -861,9 +877,12 @@ export default function LeaderboardPage() {
             <div className="p-6 space-y-5">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl w-11 h-11 rounded-lg bg-[#0C0E12] border border-[#2A303C] flex items-center justify-center">
-                    {selectedPlayerForAdmin.avatar}
-                  </span>
+                  <UserAvatar
+                    profile={selectedPlayerForAdmin}
+                    size="lg"
+                    roundedClassName="rounded-lg"
+                    className="border border-[#2A303C]"
+                  />
                   <div>
                     <span className="font-mono text-[10px] uppercase tracking-wider text-[#F59E0B] font-bold block">
                       GERENCIAMENTO DE XP // ADMIN
