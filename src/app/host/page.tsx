@@ -344,48 +344,115 @@ function HostContent() {
                 SELEÇÃO DE ATIVIDADE PRÁTICA
               </span>
               <span className="font-mono text-[11px] text-zinc-500">
-                5 módulos disponíveis
+                {MINIGAMES_CATALOG.length} módulos disponíveis
               </span>
             </div>
 
-            <div className="p-5">
-              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                {MINIGAMES_CATALOG.map((mg, idx) => {
-                  const active = selectedGame === mg.id;
-                  return (
-                    <button
-                      key={mg.id}
-                      type="button"
-                      onClick={() => setSelectedGame(mg.id)}
-                      className={`rounded-md p-4 border text-left transition-colors flex flex-col justify-between ${
-                        active
-                          ? "bg-[#1F242D] border-amber-400"
-                          : "bg-[#121519] border-[#262B35] hover:border-zinc-600"
-                      }`}
-                    >
-                      <div>
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-mono text-[11px] text-zinc-400 font-bold">
-                            MÓDULO 0{idx + 1}
-                          </span>
-                          {active && (
-                            <span className="w-2 h-2 rounded-full bg-amber-400" />
-                          )}
-                        </div>
-                        <h3 className="text-sm font-bold text-white mt-2">
-                          {mg.title}
-                        </h3>
-                        <p className="text-xs text-amber-400/90 font-medium mt-0.5">
-                          {mg.subtitle}
-                        </p>
-                      </div>
+            <div className="p-5 space-y-5">
+              {/* Trilha 1: Fundamentos & Simbologia */}
+              <div>
+                <div className="flex items-center justify-between mb-2.5">
+                  <span className="font-mono text-[11px] uppercase tracking-wider text-zinc-400 font-semibold">
+                    Trilha 01 • Fundamentos &amp; Simbologia (5 módulos)
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                  {MINIGAMES_CATALOG.filter((mg) => mg.track === "fundamentos").map(
+                    (mg, idx) => {
+                      const active = selectedGame === mg.id;
+                      return (
+                        <button
+                          key={mg.id}
+                          type="button"
+                          onClick={() => setSelectedGame(mg.id)}
+                          className={`rounded-md p-4 border text-left transition-colors flex flex-col justify-between ${
+                            active
+                              ? "bg-[#1F242D] border-amber-400"
+                              : "bg-[#121519] border-[#262B35] hover:border-zinc-600"
+                          }`}
+                        >
+                          <div>
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-mono text-[11px] text-zinc-400 font-bold">
+                                MÓDULO 0{idx + 1}
+                              </span>
+                              {active && (
+                                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                              )}
+                            </div>
+                            <h3 className="text-sm font-bold text-white mt-2">
+                              {mg.title}
+                            </h3>
+                            <p className="text-xs text-amber-400/90 font-medium mt-0.5">
+                              {mg.subtitle}
+                            </p>
+                          </div>
 
-                      <div className="mt-4 pt-2.5 border-t border-[#222730] flex items-center justify-between text-[11px] font-mono">
-                        <span className="text-zinc-500">{mg.badge}</span>
-                      </div>
-                    </button>
-                  );
-                })}
+                          <div className="mt-4 pt-2.5 border-t border-[#222730] flex items-center justify-between text-[11px] font-mono">
+                            <span className="text-zinc-500">{mg.badge}</span>
+                          </div>
+                        </button>
+                      );
+                    }
+                  )}
+                </div>
+              </div>
+
+              {/* Trilha 2: Desafio Industrial (Ordem de Serviço) */}
+              <div className="pt-4 border-t border-[#242933]">
+                <div className="flex items-center justify-between flex-wrap gap-2 mb-2.5">
+                  <span className="font-mono text-[11px] uppercase tracking-wider text-amber-400 font-bold">
+                    Trilha 02 • Desafio Industrial — Ordem de Serviço (1 módulo)
+                  </span>
+                  <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-[#0C0E12] border border-amber-500/35 text-amber-300">
+                    RECOMENDADO: 5m, 7m ou 10m
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 gap-3">
+                  {MINIGAMES_CATALOG.filter((mg) => mg.track === "industrial").map(
+                    (mg, idx) => {
+                      const active = selectedGame === mg.id;
+                      return (
+                        <button
+                          key={mg.id}
+                          type="button"
+                          onClick={() => setSelectedGame(mg.id)}
+                          className={`rounded-md p-4 border text-left transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+                            active
+                              ? "bg-[#1F242D] border-amber-400"
+                              : "bg-[#121519] border-[#262B35] hover:border-amber-500/60"
+                          }`}
+                        >
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-[11px] text-amber-400 font-bold">
+                                OS INDUSTRIAL 0{idx + 1}
+                              </span>
+                              {active && (
+                                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                              )}
+                            </div>
+                            <h3 className="text-sm sm:text-base font-bold text-white mt-1">
+                              {mg.title}
+                            </h3>
+                            <p className="text-xs text-sky-300/90 font-medium mt-0.5">
+                              {mg.subtitle}
+                            </p>
+                            <p className="text-xs text-zinc-400 mt-1.5 leading-relaxed max-w-3xl">
+                              {mg.description}
+                            </p>
+                          </div>
+
+                          <div className="shrink-0 flex items-center text-[11px] font-mono">
+                            <span className="px-2.5 py-1 rounded bg-[#0C0E12] border border-amber-500/35 text-amber-400 font-bold">
+                              {mg.badge}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    }
+                  )}
+                </div>
               </div>
 
               {/* Barra Inferior: Tempo + Botão Gerar Sala */}
@@ -556,7 +623,7 @@ function HostContent() {
                   <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block mb-2.5">
                     Alternar Módulo (Mantém PIN {room.pin}):
                   </span>
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {MINIGAMES_CATALOG.map((mg) => (
                       <button
                         key={mg.id}
@@ -570,6 +637,11 @@ function HostContent() {
                             : "bg-[#0C0E12] border-[#262B35] text-zinc-400 hover:text-zinc-200"
                         }`}
                       >
+                        {mg.track === "industrial" && (
+                          <span className="block font-mono text-[9px] uppercase text-amber-400 mb-0.5">
+                            OS INDUSTRIAL
+                          </span>
+                        )}
                         {mg.title}
                       </button>
                     ))}
@@ -885,7 +957,7 @@ function HostContent() {
                 <span className="text-xs font-mono uppercase text-zinc-400 font-semibold block mb-2.5">
                   Iniciar próximo módulo na mesma sala (PIN {room.pin}):
                 </span>
-                <div className="grid grid-cols-1 sm:grid-cols-5 gap-2.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
                   {MINIGAMES_CATALOG.map((mg) => (
                     <button
                       key={mg.id}
@@ -895,7 +967,13 @@ function HostContent() {
                       }
                       className="p-3 rounded-md bg-[#0C0E12] hover:bg-[#14181F] border border-[#262B35] hover:border-amber-400 text-left transition-colors"
                     >
-                      <span className="text-[10px] font-mono text-amber-400 uppercase font-semibold block">
+                      <span
+                        className={`text-[10px] font-mono uppercase font-semibold block ${
+                          mg.track === "industrial"
+                            ? "text-sky-400"
+                            : "text-amber-400"
+                        }`}
+                      >
                         {mg.badge}
                       </span>
                       <p className="text-xs font-bold text-white mt-1">

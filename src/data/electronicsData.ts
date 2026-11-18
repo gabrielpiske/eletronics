@@ -23,7 +23,10 @@ export type MinigameId =
   | "radar"
   | "resistor"
   | "match"
-  | "detective";
+  | "detective"
+  | "industrial_repair";
+
+export type MinigameTrack = "fundamentos" | "industrial";
 
 export interface MinigameMeta {
   id: MinigameId;
@@ -35,6 +38,7 @@ export interface MinigameMeta {
   colorFrom: string;
   colorTo: string;
   defaultDurationSec: number;
+  track: MinigameTrack;
 }
 
 export const MINIGAMES_CATALOG: MinigameMeta[] = [
@@ -50,6 +54,7 @@ export const MINIGAMES_CATALOG: MinigameMeta[] = [
     colorFrom: "#0EA5E9",
     colorTo: "#2563EB",
     defaultDurationSec: 120,
+    track: "fundamentos",
   },
   {
     id: "radar",
@@ -63,6 +68,7 @@ export const MINIGAMES_CATALOG: MinigameMeta[] = [
     colorFrom: "#10B981",
     colorTo: "#059669",
     defaultDurationSec: 120,
+    track: "fundamentos",
   },
   {
     id: "resistor",
@@ -76,6 +82,7 @@ export const MINIGAMES_CATALOG: MinigameMeta[] = [
     colorFrom: "#F59E0B",
     colorTo: "#D97706",
     defaultDurationSec: 150,
+    track: "fundamentos",
   },
   {
     id: "match",
@@ -89,6 +96,7 @@ export const MINIGAMES_CATALOG: MinigameMeta[] = [
     colorFrom: "#8B5CF6",
     colorTo: "#6D28D9",
     defaultDurationSec: 120,
+    track: "fundamentos",
   },
   {
     id: "detective",
@@ -102,6 +110,21 @@ export const MINIGAMES_CATALOG: MinigameMeta[] = [
     colorFrom: "#EC4899",
     colorTo: "#BE185D",
     defaultDurationSec: 120,
+    track: "fundamentos",
+  },
+  {
+    id: "industrial_repair",
+    title: "Estação de Reparo de PCI",
+    subtitle: "Ordem de Serviço • Inspeção PTH/SMD & Soldagem",
+    badge: "OS INDUSTRIAL • REPARO",
+    description:
+      "Atenda Ordens de Serviço inspecionando placas industriais com lupa virtual para localizar defeitos de solda/montagem e definir o reparo seguro.",
+    howToPlay:
+      "Leia a OS, confirme a montagem PTH/SMD, use o zoom/lupa para localizar o defeito na PCI e valide o procedimento e a inspeção final.",
+    colorFrom: "#F97316",
+    colorTo: "#C2410C",
+    defaultDurationSec: 300,
+    track: "industrial",
   },
 ];
 

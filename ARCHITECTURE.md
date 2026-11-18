@@ -111,10 +111,10 @@ Para suportar turmas inteiras jogando continuamente por 10 minutos sem degradaç
 
 ---
 
-## 4. Minigames, Geração Procedural e Penalidades
+## 4. Minigames, Desafio Industrial (OS), Geração Procedural e Penalidades
 
-### Contrato Comum dos Minigames
-Todos os 5 componentes em `src/components/minigames/` recebem uma única prop de callback:
+### Contrato Comum dos 6 Minigames
+Todos os 6 componentes em `src/components/minigames/` (5 Fundamentos + 1 Desafio Industrial `industrial_repair` em `track: "fundamentos" | "industrial"`) recebem uma única prop de callback:
 ```ts
 onScoreAction: (
   deltaScore: number,
@@ -123,7 +123,7 @@ onScoreAction: (
   newLevel?: number
 ) => void;
 ```
-Isso permite que o mesmo componente rode de forma idêntica em `/play/[pin]` (sincronizado em sala) e em `/practice` (treino solo).
+Isso permite que o mesmo componente rode de forma idêntica em `/play/[pin]` (sincronizado em sala, com largura expandida `max-w-5xl` no módulo industrial) e em `/practice` (treino solo, com auto-save calibrado em `targetActions = 3` para `industrial_repair`, `6` para `match` e `5` para os demais).
 
 ### Sistema de Penalidades (`PenaltySystem.tsx`)
 O hook `usePenaltySystem(onScoreAction, onAutoclickDetected?)` fornece:
@@ -132,7 +132,16 @@ O hook `usePenaltySystem(onScoreAction, onAutoclickDetected?)` fornece:
   - `2º erro`: `-70 pts`, bloqueio `4.000 ms`
   - `3º+ erro`: `-110 pts`, bloqueio `6.000 ms`
   - Qualquer acerto via `registerHit(...)` zera `consecutiveErrors`.
+- **Diferenciação de Segurança (`severity?: "error" | "safety"`):** `triggerErrorPenalty` aceita o 5º parâmetro opcional `severity`. Quando `"safety"`, `lockReason` assume `"safety"` e o `PenaltyBanner` renderiza o selo âmbar **`ALERTA DE SEGURANÇA NA SIMULAÇÃO`** (ex.: tentativa de soldagem com placa energizada ou prática destrutiva na bancada).
 - **Proteção anti-autoclique:** `handleContainerPointerDown` (ligado a `onPointerDownCapture`) monitora janela de `480 ms`; ao detectar `>= 4` cliques, bloqueia a bancada por `5.000 ms` e aplica `-90 pts` (com cooldown de `1.800 ms` na dedução para não drenar pontos em rajada).
+
+### Desafio Industrial — Estação de Reparo de PCI (`industrialChallengesData.ts` + `minigames/industrial/`)
+- **Banco curado (`src/data/industrialChallengesData.ts`):** 4 Ordens de Serviço em `pt-BR` (`REPAIR_CASES`: `OS-SOL-01` a `OS-SOL-04`), com fila embaralhada sem repetição consecutiva (`pickNextShuffledCase`) para sustentar sessões de 5, 7 e 10 minutos.
+- **Realismo controlado (`public/images/industrial/*.jpg`):** 3 fundos fotográficos genéricos sem texto/marcas (`workbench-esd.jpg`, `pcb-pth-closeup.jpg`, `pcb-smd-closeup.jpg`) combinados a overlays HTML/SVG nítidos que renderizam componentes PTH/SMD, juntas de solda e defeitos físicos.
+- **Infraestrutura compartilhada (`src/components/minigames/industrial/`):**
+  - `IndustrialOSHeader.tsx`: abertura padronizada de OS (código, setor, sintoma, impacto, condição de trabalho e etapas).
+  - `IndustrialClosingReport.tsx`: devolutiva nas 5 dimensões (*Segurança*, *Evidência*, *Decisão Técnica*, *Qualidade*, *Tempo*), erro mais comum, capacidade técnica e próximo passo seguro.
+  - `IndustrialBoardViewport.tsx`: viewport de inspeção de PCI com zoom (`1x`–`2.5x`), pan, lupa óptica virtual, hotspots acessíveis por teclado e `BoardComponentGraphic` para variantes visuais de defeito e estado corrigido (Antes/Depois).
 
 ### Motores de Geração (`challengeGenerator.ts` + `/api/ai-challenge`)
 - **Catálogo (`electronicsData.ts`):** `35` componentes em `ELECTRONIC_COMPONENTS` (`7` `passivo`, `10` `semicondutor`, `10` `protecao_energia`, `8` `digital_logica`), todos com vetor SVG próprio em `ElectronicSymbolSVG.tsx`.

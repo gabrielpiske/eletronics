@@ -15,6 +15,7 @@ import { CircuitRadarGame } from "@/components/minigames/CircuitRadarGame";
 import { ResistorBuilderGame } from "@/components/minigames/ResistorBuilderGame";
 import { BenchMatchGame } from "@/components/minigames/BenchMatchGame";
 import { SmokeDetectiveGame } from "@/components/minigames/SmokeDetectiveGame";
+import { IndustrialRepairGame } from "@/components/minigames/IndustrialRepairGame";
 import { recordCompletedMatch } from "@/lib/profileService";
 import { ACHIEVEMENTS_CATALOG } from "@/data/achievementsData";
 import Navbar from "@/components/Navbar";
@@ -30,6 +31,12 @@ import {
 } from "lucide-react";
 
 const QUESTIONS_PER_SOLO_ROUND = 5;
+
+function getSoloTargetActions(gameId: MinigameId): number {
+  if (gameId === "match") return 6;
+  if (gameId === "industrial_repair") return 3;
+  return QUESTIONS_PER_SOLO_ROUND;
+}
 
 function PracticeContent() {
   const searchParams = useSearchParams();
@@ -141,10 +148,9 @@ function PracticeContent() {
     setSoloMaxStreak(nextMaxStreak);
     setLastSoloDelta(deltaScore);
 
-    // Ao completar uma jogatina (6 pares no Jogo da Bancada ou 5 desafios nos demais),
+    // Ao completar uma jogatina (6 pares no Jogo da Bancada, 3 marcos/OS nos Desafios Industriais ou 5 desafios nos demais),
     // salva automaticamente o XP no banco de dados e atualiza o perfil do usuário!
-    const targetActions =
-      selectedGame === "match" ? 6 : QUESTIONS_PER_SOLO_ROUND;
+    const targetActions = getSoloTargetActions(selectedGame);
 
     if (nextHits + nextMisses >= targetActions) {
       setTimeout(() => {
@@ -204,8 +210,7 @@ function PracticeContent() {
       ? ELECTRONIC_COMPONENTS
       : ELECTRONIC_COMPONENTS.filter((c) => c.category === categoryFilter);
 
-  const targetActions =
-    selectedGame === "match" ? 6 : QUESTIONS_PER_SOLO_ROUND;
+  const targetActions = getSoloTargetActions(selectedGame);
   const currentActions = soloHits + soloMisses;
 
   return (
@@ -333,20 +338,38 @@ function PracticeContent() {
           <div className="flex flex-col gap-4">
             <div className="bg-[#181B20] border border-[#2A303C] rounded-lg p-3 flex items-center justify-between flex-wrap gap-3">
               <div className="flex items-center gap-1.5 flex-wrap">
-                {MINIGAMES_CATALOG.map((mg) => (
-                  <button
-                    key={mg.id}
-                    type="button"
-                    onClick={() => handleSwitchGame(mg.id)}
-                    className={`px-3 py-1.5 rounded-md text-xs font-semibold border transition-colors ${
-                      selectedGame === mg.id
-                        ? "bg-[#0047B6] text-white border-[#0056DB]"
-                        : "bg-[#0C0E12] text-zinc-400 border-[#262B35] hover:text-zinc-200"
-                    }`}
-                  >
-                    {mg.title}
-                  </button>
-                ))}
+                {MINIGAMES_CATALOG.map((mg) => {
+                  const isIndustrial = mg.track === "industrial";
+                  return (
+                    <button
+                      key={mg.id}
+                      type="button"
+                      onClick={() => handleSwitchGame(mg.id)}
+                      className={`px-3 py-1.5 rounded-md text-xs font-semibold border transition-colors flex items-center gap-1.5 ${
+                        selectedGame === mg.id
+                          ? isIndustrial
+                            ? "bg-amber-500 text-zinc-950 border-amber-400 font-bold"
+                            : "bg-[#0047B6] text-white border-[#0056DB]"
+                          : isIndustrial
+                          ? "bg-[#0C0E12] text-amber-300/90 border-amber-500/35 hover:border-amber-400"
+                          : "bg-[#0C0E12] text-zinc-400 border-[#262B35] hover:text-zinc-200"
+                      }`}
+                    >
+                      {isIndustrial && (
+                        <span
+                          className={`font-mono text-[9px] uppercase px-1 rounded ${
+                            selectedGame === mg.id
+                              ? "bg-zinc-950/20 text-zinc-950"
+                              : "bg-amber-500/15 text-amber-400"
+                          }`}
+                        >
+                          OS
+                        </span>
+                      )}
+                      <span>{mg.title}</span>
+                    </button>
+                  );
+                })}
               </div>
 
               <div className="flex items-center gap-2 flex-wrap">
@@ -489,6 +512,9 @@ function PracticeContent() {
               )}
               {selectedGame === "detective" && (
                 <SmokeDetectiveGame onScoreAction={handleSoloScore} />
+              )}
+              {selectedGame === "industrial_repair" && (
+                <IndustrialRepairGame onScoreAction={handleSoloScore} />
               )}
             </div>
           </div>

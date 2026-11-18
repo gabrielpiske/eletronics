@@ -52,9 +52,9 @@ export function usePenaltySystem(
   const [consecutiveErrors, setConsecutiveErrors] = useState<number>(0);
   const [lockRemainingMs, setLockRemainingMs] = useState<number>(0);
   const [totalLockMs, setTotalLockMs] = useState<number>(2500);
-  const [lockReason, setLockReason] = useState<"error" | "autoclick" | null>(
-    null
-  );
+  const [lockReason, setLockReason] = useState<
+    "error" | "autoclick" | "safety" | null
+  >(null);
   const [lastPenaltyPts, setLastPenaltyPts] = useState<number>(-80);
   const [lastBadge, setLastBadge] = useState<string>("");
   const [lastErrorTitle, setLastErrorTitle] = useState<string>("");
@@ -152,7 +152,8 @@ export function usePenaltySystem(
       actionMessage: string,
       errorTitle: string,
       errorDetail: string,
-      newLevel?: number
+      newLevel?: number,
+      severity: "error" | "safety" = "error"
     ): ProgressivePenaltyInfo & { consecutiveErrors: number } => {
       const nextErr = consecutiveErrorsRef.current + 1;
       consecutiveErrorsRef.current = nextErr;
@@ -169,9 +170,13 @@ export function usePenaltySystem(
 
       setTotalLockMs(effectiveDelay);
       setLockRemainingMs(effectiveDelay);
-      setLockReason("error");
+      setLockReason(severity);
       setLastPenaltyPts(penalty.points);
-      setLastBadge(penalty.badge);
+      setLastBadge(
+        severity === "safety"
+          ? `ALERTA DE SEGURANÇA NA SIMULAÇÃO (${penalty.points} PTS)`
+          : penalty.badge
+      );
       setLastErrorTitle(errorTitle);
       setLastErrorDetail(errorDetail);
 
@@ -212,7 +217,7 @@ interface PenaltyBannerProps {
   isLocked: boolean;
   lockRemainingMs: number;
   totalLockMs: number;
-  lockReason: "error" | "autoclick" | null;
+  lockReason: "error" | "autoclick" | "safety" | null;
   consecutiveErrors: number;
   lastPenaltyPts: number;
   lastBadge: string;
@@ -239,21 +244,42 @@ export const PenaltyBanner: React.FC<PenaltyBannerProps> = ({
   );
   const secondsText = (lockRemainingMs / 1000).toFixed(1).replace(".", ",");
   const isAutoclick = lockReason === "autoclick";
+  const isSafety = lockReason === "safety";
 
   return (
-    <div className="rounded-md bg-[#1C1113] border border-red-500/70 border-l-4 border-l-red-500 p-3.5 text-zinc-100">
+    <div
+      className={`rounded-md border border-l-4 p-3.5 text-zinc-100 ${
+        isSafety
+          ? "bg-[#22190D] border-amber-500/80 border-l-amber-400"
+          : "bg-[#1C1113] border-red-500/70 border-l-red-500"
+      }`}
+    >
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded bg-red-500/20 border border-red-500/40 flex items-center justify-center shrink-0 text-red-400">
+          <div
+            className={`w-8 h-8 rounded border flex items-center justify-center shrink-0 ${
+              isSafety
+                ? "bg-amber-500/20 border-amber-400/50 text-amber-300"
+                : "bg-red-500/20 border-red-500/40 text-red-400"
+            }`}
+          >
             {isAutoclick ? (
               <AlertOctagon className="w-4 h-4" />
+            ) : isSafety ? (
+              <ShieldAlert className="w-4 h-4" />
             ) : (
               <ZapOff className="w-4 h-4" />
             )}
           </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded bg-[#0C0E12] border border-red-500/40 text-red-300 font-bold">
+              <span
+                className={`text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded bg-[#0C0E12] border font-bold ${
+                  isSafety
+                    ? "border-amber-400/50 text-amber-300"
+                    : "border-red-500/40 text-red-300"
+                }`}
+              >
                 {lastBadge}
               </span>
               {consecutiveErrors >= 2 && !isAutoclick && (
@@ -268,8 +294,16 @@ export const PenaltyBanner: React.FC<PenaltyBannerProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 bg-[#0C0E12] px-2.5 py-1.5 rounded border border-red-500/40 font-mono">
-          <span className="text-xs font-bold text-red-400">
+        <div
+          className={`flex items-center gap-2 bg-[#0C0E12] px-2.5 py-1.5 rounded border font-mono ${
+            isSafety ? "border-amber-400/50" : "border-red-500/40"
+          }`}
+        >
+          <span
+            className={`text-xs font-bold ${
+              isSafety ? "text-amber-300" : "text-red-400"
+            }`}
+          >
             {lastPenaltyPts} pts
           </span>
           <span className="text-zinc-600">|</span>
@@ -290,13 +324,19 @@ export const PenaltyBanner: React.FC<PenaltyBannerProps> = ({
       <div className="w-full h-1.5 bg-[#0C0E12] rounded-sm overflow-hidden mt-2.5">
         <div
           style={{ width: `${progressPct}%` }}
-          className="h-full bg-red-500 transition-all duration-75"
+          className={`h-full transition-all duration-75 ${
+            isSafety ? "bg-amber-400" : "bg-red-500"
+          }`}
         />
       </div>
       <div className="flex items-center justify-between text-[10px] font-mono text-zinc-400 mt-1">
         <span className="flex items-center gap-1">
-          <ShieldAlert className="w-3 h-3 text-red-400" /> Disjuntor em rearme
-          automático
+          <ShieldAlert
+            className={`w-3 h-3 ${isSafety ? "text-amber-400" : "text-red-400"}`}
+          />{" "}
+          {isSafety
+            ? "Intertravamento de segurança ativado — corrija o procedimento"
+            : "Disjuntor em rearme automático"}
         </span>
         <span>Acerte a próxima para normalizar</span>
       </div>

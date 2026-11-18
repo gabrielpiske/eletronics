@@ -24,6 +24,7 @@ import { CircuitRadarGame } from "@/components/minigames/CircuitRadarGame";
 import { ResistorBuilderGame } from "@/components/minigames/ResistorBuilderGame";
 import { BenchMatchGame } from "@/components/minigames/BenchMatchGame";
 import { SmokeDetectiveGame } from "@/components/minigames/SmokeDetectiveGame";
+import { IndustrialRepairGame } from "@/components/minigames/IndustrialRepairGame";
 import { Footer } from "@/components/Footer";
 import {
   Trophy,
@@ -488,7 +489,11 @@ export default function PlayRoomPage() {
         </div>
       </header>
 
-      <main className="flex-1 max-w-3xl w-full mx-auto px-3 py-5 flex flex-col justify-center">
+      <main
+        className={`flex-1 w-full mx-auto px-3 py-5 flex flex-col justify-center ${
+          currentMeta.track === "industrial" ? "max-w-5xl" : "max-w-3xl"
+        }`}
+      >
         {/* ESTADO 1: AGUARDANDO NO LOBBY */}
         {room.status === "LOBBY" && (
           <div className="bg-[#181B20] border border-[#2A303C] rounded-lg p-6 text-center max-w-md mx-auto w-full">
@@ -528,6 +533,9 @@ export default function PlayRoomPage() {
             )}
             {room.minigameId === "detective" && (
               <SmokeDetectiveGame onScoreAction={handleScoreAction} />
+            )}
+            {room.minigameId === "industrial_repair" && (
+              <IndustrialRepairGame onScoreAction={handleScoreAction} />
             )}
           </div>
         )}

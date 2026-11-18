@@ -53,19 +53,24 @@ Cada tela e mecanismo do sistema foi desenhado com um propósito didático claro
 
 ---
 
-## 4. Intencionalidade Pedagógica Detalhada dos 5 Minigames
+## 4. Intencionalidade Pedagógica Detalhada dos 6 Módulos (5 Fundamentos + Estação de Reparo de PCI)
 
-Diferente de quizzes convencionais de múltipla escolha que estimulam apenas a memorização passiva, cada um dos **5 Minigames** propõe uma **mecânica cognitiva e psicomotora distinta**, com geração procedural infinita (sustentando inclusive maratonas de 5 a 10 minutos), diretamente vinculada às **Capacidades Técnicas** e aos **Conhecimentos** da Unidade Curricular **Técnicas de Manutenção Eletrônica** (Anexo II):
+Diferente de quizzes convencionais de múltipla escolha que estimulam apenas a memorização passiva, cada um dos **6 Minigames** propõe uma **mecânica cognitiva e psicomotora distinta**, organizados em **Trilha 01 — Fundamentos & Simbologia** (5 módulos procedurais) e **Trilha 02 — Desafio Industrial por Ordem de Serviço** (`Estação de Reparo de PCI`, com 4 casos curados PTH/SMD), diretamente vinculados às **Capacidades Técnicas** e aos **Conhecimentos** da Unidade Curricular **Técnicas de Manutenção Eletrônica** (Anexo II):
 
 ```mermaid
 flowchart TD
     UC["UC: Técnicas de Manutenção Eletrônica (120h)"]
     
-    UC --> MG1["🏭 1. Esteira de Componentes\n(Taxonomia, Simbologia e Letras da PCI — 35 Peças)"]
-    UC --> MG2["🔍 2. Radar do Circuito\n(Leitura Espacial em 3 Topologias Esquemáticas)"]
-    UC --> MG3["🎨 3. Oficina do Resistor\n(Série E12/E24, Código de Cores e Lei de Ohm)"]
-    UC --> MG4["⚡ 4. Conexão de Bancada\n(Associação Símbolo ↔ Designador e Função)"]
-    UC --> MG5["🕵️ 5. Diagnóstico por Pistas\n(Raciocínio Dedutivo Procedural + Gemini IA)"]
+    UC --> T1["Trilha 01 • Fundamentos & Simbologia"]
+    UC --> T2["Trilha 02 • Desafio Industrial (OS)"]
+    
+    T1 --> MG1["🏭 1. Esteira de Componentes\n(Taxonomia e 35 Símbolos)"]
+    T1 --> MG2["🔍 2. Radar do Circuito\n(3 Topologias Esquemáticas)"]
+    T1 --> MG3["🎨 3. Oficina do Resistor\n(Série E12/E24 e Lei de Ohm)"]
+    T1 --> MG4["⚡ 4. Conexão de Bancada\n(Símbolo ↔ Designador e Função)"]
+    T1 --> MG5["🕵️ 5. Diagnóstico por Pistas\n(Motor Procedural + Gemini IA)"]
+
+    T2 --> MG6["🔧 6. Estação de Reparo de PCI\n(Inspeção PTH/SMD, Lupa e Soldagem)"]
 ```
 
 ---
@@ -167,6 +172,14 @@ flowchart TD
   * *3.1 Multímetro;*
   * *4.1 Teste de continuidade / 4.5 Por análise de funcionamento / 4.6 Inspeção visual;*
   * *5.1 Normas de segurança aplicáveis à manutenção de sistemas elétricos.*
+
+---
+
+### 🔧 Minigame 6 (OS Industrial): "Estação de Reparo de PCI" (`IndustrialRepairGame`)
+
+* **Dinâmica do Desafio:** Em formato de **Ordem de Serviço Industrial** (`OS-SOL-01` a `OS-SOL-04`), o aluno avalia uma placa retirada de campo (montagem **PTH** ou **SMD**), utiliza **zoom, arraste e lupa óptica virtual** para inspecionar hotspots, localiza defeitos físicos reais (*solda trincada, ponte de solda SMD, polaridade invertida de diodo, resistor SMD deslocado*), define o procedimento seguro de bancada, valida critérios finais de qualidade e analisa a **comparação visual Antes × Depois**.
+* **Intencionalidade Pedagógica:** Desenvolve critério de inspeção visual, disciplina de segurança ESD/desenergização e tomada de decisão em retrabalho PTH e SMD, rejeitando práticas destrutivas ou improvisos inseguros.
+* **Capacidades Técnicas Mobilizadas:** **CT2**, **CT3**, **CT4** (*inspeção visual*), **CT9** (*segurança na bancada*), **CT13** (*substituição e soldagem/dessoldagem*).
 
 ---
 

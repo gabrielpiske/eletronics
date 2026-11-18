@@ -9,21 +9,25 @@ Combina **salas competitivas ao vivo estilo Kahoot** (PIN + QR Code + telão em 
 ## ✨ Principais Recursos
 
 ### 🎮 Salas Competitivas ao Vivo (`/host` e `/play/[pin]`)
-- **Acesso Instantâneo:** o docente escolhe qualquer um dos 5 minigames isoladamente, define a duração e gera um **PIN de 6 dígitos + QR Code + link copiável**.
+- **Acesso Instantâneo:** o docente escolhe qualquer um dos **6 módulos independentes** (5 Fundamentos & Simbologia + 1 Desafio Industrial por Ordem de Serviço), define a duração e gera um **PIN de 6 dígitos + QR Code + link copiável**.
 - **7 Modos de Duração de Sessão:**
   - **Rápidos / Padrão:** `1m30 (90s)`, `2m (120s)`, `3m (180s)`, `4m (240s)`
-  - **Estendidos / Maratona:** `5m (300s)`, `7m (420s)`, `10m (600s)`
+  - **Estendidos / Maratona:** `5m (300s)`, `7m (420s)`, `10m (600s)` *(recomendados para a Estação de Reparo de PCI)*
 - **Troca Dinâmica no Mesmo PIN:** o docente pode alternar o **módulo** ou o **tempo da rodada** diretamente no **Lobby** ou no **Pódio Final** sem gerar novo PIN e sem desconectar os alunos.
 - **Telão ao Vivo & Relatório Docente:** corrida de ranking em tempo real com combos, níveis de bancada, log de telemetria (com poda automática para sessões longas), simulador de 3 alunos demo (`+ Simular 3 Alunos`), pódio Top 3 e **exportação em `.CSV`**.
 
-### 🕹️ Os 5 Minigames Independentes
-Todos os módulos geram desafios procedurais infinitos (suportando com folga rodadas de até 10 minutos) e contam com **Sistema de Penalidades Progressivas & Proteção Anti-Autoclique** (`PenaltySystem.tsx`):
+### 🕹️ Os 6 Minigames Independentes (2 Trilhas)
+Todos os módulos compartilham o contrato `onScoreAction`, suportam rodadas longas de até 10 minutos e contam com **Sistema de Penalidades Progressivas, Intertravamento de Segurança e Proteção Anti-Autoclique** (`PenaltySystem.tsx`):
 
+#### Trilha 01 — Fundamentos & Simbologia (5 módulos)
 1. 🏭 **Esteira de Componentes (`ConveyorGame.tsx`):** triagem rápida sobre esteira com velocidade progressiva. Alterna entre classificação por *Família Tecnológica* (Passivos, Semicondutores, Proteção & Energia, Digital & Lógica) e identificação direta de *Nome + Designador PCI* entre os 35 componentes.
 2. 🔍 **Radar do Circuito (`CircuitRadarGame.tsx`):** inspeção espacial em **3 topologias esquemáticas completas** (12 nós cada — Fonte Linear + Sensor Óptico, Lógica Digital & Alarme Industrial, e Controle de Potência AC/DC), alternando modos de diagnóstico por sintoma, função no estágio e busca por designador.
 3. 🎨 **Oficina do Resistor (`ResistorBuilderGame.tsx`):** gerador procedural da **série comercial E12/E24 + Lei de Ohm** (126 valores distintos com contextos reais de bancada). O aluno pinta interativamente a 1ª faixa, 2ª faixa e o multiplicador e afere no multímetro virtual, com consulta opcional à tabela de cores.
 4. ⚡ **Conexão de Bancada (`BenchMatchGame.tsx`):** tabuleiros progressivos de associação `Símbolo Esquemático ↔ Designador na Placa & Função/Pista` (6 pares por placa), evoluindo de nível continuamente sem repetir as últimas 6 peças.
 5. 🕵️ **Diagnóstico por Pistas (`SmokeDetectiveGame.tsx`):** símbolo inicialmente desfocado que ganha nitidez em 3 estágios enquanto 3 pistas técnicas progressivas são reveladas (120 / 80 / 45 pts). Combina **Motor Procedural V2** com geração dinâmica opcional via **Google Gemini API** (`/api/ai-challenge`).
+
+#### Trilha 02 — Desafio Industrial • Ordem de Serviço (1 módulo, 4 casos curados)
+6. 🔧 **Estação de Reparo de PCI (`IndustrialRepairGame.tsx`):** atendimento de OS (`OS-SOL-01` a `OS-SOL-04`) com inspeção visual em PCI PTH/SMD usando **zoom, arraste (pan), lupa óptica virtual e hotspots acessíveis**, diagnóstico de defeitos físicos (solda trincada, ponte de solda, polaridade invertida, SMD deslocado), escolha de procedimento seguro e **comparação visual Antes/Depois**.
 
 ### 🛡️ Penalidades Progressivas e Anti-Autoclique
 - **Disjuntor Progressivo:** falhas consecutivas aplicam penalidade crescente e tempo de bloqueio de rearme:
@@ -69,22 +73,24 @@ Todos os módulos geram desafios procedurais infinitos (suportando com folga rod
 
 ```text
 ├── public/
+│   ├── images/industrial/                 # 3 cenários fotográficos genéricos (ESD, PCI PTH e PCI SMD)
 │   └── intencionalidade-pedagogica.html   # Versão web/imprimível servida no rodapé
 ├── src/
 │   ├── app/
 │   │   ├── api/ai-challenge/route.ts      # Geração de desafios via Gemini / procedural
-│   │   ├── host/page.tsx                  # Painel do Professor (4 etapas + tempos até 10m)
+│   │   ├── host/page.tsx                  # Painel do Professor (2 trilhas, 6 módulos, tempos até 10m)
 │   │   ├── leaderboard/page.tsx           # Ranking Semanal/Mensal/Geral + Modo Admin
 │   │   ├── play/[pin]/page.tsx            # Experiência do aluno em sala ao vivo
-│   │   ├── practice/page.tsx              # Catálogo 35 componentes + Treino Solo
+│   │   ├── practice/page.tsx              # Catálogo 35 componentes + Treino Solo (6 módulos)
 │   │   ├── profile/page.tsx               # Carreira, Patentes, Conquistas e Histórico
 │   │   ├── layout.tsx / page.tsx          # Layout base (Inter + JetBrains Mono) e Home
 │   ├── components/
 │   │   ├── ElectronicSymbolSVG.tsx        # Renderizador SVG normatizado dos 35 símbolos
 │   │   ├── Navbar.tsx / Footer.tsx        # Navegação global, modal Auth e rodapé
-│   │   └── minigames/                     # 5 minigames + PenaltySystem.tsx
+│   │   └── minigames/                     # 6 minigames + PenaltySystem + industrial/ (OS compartilhado)
 │   ├── data/
-│   │   ├── electronicsData.ts             # Catálogo de 35 componentes, cores e minigames
+│   │   ├── electronicsData.ts             # Catálogo de 35 componentes, cores e 6 minigames
+│   │   ├── industrialChallengesData.ts    # 4 Ordens de Serviço curadas (Estação de Reparo de PCI)
 │   │   └── achievementsData.ts            # 100 níveis, 21 patentes e 24 conquistas
 │   └── lib/
 │       ├── firebase.ts                    # Inicialização segura Auth + RTDB
@@ -93,6 +99,7 @@ Todos os módulos geram desafios procedurais infinitos (suportando com folga rod
 │       └── challengeGenerator.ts          # Geradores procedurais (E24, 3 Topologias, Detetive)
 ├── database.rules.json                    # Regras do Firebase Realtime Database
 ├── ARCHITECTURE.md                        # Guia técnico detalhado de arquitetura
+├── DESAFIOS_INDUSTRIAIS_PROPOSTA.md       # Especificação funcional dos 3 Desafios Industriais
 ├── INTENCIONALIDADE_PEDAGOGICA.md         # Documento pedagógico (Markdown)
 └── INTENCIONALIDADE_PEDAGOGICA.html       # Documento pedagógico (HTML imprimível)
 ```
