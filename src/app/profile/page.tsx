@@ -772,71 +772,110 @@ export default function ProfilePage() {
             {/* Top Dossier Banner */}
             <section className="bg-[#181B20] border border-[#2A303C] rounded-lg overflow-hidden shadow-lg">
               <div className="h-1 w-full bg-gradient-to-r from-[#0047B6] via-[#F59E0B] to-emerald-500" />
-              <div className="p-6 flex flex-col xl:flex-row xl:items-center justify-between gap-6">
-                <div className="flex items-start sm:items-center gap-4">
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab("settings")}
-                    title="Clique para trocar sua foto ou editar seu perfil"
-                    className="relative group shrink-0"
-                  >
-                    <UserAvatar
-                      profile={profile}
-                      size="xl"
-                      roundedClassName="rounded-lg"
-                      className="border-2 border-[#0057E0] group-hover:border-[#F59E0B] transition-colors"
-                    />
-                    <span className="absolute inset-0 rounded-lg bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                      <Camera className="w-5 h-5 text-[#F59E0B]" />
-                    </span>
-                    {rankInfo && (
-                      <span
-                        title={rankInfo.currentPatent.title}
-                        className="absolute -bottom-2 -right-2 w-7 h-7 rounded-full bg-[#181B20] border border-[#F59E0B] flex items-center justify-center text-sm shadow"
-                      >
-                        {rankInfo.currentPatent.icon}
+              <div className="p-6 space-y-5">
+                {/* Linha 1: Identidade do Usuário + Botões de Ação */}
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                  <div className="flex items-start sm:items-center gap-4 min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab("settings")}
+                      title="Clique para trocar sua foto ou editar seu perfil"
+                      className="relative group shrink-0"
+                    >
+                      <UserAvatar
+                        profile={profile}
+                        size="xl"
+                        roundedClassName="rounded-lg"
+                        className="border-2 border-[#0057E0] group-hover:border-[#F59E0B] transition-colors"
+                      />
+                      <span className="absolute inset-0 rounded-lg bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                        <Camera className="w-5 h-5 text-[#F59E0B]" />
                       </span>
-                    )}
-                  </button>
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2 mb-1">
-                      <span className="font-mono text-[11px] font-bold uppercase px-2 py-0.5 rounded bg-[#F59E0B]/15 text-[#F59E0B] border border-[#F59E0B]/40">
-                        NÍVEL {rankInfo?.currentTier.level} / {MAX_PLATFORM_LEVEL}
-                      </span>
-                      <span className="font-mono text-[11px] font-bold uppercase px-2 py-0.5 rounded bg-[#0047B6]/25 text-blue-300 border border-[#0057E0]/50">
-                        {rankInfo?.currentPatent.badgeCode} •{" "}
-                        {rankInfo?.currentPatent.divisionLabel}
-                      </span>
-                      {profile.classGroup && (
-                        <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-300 border border-emerald-500/40 inline-flex items-center gap-1">
-                          <GraduationCap className="w-3.5 h-3.5" />
-                          {profile.classGroup}
+                      {rankInfo && (
+                        <span
+                          title={rankInfo.currentPatent.title}
+                          className="absolute -bottom-2 -right-2 w-7 h-7 rounded-full bg-[#181B20] border border-[#F59E0B] flex items-center justify-center text-sm shadow"
+                        >
+                          {rankInfo.currentPatent.icon}
                         </span>
                       )}
+                    </button>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <span className="font-mono text-[11px] font-bold uppercase px-2 py-0.5 rounded bg-[#F59E0B]/15 text-[#F59E0B] border border-[#F59E0B]/40">
+                          NÍVEL {rankInfo?.currentTier.level} /{" "}
+                          {MAX_PLATFORM_LEVEL}
+                        </span>
+                        <span className="font-mono text-[11px] font-bold uppercase px-2 py-0.5 rounded bg-[#0047B6]/25 text-blue-300 border border-[#0057E0]/50">
+                          {rankInfo?.currentPatent.badgeCode} •{" "}
+                          {rankInfo?.currentPatent.divisionLabel}
+                        </span>
+                        {profile.classGroup && (
+                          <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-300 border border-emerald-500/40 inline-flex items-center gap-1">
+                            <GraduationCap className="w-3.5 h-3.5" />
+                            {profile.classGroup}
+                          </span>
+                        )}
+                      </div>
+                      <h2 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2 flex-wrap">
+                        <span>{profile.displayName}</span>
+                        <span className="text-sm font-mono font-bold text-emerald-400">
+                          // {rankInfo?.currentPatent.title}
+                        </span>
+                      </h2>
+                      <p className="font-mono text-xs text-[#94A3B8] truncate">
+                        {profile.email} • {unlockedPatentsCount} de{" "}
+                        {SENAI_PATENTS.length} Patentes Alcançadas
+                      </p>
                     </div>
-                    <h2 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2 flex-wrap">
-                      <span>{profile.displayName}</span>
-                      <span className="text-sm font-mono font-bold text-emerald-400">
-                        // {rankInfo?.currentPatent.title}
-                      </span>
-                    </h2>
-                    <p className="font-mono text-xs text-[#94A3B8]">
-                      {profile.email} • {unlockedPatentsCount} de{" "}
-                      {SENAI_PATENTS.length} Patentes Alcançadas
-                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab("settings")}
+                      className={`inline-flex items-center gap-2 px-3.5 py-2.5 rounded-md text-xs font-bold border transition-colors ${
+                        activeTab === "settings"
+                          ? "bg-[#F59E0B] text-slate-950 border-[#F59E0B]"
+                          : "bg-[#0C0E12] hover:bg-[#14181F] text-white border-[#F59E0B]/50"
+                      }`}
+                    >
+                      <Camera
+                        className={`w-3.5 h-3.5 shrink-0 ${
+                          activeTab === "settings"
+                            ? "text-slate-950"
+                            : "text-[#F59E0B]"
+                        }`}
+                      />
+                      <span>Editar Perfil & Foto</span>
+                    </button>
+                    <Link
+                      href="/practice"
+                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-md bg-[#0047B6] hover:bg-[#0057E0] text-white text-xs font-bold transition-colors"
+                    >
+                      <Play className="w-3.5 h-3.5 text-[#F59E0B]" />
+                      <span>Treinar & Ganhar XP</span>
+                    </Link>
+                    <button
+                      onClick={() => signOutCurrentProfile()}
+                      className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-md bg-[#111317] hover:bg-red-950/40 text-[#94A3B8] hover:text-red-400 border border-[#2A303C] text-xs font-semibold transition-colors"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span>Trocar Conta</span>
+                    </button>
                   </div>
                 </div>
 
-                {/* Dual Progress: Level & Next Patent */}
+                {/* Linha 2: Barras de Progresso em Largura Total (Nível Atual & Próxima Patente) */}
                 {rankInfo && (
-                  <div className="flex-1 max-w-xl grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="pt-4 border-t border-[#2A303C] grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Box 1: Progresso do Nível Atual */}
-                    <div className="bg-[#0C0E12] border border-[#2A303C] rounded-md p-3.5">
-                      <div className="flex items-center justify-between text-xs mb-1.5">
-                        <span className="font-mono uppercase text-[#94A3B8] text-[10px]">
+                    <div className="bg-[#0C0E12] border border-[#2A303C] rounded-md p-4">
+                      <div className="flex items-center justify-between gap-2 text-xs mb-2">
+                        <span className="font-mono uppercase text-[#94A3B8] text-[11px] font-semibold">
                           Progresso Nível {rankInfo.currentTier.level}
                         </span>
-                        <span className="font-mono font-bold text-[#F59E0B] text-[11px]">
+                        <span className="font-mono font-bold text-[#F59E0B] text-xs">
                           {rankInfo.nextTier
                             ? `Faltam ${rankInfo.xpToNext.toLocaleString("pt-BR")} XP`
                             : "NÍVEL MÁXIMO (1M XP)"}
@@ -848,12 +887,20 @@ export default function ProfilePage() {
                           style={{ width: `${rankInfo.progressPercent}%` }}
                         />
                       </div>
-                      <div className="flex items-center justify-between mt-1.5 text-[10px] font-mono text-[#94A3B8]">
-                        <span>{profile.totalXp.toLocaleString("pt-BR")} XP</span>
+                      <div className="flex items-center justify-between gap-2 mt-2 text-[11px] font-mono text-[#94A3B8]">
+                        <span>
+                          Atual:{" "}
+                          <strong className="text-white">
+                            {profile.totalXp.toLocaleString("pt-BR")} XP
+                          </strong>
+                        </span>
                         {rankInfo.nextTier ? (
                           <span>
-                            NV {rankInfo.nextTier.level}:{" "}
-                            {rankInfo.nextTier.minXp.toLocaleString("pt-BR")} XP
+                            Meta NV {rankInfo.nextTier.level}:{" "}
+                            <strong className="text-zinc-300">
+                              {rankInfo.nextTier.minXp.toLocaleString("pt-BR")}{" "}
+                              XP
+                            </strong>
                           </span>
                         ) : (
                           <span>1.000.000 XP</span>
@@ -862,14 +909,14 @@ export default function ProfilePage() {
                     </div>
 
                     {/* Box 2: Progresso para a Próxima Patente (a cada 5 níveis) */}
-                    <div className="bg-[#0C0E12] border border-[#2A303C] rounded-md p-3.5">
-                      <div className="flex items-center justify-between text-xs mb-1.5">
-                        <span className="font-mono uppercase text-[#94A3B8] text-[10px]">
+                    <div className="bg-[#0C0E12] border border-[#2A303C] rounded-md p-4">
+                      <div className="flex items-center justify-between gap-2 text-xs mb-2">
+                        <span className="font-mono uppercase text-[#94A3B8] text-[11px] font-semibold">
                           Próxima Patente (5 em 5 NV)
                         </span>
-                        <span className="font-mono font-bold text-emerald-400 text-[11px]">
+                        <span className="font-mono font-bold text-emerald-400 text-xs">
                           {rankInfo.nextPatent
-                            ? `No NV ${rankInfo.nextPatent.minLevel} (-${rankInfo.levelsToNextPatent} NV)`
+                            ? `No NV ${rankInfo.nextPatent.minLevel} (faltam ${rankInfo.levelsToNextPatent} NV)`
                             : "PATENTE SUPREMA"}
                         </span>
                       </div>
@@ -879,45 +926,29 @@ export default function ProfilePage() {
                           style={{ width: `${rankInfo.patentProgressPct}%` }}
                         />
                       </div>
-                      <div className="flex items-center justify-between mt-1.5 text-[10px] font-mono text-[#94A3B8] truncate">
+                      <div className="flex items-center justify-between gap-2 mt-2 text-[11px] font-mono text-[#94A3B8]">
                         <span className="truncate">
-                          {rankInfo.nextPatent
-                            ? `Próx: ${rankInfo.nextPatent.icon} ${rankInfo.nextPatent.title}`
-                            : "Você zerou todas as patentes!"}
+                          {rankInfo.nextPatent ? (
+                            <>
+                              Próxima:{" "}
+                              <strong className="text-emerald-300">
+                                {rankInfo.nextPatent.icon}{" "}
+                                {rankInfo.nextPatent.title}
+                              </strong>
+                            </>
+                          ) : (
+                            "Você conquistou todas as 21 patentes!"
+                          )}
                         </span>
+                        {rankInfo.nextPatent && (
+                          <span className="shrink-0 text-emerald-400 font-bold">
+                            {rankInfo.patentProgressPct}%
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
                 )}
-
-                <div className="flex flex-wrap items-center gap-2.5">
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab("settings")}
-                    className={`inline-flex items-center gap-2 px-3.5 py-2.5 rounded-md text-xs font-bold border transition-colors ${
-                      activeTab === "settings"
-                        ? "bg-[#F59E0B] text-slate-950 border-[#F59E0B]"
-                        : "bg-[#0C0E12] hover:bg-[#14181F] text-white border-[#F59E0B]/50"
-                    }`}
-                  >
-                    <Camera className="w-3.5 h-3.5 text-[#F59E0B] shrink-0" />
-                    <span>Editar Perfil & Foto</span>
-                  </button>
-                  <Link
-                    href="/practice"
-                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-md bg-[#0047B6] hover:bg-[#0057E0] text-white text-xs font-bold transition-colors"
-                  >
-                    <Play className="w-3.5 h-3.5 text-[#F59E0B]" />
-                    <span>Treinar & Ganhar XP</span>
-                  </Link>
-                  <button
-                    onClick={() => signOutCurrentProfile()}
-                    className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-md bg-[#111317] hover:bg-red-950/40 text-[#94A3B8] hover:text-red-400 border border-[#2A303C] text-xs font-semibold transition-colors"
-                  >
-                    <LogOut className="w-3.5 h-3.5" />
-                    <span>Trocar Conta</span>
-                  </button>
-                </div>
               </div>
             </section>
 
