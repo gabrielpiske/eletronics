@@ -31,7 +31,7 @@ export const ResistorBuilderGame: React.FC<ResistorBuilderGameProps> = ({
     generateProceduralResistorOrder()
   );
   const [activeBand, setActiveBand] = useState<0 | 1 | 2>(0);
-  const [bands, setBands] = useState<[number, number, number]>([0, 0, 0]);
+  const [bands, setBands] = useState<[number, number, number]>([1, 0, 0]);
   const [showTable, setShowTable] = useState<boolean>(false);
   const [builtCount, setBuiltCount] = useState<number>(0);
   const [statusMsg, setStatusMsg] = useState<{
@@ -103,7 +103,7 @@ export const ResistorBuilderGame: React.FC<ResistorBuilderGameProps> = ({
       setTimeout(() => {
         setStatusMsg(null);
         setActiveBand(0);
-        setBands([0, 0, 0]);
+        setBands([1, 0, 0]);
         setCurrentOrder((prev) =>
           generateProceduralResistorOrder(prev.targetOhms)
         );
@@ -332,7 +332,9 @@ export const ResistorBuilderGame: React.FC<ResistorBuilderGameProps> = ({
 
         <div className="grid grid-cols-5 gap-2">
           {RESISTOR_COLORS.map((c, idx) => {
-            const disabledBand = activeBand === 2 && idx >= 7;
+            const disabledBand =
+              (activeBand === 0 && idx === 0) ||
+              (activeBand === 2 && idx >= 6);
             const disabled = disabledBand || isLocked;
             return (
               <button

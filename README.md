@@ -2,7 +2,7 @@
 
 Plataforma gamificada interativa desenvolvida para a Unidade Curricular **Técnicas de Manutenção Eletrônica** (Curso de Aprendizagem Industrial de Eletrônico de Manutenção Industrial — SENAI/SC, Timbó).
 
-Combina **salas competitivas ao vivo estilo Kahoot** (PIN + QR Code + telão em tempo real), **catálogo normalizado de 35 componentes eletrônicos** (incluindo Eletrônica Digital e Portas Lógicas), **treino individual com salvamento automático de XP**, **motor procedural + IA Gemini** e um **sistema completo de carreira técnica** com 100 níveis, 21 patentes, 24 conquistas e ranking global.
+Combina **salas competitivas ao vivo estilo Kahoot** (PIN + QR Code + telão em tempo real), **catálogo normalizado de 35 componentes eletrônicos** (incluindo Eletrônica Digital e Portas Lógicas), **treino individual com salvamento automático de XP**, **motor procedural + IA Gemini** e um **sistema completo de carreira técnica** com 100 níveis, 21 patentes, 58 conquistas e ranking global.
 
 ---
 
@@ -44,8 +44,8 @@ Todos os módulos compartilham o contrato `onScoreAction`, suportam rodadas long
 ### 🏆 Perfil, Carreira Técnica e Ranking Global (`/profile` e `/leaderboard`)
 - **Autenticação Google OAuth** via Firebase Auth + fallback de **Acesso Rápido Educacional** (sem bloqueio em laboratório).
 - **Progressão de Carreira:** **100 Níveis** com curva quadrática estritamente crescente até **1.000.000 XP**, divididos em **21 Patentes Técnicas** (a cada 5 níveis, em 8 divisões: *Bronze, Prata, Ouro, Platina, Esmeralda, Diamante, Mestre e Lendário*).
-- **24 Conquistas Técnicas** (de *Fácil* a *Lendário*) com recompensas extras de XP e barras de progresso individuais.
-- **Ranking Global Multi-Período:** visualização **Semanal**, **Mensal** e **Geral**, ordenável por XP, Precisão ou Maior Combo, além de **Modo Admin do Docente** protegido por PIN para zerar temporada, ajustar XP ou remover perfis.
+- **58 Conquistas Técnicas** (de *Fácil* a *Lendário* em 7 categorias) com recompensas extras de XP e barras de progresso individuais.
+- **Ranking Global Multi-Período:** visualização **Semanal**, **Mensal** e **Geral**, ordenável por XP, Precisão ou Maior Combo, além de **Modo Admin do Docente** validado no servidor (`/api/admin-auth`) para zerar temporada, ajustar XP ou remover perfis.
 
 ---
 
@@ -57,9 +57,10 @@ Todos os módulos compartilham o contrato `onScoreAction`, suportam rodadas long
 | `/host` | Painel do professor (criação de sala, Lobby, QR Code, ranking ao vivo, Pódio e CSV) |
 | `/play/[pin]` | Tela do aluno conectada à sala em tempo real (Lobby, Minigame ativo, Resumo & XP) |
 | `/practice` | Catálogo interativo de 35 símbolos + Treino Individual (Solo) com auto-save de XP |
-| `/profile` | Perfil do aluno, vinculação Google, 21 Patentes, 100 Níveis, 24 Conquistas e histórico |
+| `/profile` | Perfil do aluno, vinculação Google, 21 Patentes, 100 Níveis, 58 Conquistas e histórico |
 | `/leaderboard` | Ranking Global (Semanal / Mensal / Geral) e controles administrativos do docente |
 | `/api/ai-challenge` | Endpoint `POST` para geração de casos técnicos (Gemini 2.5 Flash com fallback procedural) |
+| `/api/admin-auth` | Endpoint `POST` server-side para validação segura do PIN administrativo do docente |
 | `/intencionalidade-pedagogica.html` | Documento técnico-pedagógico (MSEP / BNCC) pronto para impressão/PDF |
 
 ---
@@ -91,7 +92,7 @@ Todos os módulos compartilham o contrato `onScoreAction`, suportam rodadas long
 │   ├── data/
 │   │   ├── electronicsData.ts             # Catálogo de 35 componentes, cores e 6 minigames
 │   │   ├── industrialChallengesData.ts    # 4 Ordens de Serviço curadas (Estação de Reparo de PCI)
-│   │   └── achievementsData.ts            # 100 níveis, 21 patentes e 24 conquistas
+│   │   └── achievementsData.ts            # 100 níveis, 21 patentes e 58 conquistas
 │   └── lib/
 │       ├── firebase.ts                    # Inicialização segura Auth + RTDB
 │       ├── roomService.ts                 # Salas, durações, eventos, poda e sync local/RTDB
@@ -132,6 +133,7 @@ Copie [`.env.example`](./.env.example) para `.env.local` se desejar ativar Fireb
 | `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | Opcional | Sender ID do Firebase |
 | `NEXT_PUBLIC_FIREBASE_APP_ID` | Opcional | App ID do Firebase |
 | `GEMINI_API_KEY` | Opcional | Ativa geração de laudos inéditos via Gemini no *Diagnóstico por Pistas* |
+| `ADMIN_PIN` | Opcional | Define o PIN administrativo do docente validado em `/api/admin-auth` |
 
 ---
 

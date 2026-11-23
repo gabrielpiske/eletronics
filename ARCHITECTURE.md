@@ -17,7 +17,7 @@ flowchart TB
         PRAC["/practice (Catálogo 35 + Solo)"]
         PROF["/profile (Carreira & Conquistas)"]
         LEAD["/leaderboard (Ranking + Admin)"]
-        MG["5 Minigames + PenaltySystem"]
+        MG["6 Minigames + PenaltySystem"]
     end
 
     subgraph Services["Camada de Serviços (src/lib/)"]
@@ -166,14 +166,14 @@ let totalXpEarned = baseXp + accuracyBonus; // + xpReward de conquistas desbloqu
 ### Curva de Níveis e Patentes (`achievementsData.ts`)
 - **100 Níveis (`SENAI_RANK_TIERS`):** Nível `1` = `0 XP` até Nível `100` = `1.000.000 XP`, com saltos estritamente crescentes (`deltaXpRequired` monotônico).
 - **21 Patentes Técnicas (`SENAI_PATENTS`):** 1 patente a cada 5 níveis (NV 1–4, 5–9, ..., 95–99 e NV 100 Lendário), distribuídas em 8 divisões (`bronze`, `prata`, `ouro`, `platina`, `esmeralda`, `diamante`, `mestre`, `lendario`).
-- **24 Conquistas (`ACHIEVEMENTS_CATALOG`):** avaliadas automaticamente ao fim de cada partida (início, precisão, combo, especialistas nos 5 minigames, volume e marcos de carreira).
+- **58 Conquistas (`ACHIEVEMENTS_CATALOG`):** avaliadas automaticamente ao fim de cada partida em loop multi-pass (`evaluateAndSyncProfileAchievements`: início, precisão, combo, especialistas nas 6 bancadas, manobras/inovação, volume e marcos de carreira).
 
 ### Ranking Multi-Período e Modo Admin
 - **Períodos (`getProfilePeriodStats`):**
   - `weekly`: reinicia toda segunda-feira às `00:00` (`weekKey: W_YYYY-MM-DD`) ou no `periodResetAt` manual.
   - `monthly`: reinicia dia 1º de cada mês (`monthKey: M_YYYY-MM`) ou no `periodResetAt` manual.
   - `all`: acumulado histórico (`totalXp`).
-- **Modo Admin (`/leaderboard`):** destravado via `verifyAdminPin` (PIN definido na constante `ADMIN_FIXED_PIN` em `src/lib/profileService.ts`, persistido na sessão via `sessionStorage`). Permite iniciar nova temporada (`adminTriggerPeriodReset`), ajustar/definir XP (`adminAdjustUserXp` com `adminOverrideAt`) ou excluir perfis (`adminDeleteUserProfile`).
+- **Modo Admin (`/leaderboard`):** destravado via `verifyAdminPin` (validado no servidor pelo endpoint `POST /api/admin-auth` contra `process.env.ADMIN_PIN`, persistido na sessão via `sessionStorage`). Permite iniciar nova temporada (`adminTriggerPeriodReset`), ajustar/definir XP (`adminAdjustUserXp` com `adminOverrideAt`) ou excluir perfis (`adminDeleteUserProfile`).
 
 ---
 

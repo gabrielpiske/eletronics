@@ -37,6 +37,9 @@ export const SmokeDetectiveGame: React.FC<SmokeDetectiveGameProps> = ({
   } | null>(null);
 
   const recentTargetIdsRef = useRef<string[]>([]);
+  const prefetchedAiCaseRef = useRef<DetectiveCase | null>(null);
+  const roundIdRef = useRef<number>(0);
+  const hasInteractedRef = useRef<boolean>(false);
 
   const {
     isLocked,
@@ -56,59 +59,125 @@ export const SmokeDetectiveGame: React.FC<SmokeDetectiveGameProps> = ({
     setResultFeedback(null);
   });
 
-  const nextMystery = useCallback(async (preferAi = false) => {
-    const baseCase = generateProceduralDetectiveCase(recentTargetIdsRef.current);
-    recentTargetIdsRef.current = [
-      baseCase.target.id,
-      ...recentTargetIdsRef.current,
-    ].slice(0, 6);
-
-    setDetectiveCase(baseCase);
-    setClueStage(1);
-    setResultFeedback(null);
-
-    if (preferAi) {
-      setAiLoading(true);
-      try {
-        const res = await fetch("/api/ai-challenge", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            type: "detective",
-            recentTargetIds: recentTargetIdsRef.current.slice(1),
-          }),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data?.caseData?.target) {
-            setDetectiveCase(data.caseData);
-          }
+  const prefetchNextAiCase = useCallback(async () => {
+    try {
+      const res = await fetch("/api/ai-challenge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "detective",
+          recentTargetIds: recentTargetIdsRef.current,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.caseData?.target) {
+          prefetchedAiCaseRef.current = data.caseData;
         }
-      } catch {
-        // Keep procedural fallback seamlessly
-      } finally {
-        setAiLoading(false);
       }
+    } catch {
+      // Silencioso: mantém fallback procedural
     }
   }, []);
+
+  const nextMystery = useCallback(
+    async (preferAi = false, explicitManualAi = false) => {
+      roundIdRef.current += 1;
+      const currentRoundId = roundIdRef.current;
+      hasInteractedRef.current = false;
+
+      // Se houver um laudo IA já pré-carregado no buffer e não repetido, aplica instantaneamente sem swap tardio
+      if (
+        preferAi &&
+        prefetchedAiCaseRef.current &&
+        !recentTargetIdsRef.current.includes(
+          prefetchedAiCaseRef.current.target.id
+        )
+      ) {
+        const buffered = prefetchedAiCaseRef.current;
+        prefetchedAiCaseRef.current = null;
+        recentTargetIdsRef.current = [
+          buffered.target.id,
+          ...recentTargetIdsRef.current,
+        ].slice(0, 6);
+        setDetectiveCase(buffered);
+        setClueStage(1);
+        setResultFeedback(null);
+        prefetchNextAiCase();
+        return;
+      }
+
+      if (explicitManualAi) {
+        setAiLoading(true);
+        try {
+          const res = await fetch("/api/ai-challenge", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              type: "detective",
+              recentTargetIds: recentTargetIdsRef.current,
+            }),
+          });
+          if (res.ok && roundIdRef.current === currentRoundId) {
+            const data = await res.json();
+            if (data?.caseData?.target) {
+              recentTargetIdsRef.current = [
+                data.caseData.target.id,
+                ...recentTargetIdsRef.current,
+              ].slice(0, 6);
+              setDetectiveCase(data.caseData);
+              setClueStage(1);
+              setResultFeedback(null);
+              return;
+            }
+          }
+        } catch {
+          // Fallback procedural abaixo
+        } finally {
+          if (roundIdRef.current === currentRoundId) {
+            setAiLoading(false);
+          }
+        }
+      }
+
+      const baseCase = generateProceduralDetectiveCase(
+        recentTargetIdsRef.current
+      );
+      recentTargetIdsRef.current = [
+        baseCase.target.id,
+        ...recentTargetIdsRef.current,
+      ].slice(0, 6);
+
+      setDetectiveCase(baseCase);
+      setClueStage(1);
+      setResultFeedback(null);
+
+      // Pré-carrega o próximo caso em background para a rodada seguinte (sem trocar o componente no meio da leitura!)
+      if (preferAi || !prefetchedAiCaseRef.current) {
+        prefetchNextAiCase();
+      }
+    },
+    [prefetchNextAiCase]
+  );
 
   useEffect(() => {
     nextMystery(false);
   }, [nextMystery]);
 
   useEffect(() => {
-    if (resultFeedback || isLocked || clueStage >= 3) return;
+    if (resultFeedback || isLocked || clueStage >= 3 || aiLoading) return;
     const timer = setTimeout(() => {
       setClueStage((prev) => (prev < 3 ? ((prev + 1) as 1 | 2 | 3) : 3));
     }, 4500);
     return () => clearTimeout(timer);
-  }, [clueStage, resultFeedback, isLocked]);
+  }, [clueStage, resultFeedback, isLocked, aiLoading]);
 
   const potentialPoints = clueStage === 1 ? 120 : clueStage === 2 ? 80 : 45;
   const target = detectiveCase.target;
 
   const handleGuess = (chosen: ElectronicComponentItem) => {
-    if (!guardClick() || isLocked || resultFeedback) return;
+    if (!guardClick() || isLocked || resultFeedback || aiLoading) return;
+    hasInteractedRef.current = true;
 
     if (chosen.id === target.id) {
       const nextSolved = solvedCount + 1;
@@ -175,9 +244,10 @@ export const SmokeDetectiveGame: React.FC<SmokeDetectiveGameProps> = ({
           {clueStage < 3 && !resultFeedback && !isLocked && (
             <button
               type="button"
-              onClick={() =>
-                setClueStage((prev) => (prev < 3 ? ((prev + 1) as 2 | 3) : 3))
-              }
+              onClick={() => {
+                hasInteractedRef.current = true;
+                setClueStage((prev) => (prev < 3 ? ((prev + 1) as 2 | 3) : 3));
+              }}
               className="text-xs font-mono font-semibold px-2.5 py-1 rounded bg-[#0C0E12] hover:bg-[#14181F] text-zinc-300 border border-[#2A303C] flex items-center gap-1"
             >
               <Eye className="w-3.5 h-3.5 text-amber-400" /> +Pista
@@ -186,7 +256,7 @@ export const SmokeDetectiveGame: React.FC<SmokeDetectiveGameProps> = ({
           <button
             type="button"
             disabled={isLocked || aiLoading}
-            onClick={() => nextMystery(true)}
+            onClick={() => nextMystery(true, true)}
             title="Solicitar novo caso dinâmico via IA / Motor Procedural"
             className="text-xs font-mono font-semibold px-2.5 py-1 rounded bg-[#0047B6]/30 hover:bg-[#0047B6]/50 text-blue-200 border border-[#0057E0]/50 flex items-center gap-1"
           >

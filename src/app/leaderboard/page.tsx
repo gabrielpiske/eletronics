@@ -115,19 +115,26 @@ export default function LeaderboardPage() {
     }, 4500);
   };
 
-  const handleUnlockAdmin = (e: React.FormEvent) => {
+  const handleUnlockAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (verifyAdminPin(pinInput)) {
-      setIsAdmin(true);
-      if (typeof window !== "undefined") {
-        sessionStorage.setItem(ADMIN_SESSION_KEY, "1");
+    setAdminBusy(true);
+    setPinError("");
+    try {
+      const ok = await verifyAdminPin(pinInput);
+      if (ok) {
+        setIsAdmin(true);
+        if (typeof window !== "undefined") {
+          sessionStorage.setItem(ADMIN_SESSION_KEY, "1");
+        }
+        setShowPinModal(false);
+        setPinInput("");
+        setPinError("");
+        showTempFeedback("Modo Admin desbloqueado com sucesso.");
+      } else {
+        setPinError("PIN de Administrador incorreto.");
       }
-      setShowPinModal(false);
-      setPinInput("");
-      setPinError("");
-      showTempFeedback("Modo Admin desbloqueado com sucesso.");
-    } else {
-      setPinError("PIN de Administrador incorreto.");
+    } finally {
+      setAdminBusy(false);
     }
   };
 

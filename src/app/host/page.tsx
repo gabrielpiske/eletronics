@@ -44,9 +44,12 @@ import {
   Cpu,
 } from "lucide-react";
 
+const HOST_ACTIVE_PIN_KEY = "senai_arena_host_active_pin";
+
 function HostContent() {
   const searchParams = useSearchParams();
   const initialGameParam = searchParams.get("game") as MinigameId | null;
+  const initialPinParam = searchParams.get("pin");
 
   const [selectedGame, setSelectedGame] = useState<MinigameId>(
     initialGameParam &&
@@ -56,12 +59,13 @@ function HostContent() {
   );
   const [durationSec, setDurationSec] = useState<number>(120);
   const [room, setRoom] = useState<GameRoom | null>(null);
+  const [restoredPin, setRestoredPin] = useState<string | null>(null);
   const [remainingSec, setRemainingSec] = useState<number>(0);
   const [copied, setCopied] = useState<boolean>(false);
   const [originUrl, setOriginUrl] = useState<string>("");
   const pruningEventsRef = useRef<boolean>(false);
 
-  const roomPin = room?.pin;
+  const roomPin = room?.pin || restoredPin || undefined;
   const roomStatus = room?.status;
   const roomEndsAt = room?.endsAt;
   const roomEvents = room?.events;
@@ -69,14 +73,31 @@ function HostContent() {
   useEffect(() => {
     if (typeof window !== "undefined") {
       setOriginUrl(window.location.origin);
+      const candidatePin = (
+        initialPinParam ||
+        sessionStorage.getItem(HOST_ACTIVE_PIN_KEY) ||
+        ""
+      ).trim();
+      if (/^\d{6}$/.test(candidatePin)) {
+        setRestoredPin(candidatePin);
+      }
     }
-  }, []);
+  }, [initialPinParam]);
 
   useEffect(() => {
     if (!roomPin) return;
     const unsub = subscribeToRoom(roomPin, (updated) => {
       if (updated) {
         setRoom(updated);
+        if (typeof window !== "undefined") {
+          sessionStorage.setItem(HOST_ACTIVE_PIN_KEY, updated.pin);
+        }
+      } else {
+        setRoom(null);
+        setRestoredPin(null);
+        if (typeof window !== "undefined") {
+          sessionStorage.removeItem(HOST_ACTIVE_PIN_KEY);
+        }
       }
     });
     return () => unsub();
@@ -135,7 +156,19 @@ function HostContent() {
 
   const handleCreateRoom = async () => {
     const created = await createRoom(selectedGame, durationSec);
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem(HOST_ACTIVE_PIN_KEY, created.pin);
+    }
+    setRestoredPin(created.pin);
     setRoom(created);
+  };
+
+  const handleCloseAndResetRoom = () => {
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem(HOST_ACTIVE_PIN_KEY);
+    }
+    setRestoredPin(null);
+    setRoom(null);
   };
 
   const handleUpdateLobbyDuration = async (newDurationSec: number) => {
@@ -325,7 +358,7 @@ function HostContent() {
                   {sortedPlayers.length} conectados
                 </span>
                 <button
-                  onClick={() => setRoom(null)}
+                  onClick={handleCloseAndResetRoom}
                   className="px-3 py-1.5 rounded-md bg-[#1E2229] hover:bg-[#262B34] border border-[#2E3540] text-xs font-semibold text-zinc-300"
                 >
                   Nova Sala

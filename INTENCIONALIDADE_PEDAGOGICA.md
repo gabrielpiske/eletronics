@@ -46,7 +46,7 @@ Cada tela e mecanismo do sistema foi desenhado com um propósito didático claro
 * **Intencionalidade Pedagógica:** Promover a **Aprendizagem Ativa, Autogestão e Acessibilidade Pedagógica**. Antes ou depois da competição ao vivo, o estudante pode consultar o catálogo interativo dos **35 componentes essenciais** (filtrados em *Passivos*, *Semicondutores*, *Proteção & Energia* e *Digital & Portas Lógicas*) e treinar individualmente no seu próprio ritmo com salvamento automático de XP a cada jogatina.
 
 ### 3.4 Carreira Técnica, Conquistas e Ranking Multi-Período (`/profile` e `/leaderboard`)
-* **Intencionalidade Pedagógica:** Sustentar o **engajamento longitudinal** ao longo de toda a Unidade Curricular (120h). A vinculação opcional da conta Google (ou acesso rápido educacional) acompanha a evolução do aprendiz em **100 Níveis (até 1.000.000 XP)**, **21 Patentes Técnicas** (de *Aprendiz de Bancada* a *Lenda Suprema da Arena SENAI*) e **24 Conquistas** orientadas a precisão, zero curto-circuito, constância e domínio dos 5 módulos. O Ranking Global com filtros **Semanal**, **Mensal** e **Geral** permite ao docente criar metas curtas por turma/semana e incentivar novos alunos a disputarem o topo sem desvantagem histórica.
+* **Intencionalidade Pedagógica:** Sustentar o **engajamento longitudinal** ao longo de toda a Unidade Curricular (120h). A vinculação opcional da conta Google (ou acesso rápido educacional) acompanha a evolução do aprendiz em **100 Níveis (até 1.000.000 XP)**, **21 Patentes Técnicas** (de *Aprendiz de Bancada* a *Lenda Suprema da Arena SENAI*) e **58 Conquistas** orientadas a precisão, zero curto-circuito, constância e domínio dos 6 módulos. O Ranking Global com filtros **Semanal**, **Mensal** e **Geral** permite ao docente criar metas curtas por turma/semana e incentivar novos alunos a disputarem o topo sem desvantagem histórica.
 
 ### 3.5 Disciplina de Precisão: Disjuntor Progressivo e Anti-Autoclique (`PenaltySystem`)
 * **Intencionalidade Pedagógica:** Combater o "chute impulsivo" comum em quizzes cronometrados. Na bancada real, clicar ou energizar sem conferir provoca queima de componentes e risco elétrico. Por isso, erros consecutivos acionam bloqueios progressivos de rearme (`2,5s`, `4,0s`, `6,0s`) e penalidades crescentes (`-40`, `-70`, `-110 pts`), enquanto cliques repetitivos abusivos ativam o bloqueio anti-autoclique (`5,0s`, `-90 pts`) — educando o aluno a **ler, analisar e confirmar antes de agir**.
@@ -200,18 +200,18 @@ Conforme estabelecido no **Projeto de Curso SENAI/SC**, a formação do aprendiz
 
 ## 6. Matriz Sintética de Rastreabilidade Pedagógica (UC: Técnicas de Manutenção Eletrônica)
 
-| Capacidade Técnica da UC (Matriz SENAI) | 🏭 MG1: Esteira | 🔍 MG2: Radar | 🎨 MG3: Resistor | ⚡ MG4: Conexão | 🕵️ MG5: Diagnóstico | 📖 Guia (`/practice`) |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Identificar componentes eletrônicos** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Identificar a simbologia de componentes eletrônicos** | ✅ | ✅ | — | ✅ | ✅ | ✅ |
-| **Avaliar as características dos componentes eletrônicos** | ✅ | — | ✅ | ✅ | ✅ | ✅ |
-| **Interpretar diagramas esquemáticos eletrônicos** | — | ✅ | — | ✅ | — | ✅ |
-| **Aplicar técnicas de análise de circuitos** | — | ✅ | — | ✅ | ✅ | — |
-| **Aplicar técnicas de localização de defeito** | — | ✅ | — | — | ✅ | — |
-| **Interpretar tabelas, manuais, códigos e listas (BOM)** | ✅ | — | ✅ | ✅ | — | ✅ |
-| **Utilizar instrumentos e realizar medições básicas** | — | — | ✅ | — | ✅ | — |
-| **Substituir componentes defeituosos (equivalência/valores)** | — | — | ✅ | — | — | — |
-| **Aplicar normas de saúde e segurança na bancada** | — | ✅ | — | — | ✅ | — |
+| Capacidade Técnica da UC (Matriz SENAI) | 🏭 MG1: Esteira | 🔍 MG2: Radar | 🎨 MG3: Resistor | ⚡ MG4: Conexão | 🕵️ MG5: Diagnóstico | 🔧 MG6: Reparo PCI | 📖 Guia (`/practice`) |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Identificar componentes eletrônicos** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Identificar a simbologia de componentes eletrônicos** | ✅ | ✅ | — | ✅ | ✅ | — | ✅ |
+| **Avaliar as características dos componentes eletrônicos** | ✅ | — | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Interpretar diagramas esquemáticos eletrônicos** | — | ✅ | — | ✅ | — | — | ✅ |
+| **Aplicar técnicas de análise de circuitos** | — | ✅ | — | ✅ | ✅ | ✅ | — |
+| **Aplicar técnicas de localização de defeito** | — | ✅ | — | — | ✅ | ✅ | — |
+| **Interpretar tabelas, manuais, códigos e listas (BOM)** | ✅ | — | ✅ | ✅ | — | ✅ | ✅ |
+| **Utilizar instrumentos e realizar medições básicas** | — | — | ✅ | — | ✅ | ✅ | — |
+| **Substituir componentes defeituosos (equivalência/valores)** | — | — | ✅ | — | — | ✅ | — |
+| **Aplicar normas de saúde e segurança na bancada** | — | ✅ | — | — | ✅ | ✅ | — |
 
 ---
 

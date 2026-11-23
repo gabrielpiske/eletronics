@@ -45,6 +45,14 @@ export const ConveyorGame: React.FC<ConveyorGameProps> = ({ onScoreAction }) => 
 
   const lockRef = useRef(false);
   const recentIdsRef = useRef<string[]>([]);
+  const nextTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearPendingTimeout = useCallback(() => {
+    if (nextTimerRef.current) {
+      clearTimeout(nextTimerRef.current);
+      nextTimerRef.current = null;
+    }
+  }, []);
 
   const {
     isLocked,
@@ -87,7 +95,7 @@ export const ConveyorGame: React.FC<ConveyorGameProps> = ({ onScoreAction }) => 
         {
           id: "passivo",
           title: "PASSIVOS",
-          subtitle: "R, C, L, LDR, Termistor, Cristal",
+          subtitle: "R, Potenciômetro, C, L, LDR, Termistor",
           accentBorder: "border-l-[#0052CC]",
         },
         {
@@ -105,7 +113,7 @@ export const ConveyorGame: React.FC<ConveyorGameProps> = ({ onScoreAction }) => 
         {
           id: "digital_logica",
           title: "DIGITAL & LÓGICA",
-          subtitle: "Portas AND/OR/NOT/NAND/XOR, 7-Seg, Opto",
+          subtitle: "Portas AND/OR/NOT/NAND/XOR, Cristal, 7-Seg, Opto",
           accentBorder: "border-l-purple-400",
         },
       ]);
@@ -135,41 +143,44 @@ export const ConveyorGame: React.FC<ConveyorGameProps> = ({ onScoreAction }) => 
 
   useEffect(() => {
     spawnNextItem(0);
-  }, [spawnNextItem]);
+    return () => clearPendingTimeout();
+  }, [spawnNextItem, clearPendingTimeout]);
 
   useEffect(() => {
     const speedStep = Math.min(2.6, 1.15 + Math.floor(streak / 3) * 0.25);
     const timer = setInterval(() => {
       if (lockRef.current || isLocked) return;
-      setBeltProgress((prev) => {
-        if (prev >= 96) {
-          lockRef.current = true;
-          setStreak(0);
-          setFeedback(null);
-          const nextCount = sortedCount + 1;
-          setSortedCount(nextCount);
-          const { delayMs } = triggerErrorPenalty(
-            `Deixou ${currentComp.shortName} cair da esteira`,
-            `Fim de curso atingido — Era ${currentComp.name} [${currentComp.boardLetter}]`,
-            `${currentComp.categoryLabel}: ${currentComp.basicFunction}`
-          );
-          setTimeout(() => {
-            spawnNextItem(nextCount);
-          }, delayMs);
-          return 98;
-        }
-        return prev + speedStep;
-      });
+      setBeltProgress((prev) => Math.min(98, prev + speedStep));
     }, 100);
 
     return () => clearInterval(timer);
+  }, [streak, isLocked]);
+
+  useEffect(() => {
+    if (beltProgress < 96 || lockRef.current || isLocked) return;
+
+    lockRef.current = true;
+    setStreak(0);
+    setFeedback(null);
+    const nextCount = sortedCount + 1;
+    setSortedCount(nextCount);
+    const { delayMs } = triggerErrorPenalty(
+      `Deixou ${currentComp.shortName} cair da esteira`,
+      `Fim de curso atingido — Era ${currentComp.name} [${currentComp.boardLetter}]`,
+      `${currentComp.categoryLabel}: ${currentComp.basicFunction}`
+    );
+    clearPendingTimeout();
+    nextTimerRef.current = setTimeout(() => {
+      spawnNextItem(nextCount);
+    }, delayMs);
   }, [
-    streak,
-    currentComp,
-    sortedCount,
+    beltProgress,
     isLocked,
+    sortedCount,
+    currentComp,
     triggerErrorPenalty,
     spawnNextItem,
+    clearPendingTimeout,
   ]);
 
   const handleSelectBin = (binId: string) => {
@@ -205,7 +216,8 @@ export const ConveyorGame: React.FC<ConveyorGameProps> = ({ onScoreAction }) => 
         newLevel
       );
 
-      setTimeout(() => {
+      clearPendingTimeout();
+      nextTimerRef.current = setTimeout(() => {
         setFeedback(null);
         spawnNextItem(nextCount);
       }, 750);
@@ -220,7 +232,8 @@ export const ConveyorGame: React.FC<ConveyorGameProps> = ({ onScoreAction }) => 
         newLevel
       );
 
-      setTimeout(() => {
+      clearPendingTimeout();
+      nextTimerRef.current = setTimeout(() => {
         spawnNextItem(nextCount);
       }, delayMs);
     }

@@ -137,8 +137,6 @@ export function isComebackMatchRun(
   return acc >= 85;
 }
 
-export const ADMIN_FIXED_PIN = "01487654";
-
 const LOCAL_ACTIVE_USER_KEY = "senai_arena_v2_active_uid";
 const LOCAL_USERS_DB_KEY = "senai_arena_v2_users_db";
 const LOCAL_LEADERBOARD_META_KEY = "senai_arena_v2_leaderboard_meta";
@@ -2001,8 +1999,21 @@ export async function recordCompletedMatch(params: {
   }
 }
 
-export function verifyAdminPin(inputPin: string): boolean {
-  return inputPin.trim() === ADMIN_FIXED_PIN;
+export async function verifyAdminPin(inputPin: string): Promise<boolean> {
+  const clean = inputPin.trim();
+  if (!clean) return false;
+  try {
+    const res = await fetch("/api/admin-auth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pin: clean }),
+    });
+    if (!res.ok) return false;
+    const data = (await res.json()) as { authorized?: boolean };
+    return Boolean(data?.authorized);
+  } catch {
+    return false;
+  }
 }
 
 export async function adminTriggerPeriodReset(): Promise<LeaderboardMeta> {

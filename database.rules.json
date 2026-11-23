@@ -1,6 +1,20 @@
 {
   "rules": {
     "rooms": {
+      "global_profiles_v2": {
+        "meta": {
+          ".read": true,
+          ".write": true,
+          ".validate": "newData.hasChildren(['periodResetAt', 'seasonNumber', 'updatedAt'])"
+        },
+        "users": {
+          ".read": true,
+          "$uid": {
+            ".write": true,
+            ".validate": "!newData.exists() || (newData.hasChildren(['uid', 'displayName', 'totalXp', 'updatedAt']) && newData.child('totalXp').isNumber() && newData.child('totalXp').val() >= 0)"
+          }
+        }
+      },
       "$pin": {
         ".read": true,
         ".write": true
@@ -9,7 +23,8 @@
     "users": {
       ".read": true,
       "$uid": {
-        ".write": true
+        ".write": true,
+        ".validate": "!newData.exists() || (newData.hasChildren(['uid', 'displayName', 'totalXp', 'updatedAt']) && newData.child('totalXp').isNumber() && newData.child('totalXp').val() >= 0)"
       }
     }
   }
