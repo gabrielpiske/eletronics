@@ -10,7 +10,11 @@ import {
   subscribeToActiveProfile,
   getEffectiveAvatarString,
 } from "@/lib/profileService";
-import { getRankInfoByXp } from "@/data/achievementsData";
+import {
+  ACHIEVEMENTS_CATALOG,
+  SENAI_PATENTS,
+  getRankInfoByXp,
+} from "@/data/achievementsData";
 import Navbar from "@/components/Navbar";
 import {
   UserAvatar,
@@ -306,7 +310,7 @@ export default function HomePage() {
               <span>Perfil & Patentes</span>
             </span>
             <span className="font-mono text-[10px] text-zinc-400">
-              21 PAT / 24 ACH →
+              {SENAI_PATENTS.length} PAT / {ACHIEVEMENTS_CATALOG.length} ACH →
             </span>
           </Link>
         </div>

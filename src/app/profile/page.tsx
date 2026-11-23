@@ -15,6 +15,7 @@ import {
   signOutCurrentProfile,
   formatGoogleAuthError,
   getAchievementProgressForProfile,
+  revalidateUserProfileAchievements,
   updateUserProfileDetails,
   getSavedLocalProfiles,
   switchActiveProfile,
@@ -24,6 +25,8 @@ import {
 } from "@/lib/profileService";
 import {
   ACHIEVEMENTS_CATALOG,
+  ACHIEVEMENT_CATEGORIES,
+  AchievementCategory,
   AchievementDifficulty,
   MAX_PLATFORM_LEVEL,
   MAX_PLATFORM_XP,
@@ -67,6 +70,8 @@ import {
 type ProfileTab = "patents" | "achievements" | "history" | "settings";
 type PatentFilter = "all" | "unlocked" | "locked";
 type DifficultyFilter = "all" | AchievementDifficulty;
+type CategoryFilter = "all" | AchievementCategory;
+type AchievementStatusFilter = "all" | "unlocked" | "in_progress" | "locked";
 
 function getDivisionStyle(division: PatentDivision): {
   badge: string;
@@ -164,6 +169,11 @@ export default function ProfilePage() {
   const [levelRangeIdx, setLevelRangeIdx] = useState<number>(0);
   const [difficultyFilter, setDifficultyFilter] =
     useState<DifficultyFilter>("all");
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
+  const [achievementStatusFilter, setAchievementStatusFilter] =
+    useState<AchievementStatusFilter>("all");
+  const [revalidatingAch, setRevalidatingAch] = useState<boolean>(false);
+  const [revalidationMsg, setRevalidationMsg] = useState<string | null>(null);
 
   // Estados do formulário de Gerenciamento de Perfil (logado)
   const [editName, setEditName] = useState("");
@@ -395,6 +405,41 @@ export default function ProfilePage() {
     }
   };
 
+  const handleRevalidateAchievements = async () => {
+    if (!profile) return;
+    setRevalidatingAch(true);
+    setRevalidationMsg(null);
+    try {
+      const report = await revalidateUserProfileAchievements(profile.uid);
+      if (report) {
+        setProfile(report.profile);
+        refreshSavedProfiles();
+        if (
+          report.newlyUnlockedIds.length > 0 &&
+          report.revokedIds.length > 0
+        ) {
+          setRevalidationMsg(
+            `Revalidação concluída (${report.totalValidated} auditadas): +${report.newlyUnlockedIds.length} nova(s) conquista(s) desbloqueada(s) (+${report.xpAdded.toLocaleString("pt-BR")} XP) e ${report.revokedIds.length} conquista(s) reajustada(s) aos novos requisitos.`
+          );
+        } else if (report.newlyUnlockedIds.length > 0) {
+          setRevalidationMsg(
+            `Revalidação concluída (${report.totalValidated} auditadas): +${report.newlyUnlockedIds.length} nova(s) conquista(s) desbloqueada(s) com +${report.xpAdded.toLocaleString("pt-BR")} XP creditados no seu perfil!`
+          );
+        } else if (report.revokedIds.length > 0) {
+          setRevalidationMsg(
+            `Revalidação concluída (${report.totalValidated} auditadas): ${report.revokedIds.length} conquista(s) reajustada(s) para refletir os novos critérios de 6 módulos. Total ativo: ${report.totalUnlocked}/${report.totalValidated}.`
+          );
+        } else {
+          setRevalidationMsg(
+            `Auditoria completa (${report.totalValidated} conquistas verificadas): todas as suas ${report.totalUnlocked} conquistas desbloqueadas e barras de progresso estão 100% válidas e sincronizadas.`
+          );
+        }
+      }
+    } finally {
+      setRevalidatingAch(false);
+    }
+  };
+
   const rankInfo = profile ? getRankInfoByXp(profile.totalXp) : null;
   const totalAttempts = profile ? profile.totalHits + profile.totalMisses : 0;
   const overallAccuracy =
@@ -416,8 +461,24 @@ export default function ProfilePage() {
   });
 
   const filteredAchievements = ACHIEVEMENTS_CATALOG.filter((ach) => {
-    if (difficultyFilter === "all") return true;
-    return ach.difficulty === difficultyFilter;
+    if (difficultyFilter !== "all" && ach.difficulty !== difficultyFilter) {
+      return false;
+    }
+    if (categoryFilter !== "all" && ach.category !== categoryFilter) {
+      return false;
+    }
+    if (profile && achievementStatusFilter !== "all") {
+      const isUnlocked = profile.unlockedAchievements.includes(ach.id);
+      const prog = getAchievementProgressForProfile(ach, profile);
+      if (achievementStatusFilter === "unlocked" && !isUnlocked) return false;
+      if (
+        achievementStatusFilter === "in_progress" &&
+        (isUnlocked || prog.current <= 0)
+      )
+        return false;
+      if (achievementStatusFilter === "locked" && isUnlocked) return false;
+    }
+    return true;
   });
 
   const levelRanges = [
@@ -464,7 +525,7 @@ export default function ProfilePage() {
                   <strong className="text-emerald-400">
                     21 Patentes Técnicas (a cada 5 níveis)
                   </strong>{" "}
-                  e desbloquear as 24 conquistas.
+                  e desbloquear as {ACHIEVEMENTS_CATALOG.length} conquistas.
                 </p>
 
                 {authErrorMsg && (
@@ -1354,134 +1415,361 @@ export default function ProfilePage() {
               </div>
             )}
 
-            {/* ABA 2: CONQUISTAS & DESAFIOS TÉCNICOS (24 CONQUISTAS MAIS DIFÍCEIS) */}
+            {/* ABA 2: CONQUISTAS & DESAFIOS TÉCNICOS (58 CONQUISTAS REVALIDADAS & EXTREMAS) */}
             {activeTab === "achievements" && (
-              <section className="bg-[#181B20] border border-[#2A303C] rounded-lg p-6">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5">
+              <section className="bg-[#181B20] border border-[#2A303C] rounded-lg p-6 space-y-5">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                   <div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <Award className="w-5 h-5 text-[#F59E0B]" />
                       <h3 className="text-base font-bold text-white">
-                        Insígnias & Desafios Técnicos SENAI ({ACHIEVEMENTS_CATALOG.length})
+                        Insígnias & Desafios Técnicos SENAI (
+                        {profile.unlockedAchievements.length}/
+                        {ACHIEVEMENTS_CATALOG.length})
                       </h3>
+                      <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-300 border border-emerald-500/40">
+                        {Math.round(
+                          (profile.unlockedAchievements.length /
+                            Math.max(1, ACHIEVEMENTS_CATALOG.length)) *
+                            100
+                        )}
+                        % CONCLUÍDO
+                      </span>
                     </div>
-                    <p className="text-xs text-[#94A3B8] mt-0.5">
-                      Desafios de precisão, combos de alta frequência, maestria
-                      por bancada e maratonas de carreira.
+                    <p className="text-xs text-[#94A3B8] mt-1">
+                      Catálogo expandido e revalidado: precisão zero defeito,
+                      combos de alta frequência, maestria nas 6 bancadas (incluindo
+                      Reparo de PCI), manobras inovadoras e desafios lendários.
                     </p>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {[
-                      { id: "all" as const, label: "Todas (24)" },
-                      { id: "facil" as const, label: "Fácil" },
-                      { id: "medio" as const, label: "Médio" },
-                      { id: "dificil" as const, label: "Difícil" },
-                      { id: "extremo" as const, label: "Extremo" },
-                      { id: "lendario" as const, label: "Lendário" },
-                    ].map((df) => (
-                      <button
-                        key={df.id}
-                        type="button"
-                        onClick={() => setDifficultyFilter(df.id)}
-                        className={`px-2.5 py-1 rounded text-xs font-mono font-bold border transition-colors ${
-                          difficultyFilter === df.id
-                            ? "bg-[#0047B6] border-[#0057E0] text-white"
-                            : "bg-[#0C0E12] border-[#2A303C] text-[#94A3B8] hover:text-white"
-                        }`}
-                      >
-                        {df.label}
-                      </button>
-                    ))}
-                  </div>
+                  <button
+                    type="button"
+                    disabled={revalidatingAch}
+                    onClick={handleRevalidateAchievements}
+                    className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-md bg-[#0C0E12] hover:bg-[#14181F] disabled:opacity-50 border border-[#F59E0B]/60 text-xs font-mono font-bold text-[#F59E0B] shrink-0 transition-colors"
+                    title="Auditar e revalidar todas as conquistas com base nas estatísticas do seu perfil"
+                  >
+                    <RotateCcw
+                      className={`w-3.5 h-3.5 ${
+                        revalidatingAch ? "animate-spin" : ""
+                      }`}
+                    />
+                    <span>
+                      {revalidatingAch
+                        ? "Auditando Dossiê..."
+                        : `Revalidar Conquistas (${ACHIEVEMENTS_CATALOG.length})`}
+                    </span>
+                  </button>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-                  {filteredAchievements.map((ach) => {
-                    const unlocked = profile.unlockedAchievements.includes(
-                      ach.id
-                    );
-                    const prog = getAchievementProgressForProfile(ach, profile);
-                    const diffClass = getDifficultyBadgeStyle(ach.difficulty);
+                {revalidationMsg && (
+                  <div className="p-3.5 rounded-md bg-[#12241D] border border-emerald-500/50 border-l-4 border-l-emerald-400 text-xs font-mono text-emerald-200 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span>{revalidationMsg}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setRevalidationMsg(null)}
+                      className="text-emerald-300 hover:text-white shrink-0"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
 
+                {/* Resumo Rápido por Nível de Dificuldade */}
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+                  {(
+                    [
+                      {
+                        id: "facil" as const,
+                        label: "Fácil",
+                        color: "text-emerald-300 border-emerald-500/30",
+                      },
+                      {
+                        id: "medio" as const,
+                        label: "Médio",
+                        color: "text-blue-300 border-blue-500/30",
+                      },
+                      {
+                        id: "dificil" as const,
+                        label: "Difícil",
+                        color: "text-amber-300 border-amber-500/30",
+                      },
+                      {
+                        id: "extremo" as const,
+                        label: "Extremo",
+                        color: "text-red-300 border-red-500/30",
+                      },
+                      {
+                        id: "lendario" as const,
+                        label: "Lendário",
+                        color: "text-purple-300 border-purple-500/40",
+                      },
+                    ] as const
+                  ).map((tier) => {
+                    const totalInTier = ACHIEVEMENTS_CATALOG.filter(
+                      (a) => a.difficulty === tier.id
+                    ).length;
+                    const unlockedInTier = ACHIEVEMENTS_CATALOG.filter(
+                      (a) =>
+                        a.difficulty === tier.id &&
+                        profile.unlockedAchievements.includes(a.id)
+                    ).length;
+                    const isSelected = difficultyFilter === tier.id;
                     return (
-                      <div
-                        key={ach.id}
-                        className={`p-4 rounded-md border transition-all flex flex-col justify-between ${
-                          unlocked
-                            ? "bg-[#0C0E12] border-emerald-500/50 shadow-sm"
-                            : "bg-[#111317]/70 border-[#2A303C]"
+                      <button
+                        key={tier.id}
+                        type="button"
+                        onClick={() =>
+                          setDifficultyFilter((prev) =>
+                            prev === tier.id ? "all" : tier.id
+                          )
+                        }
+                        className={`p-2.5 rounded-md bg-[#0C0E12] border text-left transition-all ${
+                          isSelected
+                            ? "border-[#F59E0B] ring-1 ring-[#F59E0B]/40"
+                            : tier.color
                         }`}
                       >
-                        <div>
-                          <div className="flex items-center justify-between gap-2 mb-2">
-                            <div className="flex items-center gap-1.5">
-                              <span
-                                className={`font-mono text-[10px] font-bold px-2 py-0.5 rounded border ${
-                                  unlocked
-                                    ? "bg-emerald-950/60 text-emerald-300 border-emerald-500/40"
-                                    : "bg-[#181B20] text-[#94A3B8] border-[#2A303C]"
-                                }`}
-                              >
-                                {ach.code}
-                              </span>
-                              <span
-                                className={`font-mono text-[10px] font-bold px-2 py-0.5 rounded border uppercase ${diffClass}`}
-                              >
-                                {ach.difficultyLabel}
-                              </span>
-                            </div>
-                            <span className="font-mono text-xs font-bold text-[#F59E0B]">
-                              +{ach.xpReward.toLocaleString("pt-BR")} XP
-                            </span>
-                          </div>
-
-                          <h4 className="text-sm font-bold text-white mb-1 flex items-center gap-1.5">
-                            {unlocked ? (
-                              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                            ) : (
-                              <Lock className="w-3.5 h-3.5 text-[#94A3B8] shrink-0" />
-                            )}
-                            <span>{ach.title}</span>
-                          </h4>
-                          <p className="text-xs text-[#94A3B8] leading-relaxed">
-                            {ach.description}
-                          </p>
+                        <div className="flex items-center justify-between font-mono text-[10px] uppercase">
+                          <span className="font-bold">{tier.label}</span>
+                          <span className="text-white font-bold">
+                            {unlockedInTier}/{totalInTier}
+                          </span>
                         </div>
-
-                        <div className="mt-4 pt-2.5 border-t border-[#2A303C] space-y-1.5">
-                          <div className="flex items-center justify-between text-[10px] font-mono">
-                            <span className="text-[#94A3B8]">
-                              Progresso:{" "}
-                              <strong className="text-white">
-                                {prog.current.toLocaleString("pt-BR")} /{" "}
-                                {prog.target.toLocaleString("pt-BR")}{" "}
-                                {ach.unitLabel}
-                              </strong>
-                            </span>
-                            <span
-                              className={
-                                unlocked
-                                  ? "text-emerald-400 font-bold"
-                                  : "text-[#F59E0B] font-bold"
-                              }
-                            >
-                              {unlocked ? "CONQUISTADA" : `${prog.pct}%`}
-                            </span>
-                          </div>
-                          <div className="w-full h-1.5 bg-[#181B20] rounded-sm overflow-hidden">
-                            <div
-                              className={`h-full transition-all duration-300 ${
-                                unlocked ? "bg-emerald-500" : "bg-[#0047B6]"
-                              }`}
-                              style={{ width: `${prog.pct}%` }}
-                            />
-                          </div>
+                        <div className="w-full h-1 bg-[#181B20] rounded-sm overflow-hidden mt-1.5">
+                          <div
+                            className="h-full bg-[#F59E0B]"
+                            style={{
+                              width: `${Math.round(
+                                (unlockedInTier / Math.max(1, totalInTier)) *
+                                  100
+                              )}%`,
+                            }}
+                          />
                         </div>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
+
+                {/* Filtros Combinados: Categoria, Dificuldade e Status */}
+                <div className="p-3.5 rounded-md bg-[#0C0E12] border border-[#2A303C] space-y-3">
+                  {/* Linha 1: Categorias */}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="font-mono text-[10px] uppercase tracking-wider text-[#94A3B8] mr-1">
+                      Categoria:
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setCategoryFilter("all")}
+                      className={`px-2.5 py-1 rounded text-xs font-mono font-bold border transition-colors ${
+                        categoryFilter === "all"
+                          ? "bg-[#0047B6] border-[#0057E0] text-white"
+                          : "bg-[#181B20] border-[#2A303C] text-[#94A3B8] hover:text-white"
+                      }`}
+                    >
+                      Todas ({ACHIEVEMENTS_CATALOG.length})
+                    </button>
+                    {ACHIEVEMENT_CATEGORIES.map((cat) => {
+                      const count = ACHIEVEMENTS_CATALOG.filter(
+                        (a) => a.category === cat.id
+                      ).length;
+                      return (
+                        <button
+                          key={cat.id}
+                          type="button"
+                          onClick={() => setCategoryFilter(cat.id)}
+                          className={`px-2.5 py-1 rounded text-xs font-mono font-bold border transition-colors ${
+                            categoryFilter === cat.id
+                              ? "bg-[#0047B6] border-[#0057E0] text-white"
+                              : "bg-[#181B20] border-[#2A303C] text-[#94A3B8] hover:text-white"
+                          }`}
+                        >
+                          {cat.shortLabel} ({count})
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Linha 2: Dificuldade e Status */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-[#181B20]">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="font-mono text-[10px] uppercase tracking-wider text-[#94A3B8] mr-1">
+                        Dificuldade:
+                      </span>
+                      {[
+                        {
+                          id: "all" as const,
+                          label: `Todas (${ACHIEVEMENTS_CATALOG.length})`,
+                        },
+                        { id: "facil" as const, label: "Fácil" },
+                        { id: "medio" as const, label: "Médio" },
+                        { id: "dificil" as const, label: "Difícil" },
+                        { id: "extremo" as const, label: "Extremo" },
+                        { id: "lendario" as const, label: "Lendário" },
+                      ].map((df) => (
+                        <button
+                          key={df.id}
+                          type="button"
+                          onClick={() => setDifficultyFilter(df.id)}
+                          className={`px-2.5 py-1 rounded text-[11px] font-mono font-bold border transition-colors ${
+                            difficultyFilter === df.id
+                              ? "bg-[#F59E0B]/20 border-[#F59E0B] text-[#F59E0B]"
+                              : "bg-[#181B20] border-[#2A303C] text-[#94A3B8] hover:text-white"
+                          }`}
+                        >
+                          {df.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="font-mono text-[10px] uppercase tracking-wider text-[#94A3B8] mr-1">
+                        Status:
+                      </span>
+                      {[
+                        { id: "all" as const, label: "Todas" },
+                        { id: "unlocked" as const, label: "Conquistadas" },
+                        { id: "in_progress" as const, label: "Em Progresso" },
+                        { id: "locked" as const, label: "Bloqueadas" },
+                      ].map((sf) => (
+                        <button
+                          key={sf.id}
+                          type="button"
+                          onClick={() => setAchievementStatusFilter(sf.id)}
+                          className={`px-2.5 py-1 rounded text-[11px] font-mono font-bold border transition-colors ${
+                            achievementStatusFilter === sf.id
+                              ? "bg-emerald-950/70 border-emerald-400 text-emerald-300"
+                              : "bg-[#181B20] border-[#2A303C] text-[#94A3B8] hover:text-white"
+                          }`}
+                        >
+                          {sf.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {filteredAchievements.length === 0 ? (
+                  <div className="p-8 rounded-md bg-[#0C0E12] border border-[#2A303C] text-center">
+                    <p className="text-sm font-bold text-white">
+                      Nenhuma conquista corresponde aos filtros selecionados
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCategoryFilter("all");
+                        setDifficultyFilter("all");
+                        setAchievementStatusFilter("all");
+                      }}
+                      className="mt-3 px-3.5 py-1.5 rounded bg-[#0047B6] text-white text-xs font-mono font-bold"
+                    >
+                      Limpar Filtros
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                    {filteredAchievements.map((ach) => {
+                      const unlocked = profile.unlockedAchievements.includes(
+                        ach.id
+                      );
+                      const prog = getAchievementProgressForProfile(
+                        ach,
+                        profile
+                      );
+                      const diffClass = getDifficultyBadgeStyle(ach.difficulty);
+                      const catMeta = ACHIEVEMENT_CATEGORIES.find(
+                        (c) => c.id === ach.category
+                      );
+
+                      return (
+                        <div
+                          key={ach.id}
+                          className={`p-4 rounded-md border transition-all flex flex-col justify-between ${
+                            unlocked
+                              ? "bg-[#0C0E12] border-emerald-500/50 shadow-sm"
+                              : "bg-[#111317]/70 border-[#2A303C]"
+                          }`}
+                        >
+                          <div>
+                            <div className="flex items-center justify-between gap-2 mb-2">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <span
+                                  className={`font-mono text-[10px] font-bold px-2 py-0.5 rounded border ${
+                                    unlocked
+                                      ? "bg-emerald-950/60 text-emerald-300 border-emerald-500/40"
+                                      : "bg-[#181B20] text-[#94A3B8] border-[#2A303C]"
+                                  }`}
+                                >
+                                  {ach.code}
+                                </span>
+                                <span
+                                  className={`font-mono text-[10px] font-bold px-2 py-0.5 rounded border uppercase ${diffClass}`}
+                                >
+                                  {ach.difficultyLabel}
+                                </span>
+                                {catMeta && (
+                                  <span className="font-mono text-[9px] uppercase px-1.5 py-0.5 rounded bg-[#181B20] text-[#94A3B8] border border-[#2A303C]">
+                                    {catMeta.shortLabel}
+                                  </span>
+                                )}
+                              </div>
+                              <span className="font-mono text-xs font-bold text-[#F59E0B] shrink-0">
+                                +{ach.xpReward.toLocaleString("pt-BR")} XP
+                              </span>
+                            </div>
+
+                            <h4 className="text-sm font-bold text-white mb-1 flex items-center gap-1.5">
+                              {unlocked ? (
+                                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                              ) : (
+                                <Lock className="w-3.5 h-3.5 text-[#94A3B8] shrink-0" />
+                              )}
+                              <span>{ach.title}</span>
+                            </h4>
+                            <p className="text-xs text-[#94A3B8] leading-relaxed">
+                              {ach.description}
+                            </p>
+                          </div>
+
+                          <div className="mt-4 pt-2.5 border-t border-[#2A303C] space-y-1.5">
+                            <div className="flex items-center justify-between text-[10px] font-mono">
+                              <span className="text-[#94A3B8]">
+                                Progresso:{" "}
+                                <strong className="text-white">
+                                  {prog.current.toLocaleString("pt-BR")} /{" "}
+                                  {prog.target.toLocaleString("pt-BR")}{" "}
+                                  {ach.unitLabel}
+                                </strong>
+                              </span>
+                              <span
+                                className={
+                                  unlocked
+                                    ? "text-emerald-400 font-bold"
+                                    : "text-[#F59E0B] font-bold"
+                                }
+                              >
+                                {unlocked ? "CONQUISTADA" : `${prog.pct}%`}
+                              </span>
+                            </div>
+                            <div className="w-full h-1.5 bg-[#181B20] rounded-sm overflow-hidden">
+                              <div
+                                className={`h-full transition-all duration-300 ${
+                                  unlocked ? "bg-emerald-500" : "bg-[#0047B6]"
+                                }`}
+                                style={{ width: `${prog.pct}%` }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </section>
             )}
 

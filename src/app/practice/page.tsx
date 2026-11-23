@@ -32,7 +32,23 @@ import {
 
 const QUESTIONS_PER_SOLO_ROUND = 5;
 
-function getSoloTargetActions(gameId: MinigameId): number {
+type SoloRegime = "quick" | "standard" | "extended" | "marathon";
+
+function getSoloTargetActions(
+  gameId: MinigameId,
+  regime: SoloRegime
+): number {
+  if (regime === "marathon") return Number.POSITIVE_INFINITY;
+  if (regime === "standard") {
+    if (gameId === "match") return 18; // 3 placas completas
+    if (gameId === "industrial_repair") return 12; // 4 OS completas
+    return 15;
+  }
+  if (regime === "extended") {
+    if (gameId === "match") return 30; // 5 placas completas
+    if (gameId === "industrial_repair") return 24; // 8 OS completas
+    return 30;
+  }
   if (gameId === "match") return 6;
   if (gameId === "industrial_repair") return 3;
   return QUESTIONS_PER_SOLO_ROUND;
@@ -50,6 +66,7 @@ function PracticeContent() {
       ? initialGame
       : "conveyor"
   );
+  const [soloRegime, setSoloRegime] = useState<SoloRegime>("standard");
   const [categoryFilter, setCategoryFilter] = useState<
     "all" | ComponentCategory
   >("all");
@@ -84,17 +101,20 @@ function PracticeContent() {
   ) => {
     if (snapHits + snapMisses === 0) return;
 
+    // Preserva o combo ativo se a rodada foi concluída com 0 erros!
+    const carryStreak = snapMisses === 0 ? statsRef.current.streak : 0;
+
     // Reseta os contadores da rodada atual imediatamente para a próxima jogatina
     statsRef.current = {
       score: 0,
-      streak: 0,
-      maxStreak: 0,
+      streak: carryStreak,
+      maxStreak: carryStreak,
       hits: 0,
       misses: 0,
     };
     setSoloScore(0);
-    setSoloStreak(0);
-    setSoloMaxStreak(0);
+    setSoloStreak(carryStreak);
+    setSoloMaxStreak(carryStreak);
     setSoloHits(0);
     setSoloMisses(0);
     setLastSoloDelta(null);
@@ -148,11 +168,12 @@ function PracticeContent() {
     setSoloMaxStreak(nextMaxStreak);
     setLastSoloDelta(deltaScore);
 
-    // Ao completar uma jogatina (6 pares no Jogo da Bancada, 3 marcos/OS nos Desafios Industriais ou 5 desafios nos demais),
-    // salva automaticamente o XP no banco de dados e atualiza o perfil do usuário!
-    const targetActions = getSoloTargetActions(selectedGame);
+    const targetActions = getSoloTargetActions(selectedGame, soloRegime);
 
-    if (nextHits + nextMisses >= targetActions) {
+    if (
+      Number.isFinite(targetActions) &&
+      nextHits + nextMisses >= targetActions
+    ) {
       setTimeout(() => {
         commitCurrentRoundToDatabase(
           nextScore,
@@ -210,7 +231,7 @@ function PracticeContent() {
       ? ELECTRONIC_COMPONENTS
       : ELECTRONIC_COMPONENTS.filter((c) => c.category === categoryFilter);
 
-  const targetActions = getSoloTargetActions(selectedGame);
+  const targetActions = getSoloTargetActions(selectedGame, soloRegime);
   const currentActions = soloHits + soloMisses;
 
   return (
@@ -373,8 +394,38 @@ function PracticeContent() {
               </div>
 
               <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-1 bg-[#0C0E12] border border-[#2A303C] rounded-md p-1">
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-zinc-400 px-1.5">
+                    Turno:
+                  </span>
+                  {(
+                    [
+                      { id: "quick" as const, label: "Rápido" },
+                      { id: "standard" as const, label: "15 Ações" },
+                      { id: "extended" as const, label: "30 Ações" },
+                      { id: "marathon" as const, label: "Maratona ∞" },
+                    ] as const
+                  ).map((rg) => (
+                    <button
+                      key={rg.id}
+                      type="button"
+                      onClick={() => setSoloRegime(rg.id)}
+                      className={`px-2 py-0.5 rounded text-[11px] font-mono font-bold transition-colors ${
+                        soloRegime === rg.id
+                          ? "bg-[#0047B6] text-white"
+                          : "text-zinc-400 hover:text-white"
+                      }`}
+                    >
+                      {rg.label}
+                    </button>
+                  ))}
+                </div>
+
                 <span className="px-2.5 py-1 rounded bg-[#0C0E12] border border-[#0057E0]/60 text-blue-300 text-xs font-mono font-bold">
-                  Jogatina: {currentActions}/{targetActions}
+                  Jogatina:{" "}
+                  {Number.isFinite(targetActions)
+                    ? `${currentActions}/${targetActions}`
+                    : `${currentActions} (Livre)`}
                 </span>
                 <span className="px-2.5 py-1 rounded bg-[#0C0E12] border border-[#2A303C] text-emerald-400 text-xs font-mono font-bold">
                   Acertos: {soloHits}
