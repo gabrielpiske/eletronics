@@ -65,7 +65,9 @@ import {
   Users,
   X,
   Zap,
+  Printer,
 } from "lucide-react";
+import { TechnicalPassportModal } from "@/components/TechnicalPassportModal";
 
 type ProfileTab = "patents" | "achievements" | "history" | "settings";
 type PatentFilter = "all" | "unlocked" | "locked";
@@ -192,6 +194,7 @@ export default function ProfilePage() {
   } | null>(null);
   const [confirmResetProgress, setConfirmResetProgress] = useState(false);
   const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(false);
+  const [showPassportModal, setShowPassportModal] = useState(false);
   const editFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const refreshSavedProfiles = () => {
@@ -892,6 +895,15 @@ export default function ProfilePage() {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setShowPassportModal(true)}
+                      className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-md bg-[#0C0E12] hover:bg-[#14181F] text-emerald-300 border border-emerald-500/40 text-xs font-bold transition-colors"
+                      title="Visualizar e imprimir Passaporte Técnico SENAI (PDF)"
+                    >
+                      <Printer className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      <span>Passaporte PDF</span>
+                    </button>
                     <button
                       type="button"
                       onClick={() => setActiveTab("settings")}
@@ -2420,6 +2432,11 @@ export default function ProfilePage() {
                 </div>
               </div>
             )}
+            <TechnicalPassportModal
+              profile={profile}
+              open={showPassportModal}
+              onClose={() => setShowPassportModal(false)}
+            />
           </>
         )}
       </div>

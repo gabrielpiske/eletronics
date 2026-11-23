@@ -41,7 +41,13 @@ import {
   Award,
   CheckCircle2,
   Camera,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
+import {
+  subscribeToSoundMute,
+  toggleSoundMuted,
+} from "@/lib/soundEffects";
 
 const AVATARS = ["⚡", "🔧", "🤖", "🔋", "💡", "🛠️", "📟", "🚀"];
 
@@ -58,6 +64,7 @@ export default function PlayRoomPage() {
   const [remainingSec, setRemainingSec] = useState<number>(0);
   const [lastScoreDelta, setLastScoreDelta] = useState<number | null>(null);
   const [activeProfile, setActiveProfile] = useState<UserProfile | null>(null);
+  const [soundMuted, setSoundMutedState] = useState<boolean>(false);
   const [matchSummary, setMatchSummary] = useState<{
     xpEarned: number;
     newTotalXp?: number;
@@ -103,7 +110,13 @@ export default function PlayRoomPage() {
         setAvatar(getEffectiveAvatarString(prof));
       }
     });
-    return () => unsub();
+    const unsubSound = subscribeToSoundMute((muted) => {
+      setSoundMutedState(muted);
+    });
+    return () => {
+      unsub();
+      unsubSound();
+    };
   }, [pin]);
 
   const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -556,6 +569,28 @@ export default function PlayRoomPage() {
                 )}
               </div>
             </div>
+
+            <button
+              type="button"
+              onClick={() => toggleSoundMuted()}
+              title={
+                soundMuted
+                  ? "Ativar sons da bancada"
+                  : "Silenciar sons da bancada"
+              }
+              aria-label="Alternar áudio da bancada"
+              className={`p-1.5 rounded-md border transition-colors ${
+                soundMuted
+                  ? "bg-[#111317] border-[#2A303C] text-zinc-500 hover:text-zinc-200"
+                  : "bg-[#0C0E12] border-[#2A303C] text-amber-400 hover:border-amber-400/60"
+              }`}
+            >
+              {soundMuted ? (
+                <VolumeX className="w-3.5 h-3.5" />
+              ) : (
+                <Volume2 className="w-3.5 h-3.5" />
+              )}
+            </button>
 
             {room.status === "PLAYING" && (
               <div

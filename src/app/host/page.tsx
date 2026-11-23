@@ -42,6 +42,10 @@ import {
   Check,
   Copy,
   Cpu,
+  AlertTriangle,
+  CheckCircle2,
+  Flame,
+  Percent,
 } from "lucide-react";
 
 const HOST_ACTIVE_PIN_KEY = "senai_arena_host_active_pin";
@@ -276,16 +280,30 @@ function HostContent() {
       (a, b) => b.score - a.score
     );
     const rows = [
-      ["Posicao", "Aluno", "Pontos", "Acertos", "Erros", "Maior_Combo", "Nivel"],
-      ...players.map((p, i) => [
-        String(i + 1),
-        p.name,
-        String(p.score),
-        String(p.hits),
-        String(p.misses),
-        String(p.maxStreak),
-        String(p.level),
-      ]),
+      [
+        "Posicao",
+        "Aluno",
+        "Pontos",
+        "Acertos",
+        "Erros",
+        "Precisao_Pct",
+        "Maior_Combo",
+        "Nivel",
+      ],
+      ...players.map((p, i) => {
+        const total = (p.hits || 0) + (p.misses || 0);
+        const acc = total > 0 ? Math.round(((p.hits || 0) / total) * 100) : 0;
+        return [
+          String(i + 1),
+          p.name,
+          String(p.score),
+          String(p.hits),
+          String(p.misses),
+          `${acc}%`,
+          String(p.maxStreak),
+          String(p.level),
+        ];
+      }),
     ];
     const csvContent =
       "data:text/csv;charset=utf-8," +
@@ -309,6 +327,26 @@ function HostContent() {
   );
   const maxScore = Math.max(1000, sortedPlayers[0]?.score || 1000);
   const recentEvents = Object.values(room?.events || {})
+    .sort((a, b) => b.timestamp - a.timestamp)
+    .slice(0, 6);
+
+  const totalRoomHits = sortedPlayers.reduce(
+    (acc, p) => acc + (p.hits || 0),
+    0
+  );
+  const totalRoomMisses = sortedPlayers.reduce(
+    (acc, p) => acc + (p.misses || 0),
+    0
+  );
+  const roomAccuracyPct =
+    totalRoomHits + totalRoomMisses > 0
+      ? Math.round((totalRoomHits / (totalRoomHits + totalRoomMisses)) * 100)
+      : 0;
+  const bestStreakPlayer = [...sortedPlayers].sort(
+    (a, b) => (b.maxStreak || 0) - (a.maxStreak || 0)
+  )[0];
+  const shortCircuitEvents = Object.values(room?.events || {})
+    .filter((ev) => ev.type === "short_circuit")
     .sort((a, b) => b.timestamp - a.timestamp)
     .slice(0, 6);
 
@@ -985,6 +1023,148 @@ function HostContent() {
                   <Download className="w-3.5 h-3.5 text-emerald-400" /> Exportar
                   CSV
                 </button>
+              </div>
+            </div>
+
+            {/* Diagnóstico Pedagógico da Turma (Debriefing Docente) */}
+            <div className="bg-[#181B20] border border-[#2A303C] rounded-lg p-5 space-y-4">
+              <div className="flex items-center justify-between flex-wrap gap-2 pb-3 border-b border-[#242933]">
+                <div>
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-amber-400 font-bold block">
+                    AVALIAÇÃO FORMATIVA EM TEMPO REAL • DEBRIEFING DOCENTE
+                  </span>
+                  <h3 className="text-base font-bold text-white">
+                    Diagnóstico Pedagógico da Turma na Rodada
+                  </h3>
+                </div>
+                <span className="font-mono text-xs px-2.5 py-1 rounded bg-[#0C0E12] border border-[#2A303C] text-zinc-300">
+                  {sortedPlayers.length} bancada(s) avaliada(s)
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono">
+                <div className="bg-[#0C0E12] border border-[#242933] rounded-md p-3">
+                  <span className="text-[10px] uppercase text-zinc-400 flex items-center gap-1">
+                    <Percent className="w-3 h-3 text-emerald-400" /> Precisão Média
+                  </span>
+                  <span
+                    className={`text-xl font-bold mt-1 block ${
+                      roomAccuracyPct >= 80
+                        ? "text-emerald-400"
+                        : roomAccuracyPct >= 55
+                        ? "text-amber-400"
+                        : "text-red-400"
+                    }`}
+                  >
+                    {roomAccuracyPct}%
+                  </span>
+                </div>
+                <div className="bg-[#0C0E12] border border-[#242933] rounded-md p-3">
+                  <span className="text-[10px] uppercase text-zinc-400 flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-400" /> Acertos Totais
+                  </span>
+                  <span className="text-xl font-bold text-emerald-400 mt-1 block">
+                    {totalRoomHits}
+                  </span>
+                </div>
+                <div className="bg-[#0C0E12] border border-[#242933] rounded-md p-3">
+                  <span className="text-[10px] uppercase text-zinc-400 flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3 text-red-400" /> Curtos / Falhas
+                  </span>
+                  <span className="text-xl font-bold text-red-400 mt-1 block">
+                    {totalRoomMisses}
+                  </span>
+                </div>
+                <div className="bg-[#0C0E12] border border-[#242933] rounded-md p-3">
+                  <span className="text-[10px] uppercase text-zinc-400 flex items-center gap-1">
+                    <Flame className="w-3 h-3 text-amber-400" /> Maior Combo
+                  </span>
+                  <span className="text-xl font-bold text-amber-400 mt-1 block">
+                    {bestStreakPlayer ? `${bestStreakPlayer.maxStreak}x` : "0x"}
+                  </span>
+                  {bestStreakPlayer && bestStreakPlayer.maxStreak > 0 && (
+                    <span className="text-[10px] text-zinc-400 truncate block">
+                      {bestStreakPlayer.name}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Falhas Técnicas para Comentário no Projetor */}
+                <div className="bg-[#0C0E12] border border-[#242933] rounded-md p-3.5 space-y-2.5">
+                  <span className="text-[11px] font-mono uppercase tracking-wider text-red-300 font-bold flex items-center gap-1.5">
+                    <AlertTriangle className="w-3.5 h-3.5 text-red-400" />
+                    Pontos de Atenção / Últimos Curtos-Circuitos para Revisão:
+                  </span>
+                  {shortCircuitEvents.length === 0 ? (
+                    <div className="py-6 px-3 text-center rounded bg-[#12241D]/50 border border-emerald-500/30 text-xs font-mono text-emerald-300">
+                      Zero curto-circuito nos eventos recentes! A turma operou com alta disciplina técnica.
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                      {shortCircuitEvents.map((ev) => (
+                        <div
+                          key={ev.id}
+                          className="p-2 rounded bg-[#181B20] border-l-2 border-l-red-500 border border-[#2A303C] text-xs flex items-start justify-between gap-2"
+                        >
+                          <div className="min-w-0">
+                            <span className="font-bold text-red-200">
+                              {ev.playerName}:
+                            </span>{" "}
+                            <span className="font-mono text-zinc-300">
+                              {ev.message}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Classificação Completa da Sala */}
+                <div className="bg-[#0C0E12] border border-[#242933] rounded-md p-3.5 space-y-2.5">
+                  <span className="text-[11px] font-mono uppercase tracking-wider text-sky-300 font-bold flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5 text-sky-400" />
+                    Desempenho Individual Completo da Sala:
+                  </span>
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1 font-mono text-xs">
+                    {sortedPlayers.map((p, idx) => {
+                      const tot = (p.hits || 0) + (p.misses || 0);
+                      const acc =
+                        tot > 0 ? Math.round(((p.hits || 0) / tot) * 100) : 0;
+                      return (
+                        <div
+                          key={p.id}
+                          className="px-2.5 py-1.5 rounded bg-[#181B20] border border-[#2A303C] flex items-center justify-between gap-2"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-zinc-400 font-bold w-5">
+                              #{idx + 1}
+                            </span>
+                            <UserAvatar
+                              avatar={p.avatar}
+                              name={p.name}
+                              size="xs"
+                            />
+                            <span className="text-white font-sans font-bold truncate">
+                              {p.name}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2.5 shrink-0">
+                            <span className="text-emerald-400">{acc}%</span>
+                            <span className="text-zinc-400">
+                              {p.hits}OK/{p.misses}E
+                            </span>
+                            <span className="text-amber-400 font-bold">
+                              {p.score} pts
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             </div>
 

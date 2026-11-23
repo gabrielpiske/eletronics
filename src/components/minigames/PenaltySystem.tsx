@@ -2,6 +2,11 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { ShieldAlert, ZapOff, Timer, AlertOctagon } from "lucide-react";
+import {
+  playMultimeterBeep,
+  playBreakerTrip,
+  playSafetyAlert,
+} from "@/lib/soundEffects";
 
 export type ScoreActionHandler = (
   deltaScore: number,
@@ -105,6 +110,7 @@ export function usePenaltySystem(
     );
 
     if (shouldDeductScore) {
+      playSafetyAlert();
       onScoreAction(
         AUTOCLICK_PENALTY_PTS,
         false,
@@ -142,6 +148,7 @@ export function usePenaltySystem(
     (points: number, actionMessage: string, newLevel?: number) => {
       consecutiveErrorsRef.current = 0;
       setConsecutiveErrors(0);
+      playMultimeterBeep();
       onScoreAction(points, true, actionMessage, newLevel);
     },
     [onScoreAction]
@@ -158,6 +165,12 @@ export function usePenaltySystem(
       const nextErr = consecutiveErrorsRef.current + 1;
       consecutiveErrorsRef.current = nextErr;
       setConsecutiveErrors(nextErr);
+
+      if (severity === "safety") {
+        playSafetyAlert();
+      } else {
+        playBreakerTrip();
+      }
 
       const penalty = getProgressivePenalty(nextErr);
       const now = Date.now();

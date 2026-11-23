@@ -37,6 +37,8 @@ import {
   Trophy,
   Unlock,
   UserCheck,
+  Users,
+  Search,
   X,
   Zap,
 } from "lucide-react";
@@ -55,6 +57,8 @@ export default function LeaderboardPage() {
   });
   const [period, setPeriod] = useState<LeaderboardPeriod>("weekly");
   const [sortBy, setSortBy] = useState<SortCriteria>("xp");
+  const [classGroupFilter, setClassGroupFilter] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState<string>("");
 
   // Estados do Modo Admin (Cadeado por PIN)
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
@@ -215,7 +219,32 @@ export default function LeaderboardPage() {
     }
   };
 
-  const sortedPlayers = [...players].sort((a, b) => {
+  const availableClassGroups = Array.from(
+    new Set(
+      players
+        .map((p) => p.classGroup?.trim())
+        .filter((cg): cg is string => Boolean(cg))
+    )
+  ).sort((a, b) => a.localeCompare(b, "pt-BR"));
+
+  const filteredPlayers = players.filter((p) => {
+    if (classGroupFilter !== "all") {
+      if ((p.classGroup?.trim() || "") !== classGroupFilter) {
+        return false;
+      }
+    }
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      const nameMatch = p.displayName.toLowerCase().includes(q);
+      const groupMatch = (p.classGroup || "").toLowerCase().includes(q);
+      const titleMatch = (p.rankTitle || "").toLowerCase().includes(q);
+      const codeMatch = (p.patentCode || "").toLowerCase().includes(q);
+      return nameMatch || groupMatch || titleMatch || codeMatch;
+    }
+    return true;
+  });
+
+  const sortedPlayers = [...filteredPlayers].sort((a, b) => {
     const statsA = getProfilePeriodStats(a, period, meta);
     const statsB = getProfilePeriodStats(b, period, meta);
 
@@ -390,6 +419,67 @@ export default function LeaderboardPage() {
                   <Flame className="w-3.5 h-3.5 text-amber-400" />
                   <span>Maior Sequência</span>
                 </button>
+              </div>
+            </div>
+
+            {/* Filtro por Turma (classGroup) e Busca Rápida */}
+            <div className="pt-3 border-t border-[#2A303C] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="font-mono text-[10px] uppercase tracking-wider text-[#94A3B8] flex items-center gap-1 mr-1">
+                  <Users className="w-3.5 h-3.5 text-[#F59E0B]" />
+                  <span>Turma:</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setClassGroupFilter("all")}
+                  className={`px-2.5 py-1 rounded text-xs font-mono font-bold border transition-colors ${
+                    classGroupFilter === "all"
+                      ? "bg-amber-500/20 border-[#F59E0B] text-[#F59E0B]"
+                      : "bg-[#0C0E12] border-[#2A303C] text-[#94A3B8] hover:text-white"
+                  }`}
+                >
+                  Todas ({players.length})
+                </button>
+                {availableClassGroups.map((cg) => {
+                  const count = players.filter(
+                    (p) => p.classGroup?.trim() === cg
+                  ).length;
+                  return (
+                    <button
+                      key={cg}
+                      type="button"
+                      onClick={() => setClassGroupFilter(cg)}
+                      className={`px-2.5 py-1 rounded text-xs font-mono font-bold border transition-colors ${
+                        classGroupFilter === cg
+                          ? "bg-amber-500/20 border-[#F59E0B] text-[#F59E0B]"
+                          : "bg-[#0C0E12] border-[#2A303C] text-[#94A3B8] hover:text-white"
+                      }`}
+                    >
+                      {cg} ({count})
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="relative w-full sm:w-64">
+                <Search className="w-3.5 h-3.5 text-[#94A3B8] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Buscar aluno, turma ou patente..."
+                  className="w-full pl-8 pr-7 py-1.5 rounded-md bg-[#0C0E12] border border-[#2A303C] focus:border-[#0057E0] focus:outline-none text-xs text-white"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    aria-label="Limpar busca"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[#94A3B8] hover:text-white"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
             </div>
           </div>

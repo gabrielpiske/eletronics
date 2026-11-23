@@ -17,7 +17,13 @@ import {
   AlertTriangle,
   Camera,
   Users,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
+import {
+  subscribeToSoundMute,
+  toggleSoundMuted,
+} from "@/lib/soundEffects";
 import {
   UserAvatar,
   processAvatarFileToDataUrl,
@@ -50,6 +56,7 @@ export default function Navbar() {
   );
   const [authLoading, setAuthLoading] = useState(false);
   const [authErrorMsg, setAuthErrorMsg] = useState<string | null>(null);
+  const [soundMuted, setSoundMutedState] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -58,7 +65,13 @@ export default function Navbar() {
       setProfile(prof);
       setSavedProfiles(getSavedLocalProfiles());
     });
-    return () => unsub();
+    const unsubSound = subscribeToSoundMute((muted) => {
+      setSoundMutedState(muted);
+    });
+    return () => {
+      unsub();
+      unsubSound();
+    };
   }, []);
 
   const handlePhotoFileChange = async (
@@ -180,6 +193,27 @@ export default function Navbar() {
 
           {/* Right User / Google Auth Status */}
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => toggleSoundMuted()}
+              title={
+                soundMuted
+                  ? "Ativar bips sonoros da bancada (Multímetro / Disjuntor)"
+                  : "Silenciar sons da bancada"
+              }
+              aria-label="Alternar áudio da bancada"
+              className={`p-2 rounded-md border transition-colors ${
+                soundMuted
+                  ? "bg-[#111317] border-[#2A303C] text-zinc-500 hover:text-zinc-200"
+                  : "bg-[#0C0E12] border-[#2A303C] text-amber-400 hover:border-amber-400/60"
+              }`}
+            >
+              {soundMuted ? (
+                <VolumeX className="w-3.5 h-3.5" />
+              ) : (
+                <Volume2 className="w-3.5 h-3.5" />
+              )}
+            </button>
             {profile && rankInfo ? (
               <div className="flex items-center gap-2">
                 <Link

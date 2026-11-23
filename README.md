@@ -36,16 +36,20 @@ Todos os módulos compartilham o contrato `onScoreAction`, suportam rodadas long
   - 3ª+ falhas seguidas: `-110 pts` e `6,0s` de bloqueio
 - **Proteção Anti-Autoclique:** 4+ cliques em `< 480ms` acionam bloqueio de `5,0s` e penalidade de `-90 pts`.
 
-### 📖 Catálogo Normalizado & Treino Solo (`/practice`)
-- **Catálogo de 35 Componentes (PCI / IEC / ANSI):** filtrado em 4 categorias:
+### 📖 Catálogo Normalizado, Utilitários de Bancada & Treino Solo (`/practice`)
+- **Catálogo de 35 Componentes (PCI / IEC / ANSI):** filtrado em 4 categorias e busca rápida por nome/designador:
   - **Passivos (7)** · **Semicondutores (10)** · **Proteção & Energia (10)** · **Digital & Portas Lógicas (8)**
-- **Bancada Solo (+XP Automático):** permite treinar qualquer minigame no próprio ritmo, salvando XP automaticamente ao final de cada jogatina (5 desafios ou 6 pares no Conexão de Bancada) ou sob demanda pelo botão *Finalizar & Salvar XP*.
+- **Ficha Técnica & Protocolo de Multímetro:** ao clicar em qualquer componente, exibe escala recomendada no multímetro, leitura esperada, sintomas típicos de falha e dicas de segurança.
+- **Calculadora Rápida de Bancada:** inclui **Decodificador de Resistor SMD** (3 dígitos, 4 dígitos, notação `R` e jumper `000`) e **Dimensionador de Resistor E24 para LED/Opto** (cálculo de corrente real e potência dissipada em mW/W).
+- **Bancada Solo (+XP Automático):** permite treinar qualquer minigame no próprio ritmo, salvando XP automaticamente ao final de cada jogatina ou sob demanda pelo botão *Finalizar & Salvar XP*.
 
-### 🏆 Perfil, Carreira Técnica e Ranking Global (`/profile` e `/leaderboard`)
+### 🏆 Perfil, Passaporte Técnico PDF, Carreira e Ranking Global (`/profile` e `/leaderboard`)
 - **Autenticação Google OAuth** via Firebase Auth + fallback de **Acesso Rápido Educacional** (sem bloqueio em laboratório).
 - **Progressão de Carreira:** **100 Níveis** com curva quadrática estritamente crescente até **1.000.000 XP**, divididos em **21 Patentes Técnicas** (a cada 5 níveis, em 8 divisões: *Bronze, Prata, Ouro, Platina, Esmeralda, Diamante, Mestre e Lendário*).
 - **58 Conquistas Técnicas** (de *Fácil* a *Lendário* em 7 categorias) com recompensas extras de XP e barras de progresso individuais.
-- **Ranking Global Multi-Período:** visualização **Semanal**, **Mensal** e **Geral**, ordenável por XP, Precisão ou Maior Combo, além de **Modo Admin do Docente** validado no servidor (`/api/admin-auth`) para zerar temporada, ajustar XP ou remover perfis.
+- **Passaporte & Dossiê Técnico Imprimível (PDF):** geração de relatório individual de competências por bancada e insígnias pronto para impressão e assinatura docente.
+- **Ranking Global Multi-Período & Filtro por Turma:** visualização **Semanal**, **Mensal** e **Geral**, filtro por **Turma (`classGroup`)**, busca por aluno e **Modo Admin do Docente** validado no servidor (`/api/admin-auth`).
+- **Áudio Técnico de Bancada (Web Audio API):** bip de continuidade de multímetro nos acertos, desarme de disjuntor nos erros e alerta duplo de segurança, com botão Mute/Unmute na barra superior.
 
 ---
 

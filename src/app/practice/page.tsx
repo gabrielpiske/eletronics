@@ -8,8 +8,13 @@ import {
   MINIGAMES_CATALOG,
   MinigameId,
   ComponentCategory,
+  ElectronicComponentItem,
 } from "@/data/electronicsData";
 import { ElectronicSymbolSVG } from "@/components/ElectronicSymbolSVG";
+import {
+  WorkbenchCalculatorPanel,
+  ComponentDatasheetModal,
+} from "@/components/CatalogToolsModal";
 import { ConveyorGame } from "@/components/minigames/ConveyorGame";
 import { CircuitRadarGame } from "@/components/minigames/CircuitRadarGame";
 import { ResistorBuilderGame } from "@/components/minigames/ResistorBuilderGame";
@@ -28,6 +33,9 @@ import {
   Save,
   Award,
   CheckCircle2,
+  Search,
+  X,
+  Eye,
 } from "lucide-react";
 
 const QUESTIONS_PER_SOLO_ROUND = 5;
@@ -70,6 +78,9 @@ function PracticeContent() {
   const [categoryFilter, setCategoryFilter] = useState<
     "all" | ComponentCategory
   >("all");
+  const [catalogSearch, setCatalogSearch] = useState<string>("");
+  const [selectedCatalogComponent, setSelectedCatalogComponent] =
+    useState<ElectronicComponentItem | null>(null);
   const [soloScore, setSoloScore] = useState<number>(0);
   const [soloStreak, setSoloStreak] = useState<number>(0);
   const [soloMaxStreak, setSoloMaxStreak] = useState<number>(0);
@@ -226,10 +237,22 @@ function PracticeContent() {
     setActiveTab(newTab);
   };
 
-  const filteredComponents =
-    categoryFilter === "all"
-      ? ELECTRONIC_COMPONENTS
-      : ELECTRONIC_COMPONENTS.filter((c) => c.category === categoryFilter);
+  const filteredComponents = ELECTRONIC_COMPONENTS.filter((c) => {
+    if (categoryFilter !== "all" && c.category !== categoryFilter) {
+      return false;
+    }
+    const q = catalogSearch.trim().toLowerCase();
+    if (q) {
+      return (
+        c.name.toLowerCase().includes(q) ||
+        c.shortName.toLowerCase().includes(q) ||
+        c.boardLetter.toLowerCase().includes(q) ||
+        c.basicFunction.toLowerCase().includes(q) ||
+        c.unit.toLowerCase().includes(q)
+      );
+    }
+    return true;
+  });
 
   const targetActions = getSoloTargetActions(selectedGame, soloRegime);
   const currentActions = soloHits + soloMisses;
@@ -279,12 +302,9 @@ function PracticeContent() {
         {/* ABA 1: CATÁLOGO DE SÍMBOLOS (35 COMPONENTES) */}
         {activeTab === "catalog" && (
           <div className="flex flex-col gap-4">
-            <div className="flex items-center justify-between flex-wrap gap-2 bg-[#181B20] border border-[#2A303C] rounded-lg px-4 py-3">
-              <span className="text-xs font-mono uppercase tracking-wider text-zinc-400 font-semibold">
-                Simbologia Normalizada (PCI / IEC / ANSI) —{" "}
-                {filteredComponents.length} itens
-              </span>
+            <WorkbenchCalculatorPanel />
 
+            <div className="flex items-center justify-between flex-wrap gap-3 bg-[#181B20] border border-[#2A303C] rounded-lg px-4 py-3">
               <div className="flex items-center gap-1.5 flex-wrap">
                 {[
                   { id: "all" as const, label: "Todos (35)" },
@@ -313,15 +333,38 @@ function PracticeContent() {
                   </button>
                 ))}
               </div>
+
+              <div className="relative w-full sm:w-64">
+                <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={catalogSearch}
+                  onChange={(e) => setCatalogSearch(e.target.value)}
+                  placeholder="Buscar componente, letra (R, Q, U)..."
+                  className="w-full pl-8 pr-7 py-1.5 rounded-md bg-[#0C0E12] border border-[#2A303C] focus:border-amber-400 focus:outline-none text-xs text-white"
+                />
+                {catalogSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setCatalogSearch("")}
+                    aria-label="Limpar busca"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               {filteredComponents.map((comp) => (
-                <div
+                <button
                   key={comp.id}
-                  className="bg-[#181B20] border border-[#2A303C] rounded-lg p-3.5 flex flex-col justify-between"
+                  type="button"
+                  onClick={() => setSelectedCatalogComponent(comp)}
+                  className="bg-[#181B20] hover:bg-[#1D2128] border border-[#2A303C] hover:border-amber-400/70 rounded-lg p-3.5 flex flex-col justify-between text-left transition-all group"
                 >
-                  <div>
+                  <div className="w-full">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-[#0C0E12] text-amber-400 border border-[#2A303C]">
                         [{comp.boardLetter}]
@@ -338,7 +381,7 @@ function PracticeContent() {
                       />
                     </div>
 
-                    <h3 className="text-sm font-bold text-white mt-2">
+                    <h3 className="text-sm font-bold text-white mt-2 group-hover:text-amber-300 transition-colors">
                       {comp.name}
                     </h3>
                     <span className="text-[10px] font-mono uppercase text-[#38BDF8] block mt-0.5">
@@ -348,9 +391,25 @@ function PracticeContent() {
                       {comp.basicFunction}
                     </p>
                   </div>
-                </div>
+
+                  <div className="w-full mt-3 pt-2 border-t border-[#242933] flex items-center justify-between text-[11px] font-mono text-zinc-400 group-hover:text-amber-400">
+                    <span className="flex items-center gap-1">
+                      <Eye className="w-3 h-3" /> Ficha &amp; Teste no Multímetro
+                    </span>
+                    <span>→</span>
+                  </div>
+                </button>
               ))}
             </div>
+
+            <ComponentDatasheetModal
+              component={selectedCatalogComponent}
+              onClose={() => setSelectedCatalogComponent(null)}
+              onStartSoloPractice={() => {
+                setSelectedCatalogComponent(null);
+                handleSwitchTab("solo");
+              }}
+            />
           </div>
         )}
 
