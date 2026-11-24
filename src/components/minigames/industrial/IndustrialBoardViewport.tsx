@@ -403,27 +403,27 @@ export const IndustrialBoardViewport: React.FC<IndustrialBoardViewportProps> = (
   return (
     <div className="bg-[#181B20] border border-[#2A303C] rounded-lg overflow-hidden">
       {/* Barra de controles ópticos da bancada */}
-      <div className="bg-[#13161A] border-b border-[#242933] px-3.5 py-2.5 flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-300 font-semibold">
+      <div className="bg-[#13161A] border-b border-[#242933] px-4 py-3 flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-2.5">
+          <span className="text-xs sm:text-sm font-mono uppercase tracking-wider text-zinc-100 font-extrabold">
             {boardTitle}
           </span>
-          <span className="px-1.5 py-0.5 rounded bg-[#0C0E12] border border-[#2A303C] text-[10px] font-mono text-sky-300 font-bold">
+          <span className="px-2.5 py-0.5 rounded bg-[#0C0E12] border border-sky-500/40 text-xs font-mono text-sky-300 font-black">
             {mountingType}
           </span>
         </div>
 
-        <div className="flex items-center gap-1.5 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             type="button"
             onClick={() => handleZoomChange(zoom - 0.75)}
             disabled={zoom <= 1}
             aria-label="Diminuir zoom da placa"
-            className="px-2 py-1 rounded bg-[#0C0E12] hover:bg-[#1E2229] disabled:opacity-40 border border-[#2A303C] text-zinc-200 text-xs font-mono flex items-center gap-1"
+            className="px-2.5 py-1.5 rounded-lg bg-[#0C0E12] hover:bg-[#1E2229] disabled:opacity-40 border border-[#2A303C] text-zinc-100 text-xs sm:text-sm font-mono flex items-center gap-1"
           >
-            <ZoomOut className="w-3.5 h-3.5" />
+            <ZoomOut className="w-4 h-4" />
           </button>
-          <span className="px-2 py-1 rounded bg-[#0C0E12] border border-[#242933] text-[11px] font-mono text-amber-400 font-bold">
+          <span className="px-3 py-1.5 rounded-lg bg-[#0C0E12] border border-[#242933] text-xs sm:text-sm font-mono text-amber-400 font-black">
             {zoom.toFixed(2).replace(".00", "")}x
           </span>
           <button
@@ -431,9 +431,9 @@ export const IndustrialBoardViewport: React.FC<IndustrialBoardViewportProps> = (
             onClick={() => handleZoomChange(zoom + 0.75)}
             disabled={zoom >= 2.5}
             aria-label="Aumentar zoom da placa"
-            className="px-2 py-1 rounded bg-[#0C0E12] hover:bg-[#1E2229] disabled:opacity-40 border border-[#2A303C] text-zinc-200 text-xs font-mono flex items-center gap-1"
+            className="px-2.5 py-1.5 rounded-lg bg-[#0C0E12] hover:bg-[#1E2229] disabled:opacity-40 border border-[#2A303C] text-zinc-100 text-xs sm:text-sm font-mono flex items-center gap-1"
           >
-            <ZoomIn className="w-3.5 h-3.5" />
+            <ZoomIn className="w-4 h-4" />
           </button>
           <button
             type="button"
@@ -443,13 +443,13 @@ export const IndustrialBoardViewport: React.FC<IndustrialBoardViewportProps> = (
                 handleZoomChange(1.75);
               }
             }}
-            className={`px-2.5 py-1 rounded border text-[11px] font-mono font-bold flex items-center gap-1 transition-colors ${
+            className={`px-3 py-1.5 rounded-lg border text-xs sm:text-sm font-mono font-extrabold flex items-center gap-1.5 transition-colors ${
               loupeEnabled
                 ? "bg-amber-500 text-zinc-950 border-amber-400"
-                : "bg-[#0C0E12] text-zinc-300 border-[#2A303C] hover:border-zinc-500"
+                : "bg-[#0C0E12] text-zinc-200 border-[#2A303C] hover:border-zinc-500"
             }`}
           >
-            <Search className="w-3.5 h-3.5" />
+            <Search className="w-4 h-4" />
             Lupa
           </button>
           <button
@@ -460,10 +460,10 @@ export const IndustrialBoardViewport: React.FC<IndustrialBoardViewportProps> = (
               setLoupeEnabled(false);
             }}
             aria-label="Resetar enquadramento"
-            className="px-2 py-1 rounded bg-[#0C0E12] hover:bg-[#1E2229] border border-[#2A303C] text-zinc-400 hover:text-white text-xs"
+            className="px-2.5 py-1.5 rounded-lg bg-[#0C0E12] hover:bg-[#1E2229] border border-[#2A303C] text-zinc-300 hover:text-white text-xs sm:text-sm"
             title="Resetar zoom e posição"
           >
-            <RotateCcw className="w-3.5 h-3.5" />
+            <RotateCcw className="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -594,13 +594,13 @@ export const IndustrialBoardViewport: React.FC<IndustrialBoardViewportProps> = (
       </div>
 
       {/* Barra acessível de seleção rápida de pontos + nota óptica da lupa */}
-      <div className="p-3 bg-[#121519] space-y-2.5">
+      <div className="p-4 bg-[#121519] space-y-3">
         <div className="flex items-center justify-between flex-wrap gap-2">
-          <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
-            <Eye className="w-3.5 h-3.5 text-amber-400" />
-            Pontos de Inspeção na PCI (clique na placa ou use os atalhos):
+          <span className="text-xs sm:text-sm font-mono uppercase tracking-wider text-zinc-300 font-bold flex items-center gap-2">
+            <Eye className="w-4 h-4 text-amber-400" />
+            Pontos de Inspeção na Placa:
           </span>
-          <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap">
             {hotspots.map((hs) => {
               const isSelected = selectedHotspotId === hs.id;
               const isInspected = inspectedIds.includes(hs.id);
@@ -610,12 +610,12 @@ export const IndustrialBoardViewport: React.FC<IndustrialBoardViewportProps> = (
                   type="button"
                   disabled={disabled}
                   onClick={() => handleFocusHotspot(hs)}
-                  className={`px-2.5 py-1 rounded text-xs font-mono font-bold border transition-colors ${
+                  className={`px-3.5 py-1.5 rounded-lg text-sm font-mono font-black border transition-colors ${
                     isSelected
-                      ? "bg-amber-500 text-zinc-950 border-amber-400"
+                      ? "bg-amber-500 text-zinc-950 border-amber-400 shadow"
                       : isInspected
-                      ? "bg-[#162233] text-sky-200 border-sky-500/40 hover:border-amber-400"
-                      : "bg-[#0C0E12] text-zinc-300 border-[#2A303C] hover:border-zinc-500"
+                      ? "bg-[#162233] text-sky-200 border-sky-500/50 hover:border-amber-400"
+                      : "bg-[#0C0E12] text-zinc-200 border-[#2A303C] hover:border-zinc-500"
                   }`}
                 >
                   [{hs.designator}]
@@ -626,24 +626,24 @@ export const IndustrialBoardViewport: React.FC<IndustrialBoardViewportProps> = (
         </div>
 
         {activeHotspot ? (
-          <div className="rounded-md bg-[#0C0E12] border border-[#2A303C] px-3 py-2.5">
+          <div className="rounded-lg lcd-readout border-l-4 border-l-amber-400 px-4 py-3">
             <div className="flex items-center justify-between gap-2 flex-wrap">
-              <span className="text-xs font-bold text-white">
+              <span className="text-sm sm:text-base font-extrabold text-white">
                 [{activeHotspot.designator}] {activeHotspot.componentName}
               </span>
-              <span className="text-[10px] font-mono uppercase text-amber-400">
-                Leitura da Lupa Virtual
+              <span className="text-xs font-mono uppercase font-bold text-amber-400">
+                🔍 VISOR DA LUPA
               </span>
             </div>
-            <p className="text-xs text-zinc-300 mt-1 leading-relaxed">
+            <p className="text-sm sm:text-base font-medium text-zinc-100 mt-1 leading-snug">
               {repaired && activeHotspot.isDefective
                 ? "Junta/componente corrigido e validado sob lupa óptica: alinhamento e soldagem conformes."
                 : activeHotspot.inspectionNote}
             </p>
           </div>
         ) : (
-          <p className="text-xs font-mono text-zinc-500 px-1">
-            Toque em um componente na placa ou nos botões de designador acima para ampliar com a lupa e registrar a inspeção visual.
+          <p className="text-xs sm:text-sm font-mono text-zinc-400 px-1">
+            Toque em um componente na placa ou nos botões acima para dar zoom com a lupa.
           </p>
         )}
       </div>

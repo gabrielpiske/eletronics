@@ -508,9 +508,9 @@ export default function PlayRoomPage() {
   return (
     <div className="min-h-screen bg-[#111317] text-zinc-100 flex flex-col">
       {/* HUD Superior do Aluno */}
-      <header className="border-b border-[#242933] bg-[#16191E] sticky top-0 z-30 px-3 py-2">
-        <div className="max-w-3xl mx-auto flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5">
+      <header className="border-b border-[#242933] bg-[#16191E] sticky top-0 z-30 px-4 py-2.5">
+        <div className="max-w-4xl mx-auto flex items-center justify-between gap-2.5">
+          <div className="flex items-center gap-3">
             <UserAvatar
               avatar={myPlayer?.avatar || avatar}
               name={myPlayer?.name || nickname}
@@ -518,49 +518,48 @@ export default function PlayRoomPage() {
               className="border border-[#2A303C]"
             />
             <div>
-              <div className="flex items-center gap-1.5">
-                <p className="text-xs sm:text-sm font-bold text-white leading-tight">
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="text-sm sm:text-base font-extrabold text-white leading-tight">
                   {myPlayer?.name || nickname}
                 </p>
                 {activeProfile && rankInfo && (
-                  <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#0C0E12] text-[#F59E0B] border border-[#2A303C]">
+                  <span className="font-mono text-xs font-extrabold px-2 py-0.5 rounded bg-[#0C0E12] text-[#F59E0B] border border-[#2A303C]">
                     {rankInfo.currentPatent.icon} NV{" "}
                     {rankInfo.currentTier.level} •{" "}
-                    {rankInfo.currentPatent.badgeCode} •{" "}
-                    {activeProfile.totalXp.toLocaleString("pt-BR")} XP
+                    {rankInfo.currentPatent.badgeCode}
                   </span>
                 )}
               </div>
-              <span className="text-[10px] font-mono text-zinc-400">
-                PIN {room.pin} • #{myRank}º
+              <span className="text-xs font-mono font-bold text-zinc-400">
+                PIN {room.pin} • #{myRank}º LUGAR
               </span>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
             {myPlayer && myPlayer.streak >= 2 && (
-              <span className="px-2 py-1 rounded bg-amber-500/15 border border-amber-400/40 text-amber-300 text-xs font-mono font-bold">
+              <span className="px-2.5 py-1 rounded-md bg-amber-500/20 border border-amber-400/50 text-amber-300 text-xs sm:text-sm font-mono font-black">
                 {myPlayer.streak}x
               </span>
             )}
 
             <div
-              className={`px-2.5 py-1 rounded-md border text-right transition-colors ${
+              className={`px-3 py-1.5 rounded-lg border text-right transition-colors ${
                 lastScoreDelta !== null && lastScoreDelta < 0
                   ? "bg-red-950/90 border-red-500"
                   : "bg-[#0C0E12] border-[#2A303C]"
               }`}
             >
-              <span className="text-[9px] font-mono text-zinc-500 block leading-none">
+              <span className="text-[10px] font-mono text-zinc-400 font-bold block leading-none">
                 PONTOS
               </span>
               <div className="flex items-center gap-1">
-                <span className="text-xs sm:text-sm font-mono font-bold text-amber-400">
+                <span className="text-sm sm:text-base font-mono font-black text-amber-400">
                   {displayScore}
                 </span>
                 {lastScoreDelta !== null && (
                   <span
-                    className={`text-[11px] font-mono font-bold ${
+                    className={`text-xs font-mono font-extrabold ${
                       lastScoreDelta >= 0 ? "text-emerald-400" : "text-red-400"
                     }`}
                   >
@@ -579,28 +578,28 @@ export default function PlayRoomPage() {
                   : "Silenciar sons da bancada"
               }
               aria-label="Alternar áudio da bancada"
-              className={`p-1.5 rounded-md border transition-colors ${
+              className={`p-2 rounded-lg border transition-colors ${
                 soundMuted
                   ? "bg-[#111317] border-[#2A303C] text-zinc-500 hover:text-zinc-200"
                   : "bg-[#0C0E12] border-[#2A303C] text-amber-400 hover:border-amber-400/60"
               }`}
             >
               {soundMuted ? (
-                <VolumeX className="w-3.5 h-3.5" />
+                <VolumeX className="w-4 h-4" />
               ) : (
-                <Volume2 className="w-3.5 h-3.5" />
+                <Volume2 className="w-4 h-4" />
               )}
             </button>
 
             {room.status === "PLAYING" && (
               <div
-                className={`px-2.5 py-1.5 rounded-md font-mono font-bold text-xs flex items-center gap-1 border ${
+                className={`px-3 py-1.5 rounded-lg font-mono font-black text-sm sm:text-base flex items-center gap-1.5 border ${
                   remainingSec <= 15
                     ? "bg-red-950 border-red-500 text-red-300"
-                    : "bg-[#0C0E12] border-[#2A303C] text-zinc-200"
+                    : "bg-[#0C0E12] border-[#2A303C] text-zinc-100"
                 }`}
               >
-                <Clock className="w-3.5 h-3.5 text-amber-400" />
+                <Clock className="w-4 h-4 text-amber-400" />
                 {formatTime(remainingSec)}
               </div>
             )}

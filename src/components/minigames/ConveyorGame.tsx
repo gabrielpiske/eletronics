@@ -245,58 +245,58 @@ export const ConveyorGame: React.FC<ConveyorGameProps> = ({ onScoreAction }) => 
   return (
     <div
       onPointerDownCapture={handleContainerPointerDown}
-      className="w-full max-w-2xl mx-auto flex flex-col gap-3.5 select-none"
+      className="w-full max-w-3xl mx-auto flex flex-col gap-4 select-none"
     >
       {/* Barra Técnica Superior */}
-      <div className="bg-[#181B20] border border-[#2A303C] rounded-lg px-4 py-3 flex items-center justify-between flex-wrap gap-2">
+      <div className="bg-[#181B20] border border-[#2A303C] rounded-xl px-5 py-3.5 flex items-center justify-between flex-wrap gap-2 shadow-md">
         <div>
-          <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 block">
-            TRIAGEM DE 35 COMPONENTES • PEÇA #{sortedCount + 1}
+          <span className="text-xs font-mono uppercase tracking-wider text-amber-400 font-bold block">
+            ESTEIRA DE 35 COMPONENTES • PEÇA #{sortedCount + 1}
           </span>
-          <h3 className="text-sm sm:text-base font-bold text-white">
+          <h3 className="text-base sm:text-lg font-extrabold text-white">
             {mode === "direct"
-              ? "Selecione o nome e designador do símbolo na esteira"
-              : "Selecione a família tecnológica (Passivo, Semicondutor, Proteção ou Digital)"}
+              ? "Qual é o nome e a letra deste símbolo?"
+              : "Qual é a família tecnológica deste símbolo?"}
           </h3>
         </div>
-        <div className="flex items-center gap-2 font-mono text-xs">
-          <span className="px-2.5 py-1 rounded bg-[#0C0E12] border border-[#2A303C] text-amber-400 font-bold">
+        <div className="flex items-center gap-2 font-mono text-sm">
+          <span className="px-3.5 py-1.5 rounded-lg bg-[#0C0E12] border border-amber-500/40 text-amber-400 font-black">
             {multiplier}x • Combo {streak}
           </span>
         </div>
       </div>
 
       {/* Visor da Esteira Industrial */}
-      <div className="relative bg-[#0C0E12] border border-[#2A303C] rounded-lg p-5 overflow-hidden min-h-[200px] flex flex-col justify-between">
-        <div className="absolute right-0 top-0 bottom-0 w-8 bg-red-950/30 border-l border-red-500/30 flex items-center justify-center pointer-events-none">
-          <AlertTriangle className="w-4 h-4 text-red-400" />
+      <div className="relative lcd-readout rounded-xl p-5 overflow-hidden min-h-[225px] flex flex-col justify-between">
+        <div className="absolute right-0 top-0 bottom-0 w-10 bg-red-950/35 border-l border-red-500/40 flex items-center justify-center pointer-events-none">
+          <AlertTriangle className="w-5 h-5 text-red-400" />
         </div>
 
-        <div className="relative w-full h-32 flex items-center">
+        <div className="relative w-full h-36 flex items-center">
           <div
             style={{
-              left: `${Math.min(72, Math.max(2, beltProgress * 0.72))}%`,
+              left: `${Math.min(70, Math.max(2, beltProgress * 0.7))}%`,
               transition: "left 95ms linear",
             }}
-            className={`absolute bg-[#181B20] border rounded-md px-4 py-2.5 flex flex-col items-center justify-center ${
+            className={`absolute bg-[#181B20] border-2 rounded-xl px-5 py-3 flex flex-col items-center justify-center shadow-xl ${
               isLocked ? "border-red-500 opacity-75" : "border-[#384152]"
             }`}
           >
             <ElectronicSymbolSVG
               symbolId={currentComp.id}
-              className="w-24 h-16"
+              className="w-28 h-20"
               strokeColor={isLocked ? "#F87171" : "#38BDF8"}
             />
-            <span className="text-[10px] font-mono uppercase text-zinc-400 mt-1">
+            <span className="text-xs font-mono uppercase font-bold text-amber-400 mt-1.5">
               Unidade: {currentComp.unit}
             </span>
           </div>
         </div>
 
         {/* Trilho Técnico */}
-        <div className="w-full h-3 bg-[#181B20] border border-[#2A303C] rounded-sm flex items-center justify-around px-2">
+        <div className="w-full h-3.5 bg-[#181B20] border border-[#2A303C] rounded flex items-center justify-around px-2">
           {Array.from({ length: 14 }).map((_, i) => (
-            <div key={i} className="w-1.5 h-1.5 rounded-full bg-zinc-600" />
+            <div key={i} className="w-2 h-2 rounded-full bg-zinc-600" />
           ))}
         </div>
       </div>
@@ -314,39 +314,41 @@ export const ConveyorGame: React.FC<ConveyorGameProps> = ({ onScoreAction }) => 
       />
 
       {feedback && !isLocked && (
-        <div className="rounded-md px-3.5 py-2.5 border-l-4 border-l-emerald-400 bg-[#121F1A] border border-emerald-500/30 text-emerald-200">
-          <p className="font-mono font-bold text-xs sm:text-sm">
+        <div className="rounded-lg px-4 py-3 border-l-4 border-l-emerald-400 bg-[#121F1A] border border-emerald-500/40 text-emerald-200">
+          <p className="font-mono font-extrabold text-sm sm:text-base">
             {feedback.text}
           </p>
-          <p className="text-xs text-zinc-300 mt-0.5">{feedback.detail}</p>
+          <p className="text-xs sm:text-sm text-zinc-200 mt-0.5 line-clamp-1">
+            {feedback.detail}
+          </p>
         </div>
       )}
 
       {/* 4 Coletores Industriais */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {bins.map((bin, idx) => (
           <button
             key={bin.id}
             type="button"
             aria-disabled={isLocked}
             onClick={() => handleSelectBin(bin.id)}
-            className={`bg-[#181B20] border border-[#2A303C] border-l-4 ${bin.accentBorder} rounded-md p-3.5 text-left transition-colors flex flex-col justify-between min-h-[82px] ${
+            className={`bg-[#181B20] border-2 border-[#2A303C] border-l-4 ${bin.accentBorder} rounded-xl p-4 text-left transition-colors flex flex-col justify-between min-h-[96px] shadow-md ${
               isLocked
                 ? "opacity-45 cursor-not-allowed"
-                : "hover:bg-[#1E2229] hover:border-zinc-500 active:bg-[#252A34]"
+                : "hover:bg-[#1E232B] hover:border-amber-400/70 active:bg-[#252A34]"
             }`}
           >
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">
+              <span className="text-xs font-mono uppercase tracking-wider font-bold text-zinc-400">
                 {isLocked ? "BLOQUEADO" : `COLETOR 0${idx + 1}`}
               </span>
-              {isLocked && <Lock className="w-3.5 h-3.5 text-red-400" />}
+              {isLocked && <Lock className="w-4 h-4 text-red-400" />}
             </div>
             <div className="mt-1">
-              <p className="text-sm sm:text-base font-bold text-white leading-tight">
+              <p className="text-base sm:text-lg font-extrabold text-white leading-tight">
                 {bin.title}
               </p>
-              <p className="text-xs font-mono text-zinc-400 mt-0.5">
+              <p className="text-xs sm:text-sm font-mono text-zinc-300 mt-1">
                 {bin.subtitle}
               </p>
             </div>

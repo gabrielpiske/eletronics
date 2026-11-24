@@ -143,27 +143,27 @@ export default function Navbar() {
   return (
     <>
       <header className="border-b border-[#2A303C] bg-[#181B20]/95 backdrop-blur-md sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-18 py-2.5 flex items-center justify-between gap-3">
           {/* Brand Logo */}
           <Link href="/" className="flex items-center gap-3 shrink-0 group">
-            <div className="w-9 h-9 rounded-md bg-[#0047B6] border border-[#0057E0] flex items-center justify-center shadow-sm group-hover:bg-[#0057E0] transition-colors">
+            <div className="w-10 h-10 rounded-lg bg-[#0047B6] border border-[#0057E0] flex items-center justify-center shadow-md group-hover:bg-[#0057E0] transition-colors">
               <Cpu className="w-5 h-5 text-white" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-mono text-[10px] uppercase tracking-widest text-[#94A3B8] font-semibold">
+                <span className="font-mono text-xs uppercase tracking-widest text-[#F59E0B] font-bold">
                   SENAI // V2.0
                 </span>
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                <span className="w-2 h-2 rounded-full bg-emerald-400" />
               </div>
-              <h1 className="text-sm font-bold tracking-tight text-white leading-tight">
+              <h1 className="text-base sm:text-lg font-extrabold tracking-tight text-white leading-tight">
                 Arena Eletrônica
               </h1>
             </div>
           </Link>
 
           {/* Navigation Links */}
-          <nav className="hidden md:flex items-center gap-1.5">
+          <nav className="hidden md:flex items-center gap-2">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive =
@@ -174,14 +174,14 @@ export default function Navbar() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all border ${
+                  className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-md text-sm font-bold transition-all border ${
                     isActive
-                      ? "bg-[#0047B6]/20 border-[#0057E0] text-white"
-                      : "bg-[#111317] border-[#2A303C] text-[#94A3B8] hover:text-white hover:border-slate-600"
+                      ? "bg-[#0047B6]/30 border-[#0057E0] text-white shadow-sm"
+                      : "bg-[#111317] border-[#2A303C] text-zinc-300 hover:text-white hover:border-slate-500"
                   }`}
                 >
                   <Icon
-                    className={`w-3.5 h-3.5 ${
+                    className={`w-4 h-4 ${
                       isActive ? "text-[#F59E0B]" : "text-[#94A3B8]"
                     }`}
                   />
@@ -202,23 +202,23 @@ export default function Navbar() {
                   : "Silenciar sons da bancada"
               }
               aria-label="Alternar áudio da bancada"
-              className={`p-2 rounded-md border transition-colors ${
+              className={`p-2.5 rounded-md border transition-colors ${
                 soundMuted
                   ? "bg-[#111317] border-[#2A303C] text-zinc-500 hover:text-zinc-200"
                   : "bg-[#0C0E12] border-[#2A303C] text-amber-400 hover:border-amber-400/60"
               }`}
             >
               {soundMuted ? (
-                <VolumeX className="w-3.5 h-3.5" />
+                <VolumeX className="w-4 h-4" />
               ) : (
-                <Volume2 className="w-3.5 h-3.5" />
+                <Volume2 className="w-4 h-4" />
               )}
             </button>
             {profile && rankInfo ? (
               <div className="flex items-center gap-2">
                 <Link
                   href="/profile"
-                  className="flex items-center gap-2.5 px-3 py-1.5 rounded-md bg-[#0C0E12] border border-[#2A303C] hover:border-[#0057E0] transition-colors"
+                  className="flex items-center gap-2.5 px-3.5 py-1.5 rounded-md bg-[#0C0E12] border border-[#2A303C] hover:border-[#0057E0] transition-colors"
                   title="Ver Perfil, Editar Foto e Conquistas"
                 >
                   <UserAvatar
@@ -228,14 +228,14 @@ export default function Navbar() {
                   />
                   <div className="text-left">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-bold text-white truncate max-w-[110px]">
+                      <span className="text-sm font-bold text-white truncate max-w-[130px]">
                         {profile.displayName}
                       </span>
-                      <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#F59E0B]/15 text-[#F59E0B] border border-[#F59E0B]/30">
+                      <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-[#F59E0B]/15 text-[#F59E0B] border border-[#F59E0B]/40">
                         {rankInfo.currentPatent.icon} NV {rankInfo.currentTier.level}
                       </span>
                     </div>
-                    <div className="font-mono text-[10px] text-emerald-400 font-semibold truncate max-w-[160px]">
+                    <div className="font-mono text-xs text-emerald-400 font-bold truncate max-w-[180px]">
                       {rankInfo.currentPatent.title} •{" "}
                       {profile.totalXp.toLocaleString("pt-BR")} XP
                     </div>
@@ -244,9 +244,9 @@ export default function Navbar() {
                 <button
                   onClick={() => signOutCurrentProfile()}
                   title="Sair da conta"
-                  className="p-2 rounded-md bg-[#111317] hover:bg-red-950/40 text-[#94A3B8] hover:text-red-400 border border-[#2A303C] transition-colors"
+                  className="p-2.5 rounded-md bg-[#111317] hover:bg-red-950/40 text-[#94A3B8] hover:text-red-400 border border-[#2A303C] transition-colors"
                 >
-                  <LogOut className="w-3.5 h-3.5" />
+                  <LogOut className="w-4 h-4" />
                 </button>
               </div>
             ) : (
@@ -255,9 +255,9 @@ export default function Navbar() {
                   setAuthErrorMsg(null);
                   setShowAuthModal(true);
                 }}
-                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-md bg-[#0047B6] hover:bg-[#0057E0] text-white text-xs font-bold border border-[#0057E0] transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-[#0047B6] hover:bg-[#0057E0] text-white text-sm font-bold border border-[#0057E0] transition-colors"
               >
-                <LogIn className="w-3.5 h-3.5 text-[#F59E0B]" />
+                <LogIn className="w-4 h-4 text-[#F59E0B]" />
                 <span>Entrar com Google</span>
               </button>
             )}
@@ -265,7 +265,7 @@ export default function Navbar() {
         </div>
 
         {/* Mobile Secondary Navigation Bar */}
-        <div className="flex md:hidden items-center gap-1.5 overflow-x-auto px-4 py-2 bg-[#111317] border-t border-[#2A303C]">
+        <div className="flex md:hidden items-center gap-2 overflow-x-auto px-4 py-2.5 bg-[#111317] border-t border-[#2A303C]">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive =
@@ -276,13 +276,13 @@ export default function Navbar() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-semibold whitespace-nowrap border ${
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold whitespace-nowrap border ${
                   isActive
-                    ? "bg-[#0047B6]/20 border-[#0057E0] text-white"
-                    : "bg-[#181B20] border-[#2A303C] text-[#94A3B8]"
+                    ? "bg-[#0047B6]/30 border-[#0057E0] text-white"
+                    : "bg-[#181B20] border-[#2A303C] text-zinc-300"
                 }`}
               >
-                <Icon className="w-3 h-3 text-[#F59E0B]" />
+                <Icon className="w-3.5 h-3.5 text-[#F59E0B]" />
                 <span>{item.label}</span>
               </Link>
             );

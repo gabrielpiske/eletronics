@@ -66,6 +66,9 @@ import {
   X,
   Zap,
   Printer,
+  ChevronDown,
+  ChevronUp,
+  HelpCircle,
 } from "lucide-react";
 import { TechnicalPassportModal } from "@/components/TechnicalPassportModal";
 
@@ -176,6 +179,20 @@ export default function ProfilePage() {
     useState<AchievementStatusFilter>("all");
   const [revalidatingAch, setRevalidatingAch] = useState<boolean>(false);
   const [revalidationMsg, setRevalidationMsg] = useState<string | null>(null);
+  const [expandedPatentIds, setExpandedPatentIds] = useState<string[]>([]);
+  const [expandedAchievementIds, setExpandedAchievementIds] = useState<string[]>([]);
+
+  const togglePatentDetails = (id: string) => {
+    setExpandedPatentIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const toggleAchievementDetails = (id: string) => {
+    setExpandedAchievementIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
 
   // Estados do formulário de Gerenciamento de Perfil (logado)
   const [editName, setEditName] = useState("");
@@ -834,8 +851,8 @@ export default function ProfilePage() {
           /* Authenticated Student Profile View */
           <>
             {/* Top Dossier Banner */}
-            <section className="bg-[#181B20] border border-[#2A303C] rounded-lg overflow-hidden shadow-lg">
-              <div className="h-1 w-full bg-gradient-to-r from-[#0047B6] via-[#F59E0B] to-emerald-500" />
+            <section className="bg-[#181B20] border border-[#2A303C] rounded-xl overflow-hidden shadow-lg">
+              <div className="h-1.5 w-full bg-gradient-to-r from-[#0047B6] via-[#F59E0B] to-emerald-500" />
               <div className="p-6 space-y-5">
                 {/* Linha 1: Identidade do Usuário + Botões de Ação */}
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -849,45 +866,45 @@ export default function ProfilePage() {
                       <UserAvatar
                         profile={profile}
                         size="xl"
-                        roundedClassName="rounded-lg"
+                        roundedClassName="rounded-xl"
                         className="border-2 border-[#0057E0] group-hover:border-[#F59E0B] transition-colors"
                       />
-                      <span className="absolute inset-0 rounded-lg bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                        <Camera className="w-5 h-5 text-[#F59E0B]" />
+                      <span className="absolute inset-0 rounded-xl bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                        <Camera className="w-6 h-6 text-[#F59E0B]" />
                       </span>
                       {rankInfo && (
                         <span
                           title={rankInfo.currentPatent.title}
-                          className="absolute -bottom-2 -right-2 w-7 h-7 rounded-full bg-[#181B20] border border-[#F59E0B] flex items-center justify-center text-sm shadow"
+                          className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full bg-[#181B20] border-2 border-[#F59E0B] flex items-center justify-center text-base shadow"
                         >
                           {rankInfo.currentPatent.icon}
                         </span>
                       )}
                     </button>
                     <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2 mb-1">
-                        <span className="font-mono text-[11px] font-bold uppercase px-2 py-0.5 rounded bg-[#F59E0B]/15 text-[#F59E0B] border border-[#F59E0B]/40">
+                      <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                        <span className="font-mono text-xs sm:text-sm font-black uppercase px-2.5 py-0.5 rounded bg-[#F59E0B]/20 text-[#F59E0B] border border-[#F59E0B]/50">
                           NÍVEL {rankInfo?.currentTier.level} /{" "}
                           {MAX_PLATFORM_LEVEL}
                         </span>
-                        <span className="font-mono text-[11px] font-bold uppercase px-2 py-0.5 rounded bg-[#0047B6]/25 text-blue-300 border border-[#0057E0]/50">
+                        <span className="font-mono text-xs sm:text-sm font-extrabold uppercase px-2.5 py-0.5 rounded bg-[#0047B6]/30 text-blue-200 border border-[#0057E0]/60">
                           {rankInfo?.currentPatent.badgeCode} •{" "}
                           {rankInfo?.currentPatent.divisionLabel}
                         </span>
                         {profile.classGroup && (
-                          <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-300 border border-emerald-500/40 inline-flex items-center gap-1">
-                            <GraduationCap className="w-3.5 h-3.5" />
+                          <span className="font-mono text-xs sm:text-sm font-extrabold px-2.5 py-0.5 rounded bg-emerald-950/70 text-emerald-300 border border-emerald-500/50 inline-flex items-center gap-1.5">
+                            <GraduationCap className="w-4 h-4" />
                             {profile.classGroup}
                           </span>
                         )}
                       </div>
-                      <h2 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2 flex-wrap">
+                      <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-center gap-2.5 flex-wrap">
                         <span>{profile.displayName}</span>
-                        <span className="text-sm font-mono font-bold text-emerald-400">
+                        <span className="text-base sm:text-lg font-mono font-extrabold text-emerald-400">
                           // {rankInfo?.currentPatent.title}
                         </span>
                       </h2>
-                      <p className="font-mono text-xs text-[#94A3B8] truncate">
+                      <p className="font-mono text-xs sm:text-sm text-zinc-300 truncate mt-0.5">
                         {profile.email} • {unlockedPatentsCount} de{" "}
                         {SENAI_PATENTS.length} Patentes Alcançadas
                       </p>
@@ -898,23 +915,23 @@ export default function ProfilePage() {
                     <button
                       type="button"
                       onClick={() => setShowPassportModal(true)}
-                      className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-md bg-[#0C0E12] hover:bg-[#14181F] text-emerald-300 border border-emerald-500/40 text-xs font-bold transition-colors"
+                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#0C0E12] hover:bg-[#14181F] text-emerald-300 border border-emerald-500/50 text-xs sm:text-sm font-extrabold transition-colors"
                       title="Visualizar e imprimir Passaporte Técnico SENAI (PDF)"
                     >
-                      <Printer className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      <Printer className="w-4 h-4 text-emerald-400 shrink-0" />
                       <span>Passaporte PDF</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setActiveTab("settings")}
-                      className={`inline-flex items-center gap-2 px-3.5 py-2.5 rounded-md text-xs font-bold border transition-colors ${
+                      className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs sm:text-sm font-extrabold border transition-colors ${
                         activeTab === "settings"
                           ? "bg-[#F59E0B] text-slate-950 border-[#F59E0B]"
                           : "bg-[#0C0E12] hover:bg-[#14181F] text-white border-[#F59E0B]/50"
                       }`}
                     >
                       <Camera
-                        className={`w-3.5 h-3.5 shrink-0 ${
+                        className={`w-4 h-4 shrink-0 ${
                           activeTab === "settings"
                             ? "text-slate-950"
                             : "text-[#F59E0B]"
@@ -924,17 +941,17 @@ export default function ProfilePage() {
                     </button>
                     <Link
                       href="/practice"
-                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-md bg-[#0047B6] hover:bg-[#0057E0] text-white text-xs font-bold transition-colors"
+                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#0047B6] hover:bg-[#0057E0] text-white text-xs sm:text-sm font-extrabold transition-colors shadow"
                     >
-                      <Play className="w-3.5 h-3.5 text-[#F59E0B]" />
+                      <Play className="w-4 h-4 text-[#F59E0B]" />
                       <span>Treinar & Ganhar XP</span>
                     </Link>
                     <button
                       onClick={() => signOutCurrentProfile()}
-                      className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-md bg-[#111317] hover:bg-red-950/40 text-[#94A3B8] hover:text-red-400 border border-[#2A303C] text-xs font-semibold transition-colors"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-lg bg-[#111317] hover:bg-red-950/40 text-zinc-300 hover:text-red-400 border border-[#2A303C] text-xs sm:text-sm font-bold transition-colors"
                     >
-                      <LogOut className="w-3.5 h-3.5" />
-                      <span>Trocar Conta</span>
+                      <LogOut className="w-4 h-4" />
+                      <span>Sair</span>
                     </button>
                   </div>
                 </div>
@@ -943,34 +960,34 @@ export default function ProfilePage() {
                 {rankInfo && (
                   <div className="pt-4 border-t border-[#2A303C] grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Box 1: Progresso do Nível Atual */}
-                    <div className="bg-[#0C0E12] border border-[#2A303C] rounded-md p-4">
-                      <div className="flex items-center justify-between gap-2 text-xs mb-2">
-                        <span className="font-mono uppercase text-[#94A3B8] text-[11px] font-semibold">
+                    <div className="lcd-readout rounded-lg p-4">
+                      <div className="flex items-center justify-between gap-2 text-sm mb-2">
+                        <span className="font-mono uppercase text-zinc-200 text-xs sm:text-sm font-extrabold">
                           Progresso Nível {rankInfo.currentTier.level}
                         </span>
-                        <span className="font-mono font-bold text-[#F59E0B] text-xs">
+                        <span className="font-mono font-black text-[#F59E0B] text-xs sm:text-sm">
                           {rankInfo.nextTier
                             ? `Faltam ${rankInfo.xpToNext.toLocaleString("pt-BR")} XP`
                             : "NÍVEL MÁXIMO (1M XP)"}
                         </span>
                       </div>
-                      <div className="w-full h-2.5 bg-[#181B20] rounded-sm overflow-hidden border border-[#2A303C]">
+                      <div className="w-full h-3.5 bg-[#181B20] rounded overflow-hidden border border-[#2A303C]">
                         <div
-                          className="h-full bg-[#0047B6] transition-all duration-500"
+                          className="h-full bg-[#0057E0] transition-all duration-500"
                           style={{ width: `${rankInfo.progressPercent}%` }}
                         />
                       </div>
-                      <div className="flex items-center justify-between gap-2 mt-2 text-[11px] font-mono text-[#94A3B8]">
+                      <div className="flex items-center justify-between gap-2 mt-2 text-xs sm:text-sm font-mono text-zinc-300">
                         <span>
                           Atual:{" "}
-                          <strong className="text-white">
+                          <strong className="text-white font-extrabold">
                             {profile.totalXp.toLocaleString("pt-BR")} XP
                           </strong>
                         </span>
                         {rankInfo.nextTier ? (
                           <span>
                             Meta NV {rankInfo.nextTier.level}:{" "}
-                            <strong className="text-zinc-300">
+                            <strong className="text-amber-300 font-extrabold">
                               {rankInfo.nextTier.minXp.toLocaleString("pt-BR")}{" "}
                               XP
                             </strong>
@@ -982,29 +999,29 @@ export default function ProfilePage() {
                     </div>
 
                     {/* Box 2: Progresso para a Próxima Patente (a cada 5 níveis) */}
-                    <div className="bg-[#0C0E12] border border-[#2A303C] rounded-md p-4">
-                      <div className="flex items-center justify-between gap-2 text-xs mb-2">
-                        <span className="font-mono uppercase text-[#94A3B8] text-[11px] font-semibold">
+                    <div className="lcd-readout rounded-lg p-4">
+                      <div className="flex items-center justify-between gap-2 text-sm mb-2">
+                        <span className="font-mono uppercase text-zinc-200 text-xs sm:text-sm font-extrabold">
                           Próxima Patente (5 em 5 NV)
                         </span>
-                        <span className="font-mono font-bold text-emerald-400 text-xs">
+                        <span className="font-mono font-black text-emerald-400 text-xs sm:text-sm">
                           {rankInfo.nextPatent
                             ? `No NV ${rankInfo.nextPatent.minLevel} (faltam ${rankInfo.levelsToNextPatent} NV)`
                             : "PATENTE SUPREMA"}
                         </span>
                       </div>
-                      <div className="w-full h-2.5 bg-[#181B20] rounded-sm overflow-hidden border border-[#2A303C]">
+                      <div className="w-full h-3.5 bg-[#181B20] rounded overflow-hidden border border-[#2A303C]">
                         <div
                           className="h-full bg-emerald-500 transition-all duration-500"
                           style={{ width: `${rankInfo.patentProgressPct}%` }}
                         />
                       </div>
-                      <div className="flex items-center justify-between gap-2 mt-2 text-[11px] font-mono text-[#94A3B8]">
+                      <div className="flex items-center justify-between gap-2 mt-2 text-xs sm:text-sm font-mono text-zinc-300">
                         <span className="truncate">
                           {rankInfo.nextPatent ? (
                             <>
-                              Próxima:{" "}
-                              <strong className="text-emerald-300">
+                              Alvo:{" "}
+                              <strong className="text-emerald-300 font-extrabold">
                                 {rankInfo.nextPatent.icon}{" "}
                                 {rankInfo.nextPatent.title}
                               </strong>
@@ -1014,7 +1031,7 @@ export default function ProfilePage() {
                           )}
                         </span>
                         {rankInfo.nextPatent && (
-                          <span className="shrink-0 text-emerald-400 font-bold">
+                          <span className="shrink-0 text-emerald-400 font-black">
                             {rankInfo.patentProgressPct}%
                           </span>
                         )}
@@ -1027,87 +1044,86 @@ export default function ProfilePage() {
 
             {/* 4 Telemetry Metrics */}
             <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="bg-[#181B20] border border-[#2A303C] rounded-lg p-4">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="font-mono text-[10px] uppercase tracking-wider text-[#94A3B8]">
-                    XP Acumulado / Meta 1M
+              <div className="bg-[#181B20] border border-[#2A303C] rounded-xl p-4 sm:p-5">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="font-mono text-xs uppercase tracking-wider font-bold text-zinc-300">
+                    XP Acumulado
                   </span>
-                  <Zap className="w-4 h-4 text-[#F59E0B]" />
+                  <Zap className="w-5 h-5 text-[#F59E0B]" />
                 </div>
-                <div className="font-mono text-2xl font-bold text-white">
+                <div className="font-mono text-2xl sm:text-3xl font-black text-white">
                   {profile.totalXp.toLocaleString("pt-BR")}{" "}
-                  <span className="text-xs font-normal text-[#F59E0B]">XP</span>
+                  <span className="text-sm font-bold text-[#F59E0B]">XP</span>
                 </div>
-                <p className="text-[11px] text-[#94A3B8] mt-1 font-mono">
-                  {rankInfo?.overallProgressPct}% de{" "}
-                  {MAX_PLATFORM_XP.toLocaleString("pt-BR")} XP (NV 100)
+                <p className="text-xs sm:text-sm text-zinc-300 mt-1 font-mono font-semibold">
+                  {rankInfo?.overallProgressPct}% de 1M XP
                 </p>
               </div>
 
-              <div className="bg-[#181B20] border border-[#2A303C] rounded-lg p-4">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="font-mono text-[10px] uppercase tracking-wider text-[#94A3B8]">
-                    Patentes Alcançadas
+              <div className="bg-[#181B20] border border-[#2A303C] rounded-xl p-4 sm:p-5">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="font-mono text-xs uppercase tracking-wider font-bold text-zinc-300">
+                    Patentes SENAI
                   </span>
-                  <Crown className="w-4 h-4 text-[#F59E0B]" />
+                  <Crown className="w-5 h-5 text-[#F59E0B]" />
                 </div>
-                <div className="font-mono text-2xl font-bold text-white">
+                <div className="font-mono text-2xl sm:text-3xl font-black text-white">
                   {unlockedPatentsCount}{" "}
-                  <span className="text-sm text-[#94A3B8]">
+                  <span className="text-base text-zinc-400">
                     / {SENAI_PATENTS.length}
                   </span>
                 </div>
-                <p className="text-[11px] text-emerald-400 mt-1 truncate">
+                <p className="text-xs sm:text-sm text-emerald-400 font-bold mt-1 truncate">
                   {rankInfo?.currentPatent.icon} {rankInfo?.currentPatent.title}
                 </p>
               </div>
 
-              <div className="bg-[#181B20] border border-[#2A303C] rounded-lg p-4">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="font-mono text-[10px] uppercase tracking-wider text-[#94A3B8]">
-                    Precisão & Volume
+              <div className="bg-[#181B20] border border-[#2A303C] rounded-xl p-4 sm:p-5">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="font-mono text-xs uppercase tracking-wider font-bold text-zinc-300">
+                    Precisão Técnica
                   </span>
-                  <Percent className="w-4 h-4 text-emerald-400" />
+                  <Percent className="w-5 h-5 text-emerald-400" />
                 </div>
-                <div className="font-mono text-2xl font-bold text-emerald-400">
+                <div className="font-mono text-2xl sm:text-3xl font-black text-emerald-400">
                   {overallAccuracy}%
                 </div>
-                <p className="text-[11px] text-[#94A3B8] mt-1">
-                  {profile.totalHits} acertos em {profile.matchesPlayed} partidas
+                <p className="text-xs sm:text-sm text-zinc-300 font-semibold mt-1">
+                  {profile.totalHits} OK em {profile.matchesPlayed} jogos
                 </p>
               </div>
 
-              <div className="bg-[#181B20] border border-[#2A303C] rounded-lg p-4">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="font-mono text-[10px] uppercase tracking-wider text-[#94A3B8]">
-                    Maior Sequência & Recorde
+              <div className="bg-[#181B20] border border-[#2A303C] rounded-xl p-4 sm:p-5">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="font-mono text-xs uppercase tracking-wider font-bold text-zinc-300">
+                    Combo &amp; Recorde
                   </span>
-                  <Flame className="w-4 h-4 text-amber-400" />
+                  <Flame className="w-5 h-5 text-amber-400" />
                 </div>
-                <div className="font-mono text-2xl font-bold text-amber-400">
+                <div className="font-mono text-2xl sm:text-3xl font-black text-amber-400">
                   {profile.bestStreak}x
                 </div>
-                <p className="text-[11px] text-[#94A3B8] mt-1">
-                  Melhor partida:{" "}
+                <p className="text-xs sm:text-sm text-zinc-300 font-semibold mt-1">
+                  Recorde:{" "}
                   {(profile.highScoreMatch || 0).toLocaleString("pt-BR")} pts
                 </p>
               </div>
             </section>
 
             {/* Navigation Tabs Bar */}
-            <div className="bg-[#181B20] border border-[#2A303C] rounded-lg p-2 flex flex-wrap items-center gap-2">
+            <div className="bg-[#181B20] border border-[#2A303C] rounded-xl p-2.5 flex flex-wrap items-center gap-2.5">
               <button
                 type="button"
                 onClick={() => setActiveTab("patents")}
-                className={`flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-md text-xs font-bold border transition-all ${
+                className={`flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-xs sm:text-sm font-extrabold border transition-all ${
                   activeTab === "patents"
                     ? "bg-[#0047B6] border-[#0057E0] text-white shadow"
-                    : "bg-[#0C0E12] border-[#2A303C] text-[#94A3B8] hover:text-white"
+                    : "bg-[#0C0E12] border-[#2A303C] text-zinc-300 hover:text-white"
                 }`}
               >
                 <ShieldCheck className="w-4 h-4 text-[#F59E0B]" />
                 <span>Patentes & Carreira</span>
-                <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-black/40 text-[#F59E0B]">
+                <span className="font-mono text-xs font-black px-2 py-0.5 rounded bg-black/40 text-[#F59E0B]">
                   {unlockedPatentsCount}/{SENAI_PATENTS.length}
                 </span>
               </button>
@@ -1115,15 +1131,15 @@ export default function ProfilePage() {
               <button
                 type="button"
                 onClick={() => setActiveTab("achievements")}
-                className={`flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-md text-xs font-bold border transition-all ${
+                className={`flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-xs sm:text-sm font-extrabold border transition-all ${
                   activeTab === "achievements"
                     ? "bg-[#0047B6] border-[#0057E0] text-white shadow"
-                    : "bg-[#0C0E12] border-[#2A303C] text-[#94A3B8] hover:text-white"
+                    : "bg-[#0C0E12] border-[#2A303C] text-zinc-300 hover:text-white"
                 }`}
               >
                 <Award className="w-4 h-4 text-[#F59E0B]" />
                 <span>Conquistas & Desafios</span>
-                <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-black/40 text-emerald-400">
+                <span className="font-mono text-xs font-black px-2 py-0.5 rounded bg-black/40 text-emerald-400">
                   {profile.unlockedAchievements.length}/
                   {ACHIEVEMENTS_CATALOG.length}
                 </span>
@@ -1132,15 +1148,15 @@ export default function ProfilePage() {
               <button
                 type="button"
                 onClick={() => setActiveTab("history")}
-                className={`flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-md text-xs font-bold border transition-all ${
+                className={`flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-xs sm:text-sm font-extrabold border transition-all ${
                   activeTab === "history"
                     ? "bg-[#0047B6] border-[#0057E0] text-white shadow"
-                    : "bg-[#0C0E12] border-[#2A303C] text-[#94A3B8] hover:text-white"
+                    : "bg-[#0C0E12] border-[#2A303C] text-zinc-300 hover:text-white"
                 }`}
               >
                 <Clock className="w-4 h-4 text-[#38BDF8]" />
                 <span>Histórico de Partidas</span>
-                <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-black/40 text-zinc-300">
+                <span className="font-mono text-xs font-black px-2 py-0.5 rounded bg-black/40 text-zinc-200">
                   {profile.recentMatches.length}
                 </span>
               </button>
@@ -1148,10 +1164,10 @@ export default function ProfilePage() {
               <button
                 type="button"
                 onClick={() => setActiveTab("settings")}
-                className={`flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-md text-xs font-bold border transition-all ${
+                className={`flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-xs sm:text-sm font-extrabold border transition-all ${
                   activeTab === "settings"
                     ? "bg-[#0047B6] border-[#0057E0] text-white shadow"
-                    : "bg-[#0C0E12] border-[#2A303C] text-[#94A3B8] hover:text-white"
+                    : "bg-[#0C0E12] border-[#2A303C] text-zinc-300 hover:text-white"
                 }`}
               >
                 <Settings className="w-4 h-4 text-[#F59E0B]" />
@@ -1227,63 +1243,79 @@ export default function ProfilePage() {
                         0,
                         patent.minLevel - rankInfo.currentTier.level
                       );
+                      const isExpanded = expandedPatentIds.includes(patent.id);
 
                       return (
                         <div
                           key={patent.id}
-                          className={`rounded-lg p-4 border transition-all flex flex-col justify-between bg-gradient-to-br ${
+                          className={`rounded-xl p-5 border-2 transition-all flex flex-col justify-between bg-gradient-to-br ${
                             isCurrent
-                              ? `${divStyle.glow} bg-[#0C0E12] border-2 border-[#F59E0B] shadow-lg`
+                              ? `${divStyle.glow} bg-[#0C0E12] border-[#F59E0B] shadow-xl`
                               : isReached
                               ? `${divStyle.glow} bg-[#0C0E12] border-emerald-500/50`
-                              : "bg-[#111317]/60 border-[#2A303C] opacity-75"
+                              : "bg-[#111317]/60 border-[#2A303C] opacity-80"
                           }`}
                         >
                           <div>
-                            <div className="flex items-center justify-between gap-2 mb-3">
+                            <div className="flex items-center justify-between gap-2 mb-3.5">
                               <span
-                                className={`font-mono text-[10px] font-bold px-2 py-0.5 rounded border ${divStyle.badge}`}
+                                className={`font-mono text-xs font-extrabold px-2.5 py-1 rounded border ${divStyle.badge}`}
                               >
                                 {patent.badgeCode} • {patent.divisionLabel}
                               </span>
-                              <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-[#181B20] text-[#F59E0B] border border-[#2A303C]">
+                              <span className="font-mono text-xs sm:text-sm font-black px-2.5 py-1 rounded bg-[#181B20] text-[#F59E0B] border border-[#2A303C]">
                                 {patent.minLevel === patent.maxLevel
                                   ? `NV ${patent.minLevel}`
-                                  : `NV ${patent.minLevel} a ${patent.maxLevel}`}
+                                  : `NV ${patent.minLevel}–${patent.maxLevel}`}
                               </span>
                             </div>
 
-                            <div className="flex items-start gap-3 mb-2">
+                            <div className="flex items-center gap-3.5 mb-2">
                               <div
-                                className={`w-11 h-11 rounded-lg flex items-center justify-center text-2xl shrink-0 border ${
+                                className={`w-14 h-14 rounded-xl flex items-center justify-center text-3xl shrink-0 border-2 ${
                                   isReached
-                                    ? "bg-[#181B20] border-[#F59E0B]/50"
+                                    ? "bg-[#181B20] border-[#F59E0B]/60 shadow"
                                     : "bg-[#181B20] border-[#2A303C] grayscale"
                                 }`}
                               >
                                 {patent.icon}
                               </div>
                               <div>
-                                <h4 className="text-sm font-bold text-white flex items-center gap-1.5">
-                                  <span>{patent.title}</span>
+                                <h4 className="text-base sm:text-lg font-extrabold text-white leading-snug">
+                                  {patent.title}
                                 </h4>
-                                <p className="text-xs text-[#94A3B8] mt-1 leading-relaxed">
-                                  {patent.description}
-                                </p>
+                                <button
+                                  type="button"
+                                  onClick={() => togglePatentDetails(patent.id)}
+                                  className="mt-1 inline-flex items-center gap-1 font-mono text-xs font-bold text-amber-300 hover:text-amber-200"
+                                >
+                                  <HelpCircle className="w-3.5 h-3.5" />
+                                  <span>
+                                    {isExpanded
+                                      ? "Ocultar detalhes"
+                                      : "Ver detalhe da patente"}
+                                  </span>
+                                </button>
                               </div>
                             </div>
+
+                            {isExpanded && (
+                              <p className="text-sm text-zinc-200 mt-2.5 p-3 rounded-lg bg-[#181B20] border border-[#2A303C] leading-relaxed">
+                                {patent.description}
+                              </p>
+                            )}
                           </div>
 
-                          <div className="mt-4 pt-3 border-t border-[#2A303C] space-y-2">
+                          <div className="mt-4 pt-3 border-t border-[#2A303C] space-y-2.5">
                             {isCurrent && rankInfo.nextPatent && (
                               <div>
-                                <div className="flex items-center justify-between text-[10px] font-mono text-[#94A3B8] mb-1">
+                                <div className="flex items-center justify-between text-xs font-mono text-zinc-300 mb-1">
                                   <span>Progresso na Patente</span>
-                                  <span className="text-[#F59E0B] font-bold">
+                                  <span className="text-[#F59E0B] font-black">
                                     {rankInfo.patentProgressPct}%
                                   </span>
                                 </div>
-                                <div className="w-full h-1.5 bg-[#181B20] rounded-sm overflow-hidden">
+                                <div className="w-full h-2.5 bg-[#181B20] rounded overflow-hidden">
                                   <div
                                     className="h-full bg-[#F59E0B]"
                                     style={{
@@ -1294,26 +1326,26 @@ export default function ProfilePage() {
                               </div>
                             )}
 
-                            <div className="flex items-center justify-between text-[11px] font-mono">
-                              <span className="text-[#94A3B8]">
-                                Requisito:{" "}
-                                <strong className="text-white">
+                            <div className="flex items-center justify-between text-xs sm:text-sm font-mono">
+                              <span className="text-zinc-300">
+                                Meta:{" "}
+                                <strong className="text-white font-black">
                                   {patent.minXp.toLocaleString("pt-BR")} XP
                                 </strong>
                               </span>
 
                               {isCurrent ? (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#F59E0B]/20 text-[#F59E0B] font-bold border border-[#F59E0B]/40">
-                                  <Sparkles className="w-3 h-3" /> ATUAL
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-[#F59E0B]/20 text-[#F59E0B] font-black border border-[#F59E0B]/40">
+                                  <Sparkles className="w-3.5 h-3.5" /> ATUAL
                                 </span>
                               ) : isReached ? (
-                                <span className="inline-flex items-center gap-1 text-emerald-400 font-bold">
-                                  <CheckCircle2 className="w-3.5 h-3.5" />{" "}
+                                <span className="inline-flex items-center gap-1 text-emerald-400 font-black">
+                                  <CheckCircle2 className="w-4 h-4" />{" "}
                                   ALCANÇADA
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 text-[#94A3B8]">
-                                  <Lock className="w-3 h-3" /> Faltam{" "}
+                                <span className="inline-flex items-center gap-1 text-zinc-400 font-bold">
+                                  <Lock className="w-3.5 h-3.5" /> Faltam{" "}
                                   {levelsMissing} NV (
                                   {xpMissing.toLocaleString("pt-BR")} XP)
                                 </span>
@@ -1327,32 +1359,27 @@ export default function ProfilePage() {
                 </section>
 
                 {/* Explorador da Curva Progressiva de 100 Níveis (0 a 1.000.000 XP) */}
-                <section className="bg-[#181B20] border border-[#2A303C] rounded-lg p-6">
+                <section className="bg-[#181B20] border border-[#2A303C] rounded-xl p-6">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5">
                     <div>
                       <div className="flex items-center gap-2">
                         <Layers className="w-5 h-5 text-[#0057E0]" />
-                        <h3 className="text-base font-bold text-white">
-                          Tabela Progressiva dos 100 Níveis (0 XP até 1.000.000 XP)
+                        <h3 className="text-base sm:text-lg font-extrabold text-white">
+                          Tabela dos 100 Níveis (0 XP até 1.000.000 XP)
                         </h3>
                       </div>
-                      <p className="text-xs text-[#94A3B8] mt-0.5">
-                        Cada nível exige mais pontos adicionales (+Δ XP) que o
-                        nível anterior. Novos marcos de patente são destacados a
-                        cada 5 níveis.
-                      </p>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-1.5">
+                    <div className="flex flex-wrap items-center gap-2">
                       {levelRanges.map((rng, idx) => (
                         <button
                           key={rng.label}
                           type="button"
                           onClick={() => setLevelRangeIdx(idx)}
-                          className={`px-2.5 py-1.5 rounded text-xs font-mono font-bold border transition-colors ${
+                          className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-mono font-extrabold border transition-colors ${
                             levelRangeIdx === idx
                               ? "bg-[#0047B6] border-[#0057E0] text-white"
-                              : "bg-[#0C0E12] border-[#2A303C] text-[#94A3B8] hover:text-white"
+                              : "bg-[#0C0E12] border-[#2A303C] text-zinc-300 hover:text-white"
                           }`}
                         >
                           {rng.label}
@@ -1361,7 +1388,7 @@ export default function ProfilePage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     {visibleLevels.map((tier) => {
                       const unlocked =
                         rankInfo.currentTier.level >= tier.level;
@@ -1373,23 +1400,23 @@ export default function ProfilePage() {
                       return (
                         <div
                           key={tier.level}
-                          className={`px-3.5 py-2.5 rounded-md border flex flex-col justify-between transition-colors ${
+                          className={`px-4 py-3 rounded-lg border-2 flex flex-col justify-between transition-colors ${
                             isCurrentLevel
-                              ? "bg-[#0047B6]/20 border-[#F59E0B] shadow"
+                              ? "bg-[#0047B6]/25 border-[#F59E0B] shadow-md"
                               : unlocked
                               ? "bg-[#0C0E12] border-emerald-500/40"
-                              : "bg-[#0C0E12]/60 border-[#2A303C] opacity-75"
+                              : "bg-[#0C0E12]/60 border-[#2A303C] opacity-80"
                           }`}
                         >
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-1.5">
                               <span
-                                className={`font-mono text-xs font-bold px-2 py-0.5 rounded border ${
+                                className={`font-mono text-xs sm:text-sm font-black px-2.5 py-0.5 rounded border ${
                                   isCurrentLevel
                                     ? "bg-[#F59E0B] text-slate-950 border-[#F59E0B]"
                                     : unlocked
                                     ? "bg-emerald-950/60 text-emerald-300 border-emerald-500/40"
-                                    : "bg-[#181B20] text-[#94A3B8] border-[#2A303C]"
+                                    : "bg-[#181B20] text-zinc-300 border-[#2A303C]"
                                 }`}
                               >
                                 NV {tier.level}
@@ -1397,23 +1424,23 @@ export default function ProfilePage() {
                               {isNewPatentMilestone && (
                                 <span
                                   title="Marco de Nova Patente"
-                                  className="text-xs px-1.5 py-0.5 rounded bg-[#F59E0B]/15 text-[#F59E0B] border border-[#F59E0B]/30 font-mono font-bold"
+                                  className="text-xs px-2 py-0.5 rounded bg-[#F59E0B]/15 text-[#F59E0B] border border-[#F59E0B]/40 font-mono font-bold"
                                 >
                                   {tier.patentIcon} {tier.patentCode}
                                 </span>
                               )}
                             </div>
 
-                            <span className="font-mono text-xs font-bold text-white">
+                            <span className="font-mono text-sm font-black text-white">
                               {tier.minXp.toLocaleString("pt-BR")} XP
                             </span>
                           </div>
 
-                          <div className="mt-2 flex items-center justify-between text-[11px]">
-                            <span className="text-[#94A3B8] truncate pr-2">
+                          <div className="mt-2 flex items-center justify-between text-xs">
+                            <span className="text-zinc-300 font-semibold truncate pr-2">
                               {tier.title}
                             </span>
-                            <span className="font-mono text-[10px] text-[#F59E0B] shrink-0">
+                            <span className="font-mono text-xs font-bold text-[#F59E0B] shrink-0">
                               {tier.level === 1
                                 ? "Início"
                                 : `+${tier.deltaXpRequired.toLocaleString("pt-BR")} XP`}
@@ -1684,7 +1711,7 @@ export default function ProfilePage() {
                     </button>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {filteredAchievements.map((ach) => {
                       const unlocked = profile.unlockedAchievements.includes(
                         ach.id
@@ -1697,62 +1724,79 @@ export default function ProfilePage() {
                       const catMeta = ACHIEVEMENT_CATEGORIES.find(
                         (c) => c.id === ach.category
                       );
+                      const isExpanded = expandedAchievementIds.includes(ach.id);
 
                       return (
                         <div
                           key={ach.id}
-                          className={`p-4 rounded-md border transition-all flex flex-col justify-between ${
+                          className={`p-4 sm:p-5 rounded-xl border-2 transition-all flex flex-col justify-between ${
                             unlocked
-                              ? "bg-[#0C0E12] border-emerald-500/50 shadow-sm"
-                              : "bg-[#111317]/70 border-[#2A303C]"
+                              ? "bg-[#0C0E12] border-emerald-500/60 shadow-md"
+                              : "bg-[#111317]/75 border-[#2A303C]"
                           }`}
                         >
                           <div>
-                            <div className="flex items-center justify-between gap-2 mb-2">
+                            <div className="flex items-center justify-between gap-2 mb-2.5">
                               <div className="flex flex-wrap items-center gap-1.5">
                                 <span
-                                  className={`font-mono text-[10px] font-bold px-2 py-0.5 rounded border ${
+                                  className={`font-mono text-xs font-extrabold px-2.5 py-0.5 rounded border ${
                                     unlocked
                                       ? "bg-emerald-950/60 text-emerald-300 border-emerald-500/40"
-                                      : "bg-[#181B20] text-[#94A3B8] border-[#2A303C]"
+                                      : "bg-[#181B20] text-zinc-300 border-[#2A303C]"
                                   }`}
                                 >
                                   {ach.code}
                                 </span>
                                 <span
-                                  className={`font-mono text-[10px] font-bold px-2 py-0.5 rounded border uppercase ${diffClass}`}
+                                  className={`font-mono text-xs font-extrabold px-2 py-0.5 rounded border uppercase ${diffClass}`}
                                 >
                                   {ach.difficultyLabel}
                                 </span>
                                 {catMeta && (
-                                  <span className="font-mono text-[9px] uppercase px-1.5 py-0.5 rounded bg-[#181B20] text-[#94A3B8] border border-[#2A303C]">
+                                  <span className="font-mono text-[11px] font-bold uppercase px-2 py-0.5 rounded bg-[#181B20] text-zinc-300 border border-[#2A303C]">
                                     {catMeta.shortLabel}
                                   </span>
                                 )}
                               </div>
-                              <span className="font-mono text-xs font-bold text-[#F59E0B] shrink-0">
+                              <span className="font-mono text-sm font-black text-[#F59E0B] shrink-0">
                                 +{ach.xpReward.toLocaleString("pt-BR")} XP
                               </span>
                             </div>
 
-                            <h4 className="text-sm font-bold text-white mb-1 flex items-center gap-1.5">
+                            <h4 className="text-base sm:text-lg font-extrabold text-white mb-1 flex items-center gap-2 leading-snug">
                               {unlocked ? (
-                                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                                <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
                               ) : (
-                                <Lock className="w-3.5 h-3.5 text-[#94A3B8] shrink-0" />
+                                <Lock className="w-4 h-4 text-zinc-400 shrink-0" />
                               )}
                               <span>{ach.title}</span>
                             </h4>
-                            <p className="text-xs text-[#94A3B8] leading-relaxed">
-                              {ach.description}
-                            </p>
+
+                            <button
+                              type="button"
+                              onClick={() => toggleAchievementDetails(ach.id)}
+                              className="mt-1 inline-flex items-center gap-1 font-mono text-xs font-bold text-amber-300 hover:text-amber-200"
+                            >
+                              <HelpCircle className="w-3.5 h-3.5" />
+                              <span>
+                                {isExpanded
+                                  ? "Ocultar requisito"
+                                  : "Ver requisito do desafio"}
+                              </span>
+                            </button>
+
+                            {isExpanded && (
+                              <p className="text-sm text-zinc-200 mt-2 p-2.5 rounded-lg bg-[#181B20] border border-[#2A303C] leading-relaxed">
+                                {ach.description}
+                              </p>
+                            )}
                           </div>
 
-                          <div className="mt-4 pt-2.5 border-t border-[#2A303C] space-y-1.5">
-                            <div className="flex items-center justify-between text-[10px] font-mono">
-                              <span className="text-[#94A3B8]">
-                                Progresso:{" "}
-                                <strong className="text-white">
+                          <div className="mt-4 pt-3 border-t border-[#2A303C] space-y-2">
+                            <div className="flex items-center justify-between text-xs sm:text-sm font-mono">
+                              <span className="text-zinc-300">
+                                Meta:{" "}
+                                <strong className="text-white font-black">
                                   {prog.current.toLocaleString("pt-BR")} /{" "}
                                   {prog.target.toLocaleString("pt-BR")}{" "}
                                   {ach.unitLabel}
@@ -1761,17 +1805,17 @@ export default function ProfilePage() {
                               <span
                                 className={
                                   unlocked
-                                    ? "text-emerald-400 font-bold"
-                                    : "text-[#F59E0B] font-bold"
+                                    ? "text-emerald-400 font-black"
+                                    : "text-[#F59E0B] font-black"
                                 }
                               >
                                 {unlocked ? "CONQUISTADA" : `${prog.pct}%`}
                               </span>
                             </div>
-                            <div className="w-full h-1.5 bg-[#181B20] rounded-sm overflow-hidden">
+                            <div className="w-full h-2.5 bg-[#181B20] rounded overflow-hidden">
                               <div
                                 className={`h-full transition-all duration-300 ${
-                                  unlocked ? "bg-emerald-500" : "bg-[#0047B6]"
+                                  unlocked ? "bg-emerald-500" : "bg-[#0057E0]"
                                 }`}
                                 style={{ width: `${prog.pct}%` }}
                               />

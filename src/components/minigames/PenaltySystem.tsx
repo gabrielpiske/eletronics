@@ -1,7 +1,14 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { ShieldAlert, ZapOff, Timer, AlertOctagon } from "lucide-react";
+import {
+  ShieldAlert,
+  ZapOff,
+  Timer,
+  AlertOctagon,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 import {
   playMultimeterBeep,
   playBreakerTrip,
@@ -249,6 +256,8 @@ export const PenaltyBanner: React.FC<PenaltyBannerProps> = ({
   lastErrorTitle,
   lastErrorDetail,
 }) => {
+  const [showDetail, setShowDetail] = useState<boolean>(false);
+
   if (!isLocked) return null;
 
   const progressPct = Math.max(
@@ -261,33 +270,33 @@ export const PenaltyBanner: React.FC<PenaltyBannerProps> = ({
 
   return (
     <div
-      className={`rounded-md border border-l-4 p-3.5 text-zinc-100 ${
+      className={`rounded-xl border-2 border-l-4 p-4 text-zinc-100 shadow-lg ${
         isSafety
           ? "bg-[#22190D] border-amber-500/80 border-l-amber-400"
-          : "bg-[#1C1113] border-red-500/70 border-l-red-500"
+          : "bg-[#1C1113] border-red-500/80 border-l-red-500"
       }`}
     >
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="flex items-center gap-2.5">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3">
           <div
-            className={`w-8 h-8 rounded border flex items-center justify-center shrink-0 ${
+            className={`w-10 h-10 rounded-lg border flex items-center justify-center shrink-0 ${
               isSafety
                 ? "bg-amber-500/20 border-amber-400/50 text-amber-300"
                 : "bg-red-500/20 border-red-500/40 text-red-400"
             }`}
           >
             {isAutoclick ? (
-              <AlertOctagon className="w-4 h-4" />
+              <AlertOctagon className="w-5 h-5" />
             ) : isSafety ? (
-              <ShieldAlert className="w-4 h-4" />
+              <ShieldAlert className="w-5 h-5" />
             ) : (
-              <ZapOff className="w-4 h-4" />
+              <ZapOff className="w-5 h-5" />
             )}
           </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <span
-                className={`text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded bg-[#0C0E12] border font-bold ${
+                className={`text-xs font-mono uppercase tracking-wider px-2 py-0.5 rounded bg-[#0C0E12] border font-extrabold ${
                   isSafety
                     ? "border-amber-400/50 text-amber-300"
                     : "border-red-500/40 text-red-300"
@@ -296,62 +305,68 @@ export const PenaltyBanner: React.FC<PenaltyBannerProps> = ({
                 {lastBadge}
               </span>
               {consecutiveErrors >= 2 && !isAutoclick && (
-                <span className="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-400/30 font-bold">
+                <span className="text-xs font-mono uppercase px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-400/30 font-extrabold">
                   Reincidência {consecutiveErrors}x
                 </span>
               )}
             </div>
-            <p className="font-bold text-xs sm:text-sm text-white mt-1">
+            <p className="font-extrabold text-sm sm:text-base text-white mt-1">
               {lastErrorTitle}
             </p>
           </div>
         </div>
 
-        <div
-          className={`flex items-center gap-2 bg-[#0C0E12] px-2.5 py-1.5 rounded border font-mono ${
-            isSafety ? "border-amber-400/50" : "border-red-500/40"
-          }`}
-        >
-          <span
-            className={`text-xs font-bold ${
-              isSafety ? "text-amber-300" : "text-red-400"
+        <div className="flex items-center gap-2">
+          {lastErrorDetail && (
+            <button
+              type="button"
+              onClick={() => setShowDetail((v) => !v)}
+              className="px-2.5 py-1.5 rounded-lg bg-[#0C0E12] hover:bg-[#181B20] border border-[#2A303C] text-xs font-mono font-bold text-amber-300 flex items-center gap-1"
+            >
+              <span>{showDetail ? "Ocultar dica" : "Ver dica"}</span>
+              {showDetail ? (
+                <ChevronUp className="w-3.5 h-3.5" />
+              ) : (
+                <ChevronDown className="w-3.5 h-3.5" />
+              )}
+            </button>
+          )}
+
+          <div
+            className={`flex items-center gap-2.5 bg-[#0C0E12] px-3.5 py-2 rounded-lg border font-mono ${
+              isSafety ? "border-amber-400/60" : "border-red-500/50"
             }`}
           >
-            {lastPenaltyPts} pts
-          </span>
-          <span className="text-zinc-600">|</span>
-          <span className="text-xs font-bold text-amber-400 flex items-center gap-1">
-            <Timer className="w-3.5 h-3.5" />
-            {secondsText}s
-          </span>
+            <span
+              className={`text-sm sm:text-base font-black ${
+                isSafety ? "text-amber-300" : "text-red-400"
+              }`}
+            >
+              {lastPenaltyPts} pts
+            </span>
+            <span className="text-zinc-600">|</span>
+            <span className="text-sm sm:text-base font-black text-amber-400 flex items-center gap-1">
+              <Timer className="w-4 h-4" />
+              {secondsText}s
+            </span>
+          </div>
         </div>
       </div>
 
-      {lastErrorDetail && (
-        <p className="text-xs text-zinc-300 mt-2 bg-[#0C0E12] rounded px-2.5 py-1.5 border border-[#2A303C]">
+      {lastErrorDetail && showDetail && (
+        <p className="text-sm text-zinc-200 mt-2.5 bg-[#0C0E12] rounded-lg px-3.5 py-2.5 border border-[#2A303C] leading-snug">
           {lastErrorDetail}
         </p>
       )}
 
       {/* Barra de Progresso do Delay */}
-      <div className="w-full h-1.5 bg-[#0C0E12] rounded-sm overflow-hidden mt-2.5">
+      <div className="w-full h-2.5 bg-[#0C0E12] rounded-sm overflow-hidden mt-3">
         <div
           style={{ width: `${progressPct}%` }}
           className={`h-full transition-all duration-75 ${
             isSafety ? "bg-amber-400" : "bg-red-500"
           }`}
         />
-      </div>
-      <div className="flex items-center justify-between text-[10px] font-mono text-zinc-400 mt-1">
-        <span className="flex items-center gap-1">
-          <ShieldAlert
-            className={`w-3 h-3 ${isSafety ? "text-amber-400" : "text-red-400"}`}
-          />{" "}
-          {isSafety
-            ? "Intertravamento de segurança ativado — corrija o procedimento"
-            : "Disjuntor em rearme automático"}
-        </span>
-        <span>Acerte a próxima para normalizar</span>
       </div>
     </div>
   );

@@ -214,79 +214,83 @@ export const TechnicalPassportModal: React.FC<TechnicalPassportModalProps> = ({
         <div className="h-1 w-full bg-gradient-to-r from-[#0047B6] via-[#F59E0B] to-emerald-500" />
 
         {/* Topo do Modal */}
-        <div className="px-5 py-4 border-b border-[#242933] flex items-center justify-between gap-3">
+        <div className="px-6 py-4 border-b border-[#242933] flex items-center justify-between gap-3">
           <div>
-            <span className="font-mono text-[10px] uppercase tracking-wider text-amber-400 font-bold block">
+            <span className="font-mono text-xs uppercase tracking-wider text-amber-400 font-bold block">
               RELATÓRIO DE PORTFÓLIO ESCOLAR • SENAI
             </span>
-            <h3 className="text-base sm:text-lg font-bold text-white">
+            <h3 className="text-lg sm:text-xl font-extrabold text-white">
               Passaporte &amp; Dossiê Técnico do Aprendiz
             </h3>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <button
               type="button"
               onClick={handlePrintPassport}
-              className="px-3.5 py-2 rounded-md bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs flex items-center gap-1.5 transition-colors"
+              className="px-4 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-zinc-950 font-black text-xs sm:text-sm flex items-center gap-1.5 transition-colors shadow"
             >
-              <Printer className="w-3.5 h-3.5" />
+              <Printer className="w-4 h-4" />
               <span>Imprimir / Salvar PDF</span>
             </button>
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 rounded-md bg-[#0C0E12] text-zinc-400 hover:text-white border border-[#2A303C]"
+              className="p-2 rounded-lg bg-[#0C0E12] text-zinc-300 hover:text-white border border-[#2A303C]"
             >
-              <X className="w-4 h-4" />
+              <X className="w-5 h-5" />
             </button>
           </div>
         </div>
 
         {/* Conteúdo do Passaporte */}
-        <div className="p-5 overflow-y-auto space-y-4">
+        <div className="p-6 overflow-y-auto space-y-5">
           {/* Identificação */}
-          <div className="bg-[#0C0E12] border border-[#2A303C] rounded-lg p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3.5">
+          <div className="bg-[#0C0E12] border border-[#2A303C] rounded-xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
               <UserAvatar
                 profile={profile}
                 size="lg"
-                roundedClassName="rounded-lg"
-                className="border border-[#0057E0]"
+                roundedClassName="rounded-xl"
+                className="border-2 border-[#0057E0]"
               />
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h4 className="text-base font-bold text-white">
+                  <h4 className="text-lg sm:text-xl font-extrabold text-white">
                     {profile.displayName}
                   </h4>
                   {profile.classGroup && (
-                    <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 flex items-center gap-1">
-                      <GraduationCap className="w-3 h-3" />
+                    <span className="font-mono text-xs font-bold px-2.5 py-0.5 rounded bg-emerald-950/70 border border-emerald-500/40 text-emerald-300 flex items-center gap-1">
+                      <GraduationCap className="w-3.5 h-3.5" />
                       {profile.classGroup}
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-emerald-400 font-semibold mt-0.5">
+                <p className="text-sm sm:text-base text-emerald-400 font-extrabold mt-0.5">
                   {rankInfo.currentPatent.icon} {rankInfo.currentPatent.title} (
                   {rankInfo.currentPatent.badgeCode})
                 </p>
-                <p className="text-[11px] font-mono text-zinc-400">
+                <p className="text-xs sm:text-sm font-mono text-zinc-300 mt-0.5">
                   Nível {rankInfo.currentTier.level}/{MAX_PLATFORM_LEVEL} •{" "}
-                  {unlockedPatentsCount}/{SENAI_PATENTS.length} Patentes • Emissão:{" "}
+                  {unlockedPatentsCount}/{SENAI_PATENTS.length} Patentes •{" "}
                   {issuedDate}
                 </p>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 font-mono text-xs shrink-0">
-              <div className="bg-[#181B20] border border-[#2A303C] rounded px-3 py-2 text-center">
-                <span className="text-[9px] text-zinc-400 block">XP TOTAL</span>
-                <span className="font-bold text-amber-400">
+            <div className="grid grid-cols-2 gap-3 font-mono shrink-0">
+              <div className="bg-[#181B20] border border-[#2A303C] rounded-lg px-4 py-2.5 text-center">
+                <span className="text-xs text-zinc-400 font-bold block">
+                  XP TOTAL
+                </span>
+                <span className="text-lg sm:text-xl font-black text-amber-400">
                   {profile.totalXp.toLocaleString("pt-BR")}
                 </span>
               </div>
-              <div className="bg-[#181B20] border border-[#2A303C] rounded px-3 py-2 text-center">
-                <span className="text-[9px] text-zinc-400 block">PRECISÃO</span>
-                <span className="font-bold text-emerald-400">
+              <div className="bg-[#181B20] border border-[#2A303C] rounded-lg px-4 py-2.5 text-center">
+                <span className="text-xs text-zinc-400 font-bold block">
+                  PRECISÃO
+                </span>
+                <span className="text-lg sm:text-xl font-black text-emerald-400">
                   {accuracyPct}%
                 </span>
               </div>
@@ -294,27 +298,27 @@ export const TechnicalPassportModal: React.FC<TechnicalPassportModalProps> = ({
           </div>
 
           {/* Tabela de Desempenho por Módulo */}
-          <div className="bg-[#0C0E12] border border-[#2A303C] rounded-lg overflow-hidden">
-            <div className="px-4 py-2.5 bg-[#13161A] border-b border-[#242933] flex items-center justify-between">
-              <span className="font-mono text-[11px] uppercase tracking-wider text-zinc-300 font-bold flex items-center gap-1.5">
-                <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
-                Histórico de Domínio nas 6 Bancadas da Plataforma
+          <div className="bg-[#0C0E12] border border-[#2A303C] rounded-xl overflow-hidden">
+            <div className="px-5 py-3 bg-[#13161A] border-b border-[#242933] flex items-center justify-between">
+              <span className="font-mono text-xs sm:text-sm uppercase tracking-wider text-zinc-200 font-extrabold flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-amber-400" />
+                Histórico de Domínio nas 6 Bancadas
               </span>
-              <span className="font-mono text-[11px] text-zinc-400">
+              <span className="font-mono text-xs sm:text-sm font-bold text-amber-400">
                 {profile.playedMinigames.length}/{MINIGAMES_CATALOG.length}{" "}
                 módulos concluídos
               </span>
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
+              <table className="w-full text-left border-collapse text-sm">
                 <thead>
-                  <tr className="border-b border-[#242933] text-[10px] font-mono uppercase text-zinc-400 bg-[#181B20]">
-                    <th className="py-2.5 px-3.5">Estação / Módulo</th>
-                    <th className="py-2.5 px-3 text-center">Partidas</th>
-                    <th className="py-2.5 px-3 text-center">Recorde</th>
-                    <th className="py-2.5 px-3 text-center">Zero-Defeito</th>
-                    <th className="py-2.5 px-3.5 text-right">Status</th>
+                  <tr className="border-b border-[#242933] text-xs font-mono uppercase text-zinc-300 bg-[#181B20]">
+                    <th className="py-3 px-4">Estação / Módulo</th>
+                    <th className="py-3 px-3 text-center">Partidas</th>
+                    <th className="py-3 px-3 text-center">Recorde</th>
+                    <th className="py-3 px-3 text-center">Zero-Defeito</th>
+                    <th className="py-3 px-4 text-right">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#242933] font-mono">
@@ -324,30 +328,30 @@ export const TechnicalPassportModal: React.FC<TechnicalPassportModalProps> = ({
                     const perf = profile.minigamePerfectMatches?.[mg.id] || 0;
                     return (
                       <tr key={mg.id}>
-                        <td className="py-2.5 px-3.5 font-sans">
-                          <span className="font-bold text-white block">
+                        <td className="py-3 px-4 font-sans">
+                          <span className="font-bold text-white block text-sm sm:text-base">
                             {mg.title}
                           </span>
-                          <span className="text-[10px] font-mono text-zinc-400">
+                          <span className="text-xs font-mono text-zinc-400">
                             {mg.badge}
                           </span>
                         </td>
-                        <td className="py-2.5 px-3 text-center text-zinc-200">
+                        <td className="py-3 px-3 text-center font-bold text-zinc-200">
                           {count}
                         </td>
-                        <td className="py-2.5 px-3 text-center font-bold text-amber-400">
+                        <td className="py-3 px-3 text-center font-black text-amber-400">
                           {best.toLocaleString("pt-BR")} pts
                         </td>
-                        <td className="py-2.5 px-3 text-center text-emerald-400 font-bold">
+                        <td className="py-3 px-3 text-center text-emerald-400 font-black">
                           {perf}
                         </td>
-                        <td className="py-2.5 px-3.5 text-right">
+                        <td className="py-3 px-4 text-right">
                           {count > 0 ? (
-                            <span className="inline-flex items-center gap-1 text-emerald-400 font-bold text-[11px]">
-                              <CheckCircle2 className="w-3.5 h-3.5" /> Validado
+                            <span className="inline-flex items-center gap-1 text-emerald-400 font-extrabold text-xs sm:text-sm">
+                              <CheckCircle2 className="w-4 h-4" /> Validado
                             </span>
                           ) : (
-                            <span className="text-zinc-500 text-[11px]">
+                            <span className="text-zinc-500 text-xs sm:text-sm">
                               Pendente
                             </span>
                           )}
@@ -361,22 +365,22 @@ export const TechnicalPassportModal: React.FC<TechnicalPassportModalProps> = ({
           </div>
 
           {/* Resumo de Conquistas Desbloqueadas */}
-          <div className="bg-[#0C0E12] border border-[#2A303C] rounded-lg p-4 space-y-2.5">
-            <span className="font-mono text-[11px] uppercase tracking-wider text-amber-400 font-bold flex items-center gap-1.5">
-              <Award className="w-3.5 h-3.5" />
+          <div className="bg-[#0C0E12] border border-[#2A303C] rounded-xl p-5 space-y-3">
+            <span className="font-mono text-xs sm:text-sm uppercase tracking-wider text-amber-400 font-extrabold flex items-center gap-2">
+              <Award className="w-4 h-4" />
               Certificações &amp; Conquistas Desbloqueadas (
               {unlockedAchievementDefs.length}/{ACHIEVEMENTS_CATALOG.length})
             </span>
             {unlockedAchievementDefs.length === 0 ? (
-              <p className="text-xs text-zinc-500 font-mono">
+              <p className="text-sm text-zinc-400 font-mono">
                 Jogue partidas na Sala PIN ou na Bancada Solo para desbloquear suas primeiras certificações técnicas.
               </p>
             ) : (
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-2">
                 {unlockedAchievementDefs.map((ach) => (
                   <span
                     key={ach.id}
-                    className="px-2.5 py-1 rounded bg-[#181B20] border border-[#2A303C] text-[11px] font-mono text-zinc-200"
+                    className="px-3 py-1.5 rounded-lg bg-[#181B20] border border-[#2A303C] text-xs sm:text-sm font-mono text-zinc-100"
                   >
                     <strong className="text-amber-400">[{ach.code}]</strong>{" "}
                     {ach.title}

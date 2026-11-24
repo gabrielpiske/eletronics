@@ -544,17 +544,17 @@ export default function LeaderboardPage() {
               const pStats = getProfilePeriodStats(player, period, meta);
               const isMe = activeProfile?.uid === player.uid;
               const medalColors = [
-                "border-[#F59E0B] bg-[#F59E0B]/10 text-[#F59E0B]",
-                "border-slate-400 bg-slate-400/10 text-slate-300",
-                "border-amber-700 bg-amber-700/15 text-amber-500",
+                "border-[#F59E0B] bg-[#F59E0B]/15 text-[#F59E0B]",
+                "border-slate-400 bg-slate-400/15 text-slate-200",
+                "border-amber-700 bg-amber-700/20 text-amber-400",
               ];
 
               return (
                 <div
                   key={player.uid}
-                  className={`bg-[#181B20] rounded-lg p-5 border transition-all ${
+                  className={`bg-[#181B20] rounded-xl p-5 border-2 transition-all ${
                     idx === 0
-                      ? "border-[#F59E0B]/70 shadow-lg"
+                      ? "border-[#F59E0B]/80 shadow-xl"
                       : isMe
                       ? "border-[#0057E0]"
                       : "border-[#2A303C]"
@@ -562,12 +562,12 @@ export default function LeaderboardPage() {
                 >
                   <div className="flex items-center justify-between mb-4">
                     <span
-                      className={`font-mono text-xs font-bold px-2.5 py-1 rounded border flex items-center gap-1.5 ${medalColors[idx]}`}
+                      className={`font-mono text-xs sm:text-sm font-black px-3 py-1 rounded-md border flex items-center gap-1.5 ${medalColors[idx]}`}
                     >
-                      <Medal className="w-3.5 h-3.5" />
+                      <Medal className="w-4 h-4" />
                       <span>#{idx + 1} LUGAR</span>
                     </span>
-                    <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-[#0C0E12] text-[#F59E0B] border border-[#2A303C]">
+                    <span className="font-mono text-xs sm:text-sm font-black px-2.5 py-1 rounded-md bg-[#0C0E12] text-[#F59E0B] border border-[#2A303C]">
                       NV {rankInfo.currentTier.level} •{" "}
                       {rankInfo.currentPatent.badgeCode}
                     </span>
@@ -578,64 +578,64 @@ export default function LeaderboardPage() {
                       <UserAvatar
                         profile={player}
                         size="lg"
-                        roundedClassName="rounded-lg"
-                        className="border border-[#2A303C]"
+                        roundedClassName="rounded-xl"
+                        className="border-2 border-[#2A303C]"
                       />
                       <span
                         title={rankInfo.currentPatent.title}
-                        className="absolute -bottom-1.5 -right-1.5 w-5 h-5 rounded-full bg-[#181B20] border border-[#F59E0B] flex items-center justify-center text-[11px]"
+                        className="absolute -bottom-1.5 -right-1.5 w-6 h-6 rounded-full bg-[#181B20] border border-[#F59E0B] flex items-center justify-center text-xs"
                       >
                         {rankInfo.currentPatent.icon}
                       </span>
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <h3 className="text-base font-bold text-white truncate">
+                        <h3 className="text-lg sm:text-xl font-extrabold text-white truncate">
                           {player.displayName}
                         </h3>
                         {isMe && (
-                          <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-[#0047B6] text-white font-bold">
+                          <span className="font-mono text-xs px-2 py-0.5 rounded bg-[#0047B6] text-white font-bold">
                             VOCÊ
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-emerald-400 font-semibold truncate">
+                      <p className="text-sm text-emerald-400 font-bold truncate">
                         {rankInfo.currentPatent.icon}{" "}
                         {rankInfo.currentPatent.title}
                       </p>
-                      <p className="text-[10px] font-mono text-[#94A3B8] truncate">
+                      <p className="text-xs font-mono text-zinc-300 truncate mt-0.5">
                         Carreira: {player.totalXp.toLocaleString("pt-BR")} XP
                         {player.classGroup ? ` • ${player.classGroup}` : ""}
                       </p>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2 pt-3 border-t border-[#2A303C] font-mono">
-                    <div className="bg-[#0C0E12] p-2 rounded border border-[#2A303C] text-center">
-                      <div className="text-[9px] uppercase text-[#94A3B8]">
+                  <div className="grid grid-cols-3 gap-2.5 pt-3.5 border-t border-[#2A303C] font-mono">
+                    <div className="lcd-readout p-2.5 rounded-lg text-center">
+                      <div className="text-[11px] font-bold uppercase text-zinc-300">
                         {period === "weekly"
                           ? "XP SEMANA"
                           : period === "monthly"
                           ? "XP MÊS"
                           : "XP TOTAL"}
                       </div>
-                      <div className="text-xs font-bold text-[#F59E0B]">
+                      <div className="text-sm sm:text-base font-black text-[#F59E0B] mt-0.5">
                         {pStats.xp.toLocaleString("pt-BR")}
                       </div>
                     </div>
-                    <div className="bg-[#0C0E12] p-2 rounded border border-[#2A303C] text-center">
-                      <div className="text-[9px] uppercase text-[#94A3B8]">
+                    <div className="lcd-readout p-2.5 rounded-lg text-center">
+                      <div className="text-[11px] font-bold uppercase text-zinc-300">
                         PRECISÃO
                       </div>
-                      <div className="text-xs font-bold text-emerald-400">
+                      <div className="text-sm sm:text-base font-black text-emerald-400 mt-0.5">
                         {pStats.accuracyPct}%
                       </div>
                     </div>
-                    <div className="bg-[#0C0E12] p-2 rounded border border-[#2A303C] text-center">
-                      <div className="text-[9px] uppercase text-[#94A3B8]">
+                    <div className="lcd-readout p-2.5 rounded-lg text-center">
+                      <div className="text-[11px] font-bold uppercase text-zinc-300">
                         COMBO MÁX
                       </div>
-                      <div className="text-xs font-bold text-amber-400">
+                      <div className="text-sm sm:text-base font-black text-amber-400 mt-0.5">
                         {pStats.bestStreak}x
                       </div>
                     </div>
@@ -647,10 +647,10 @@ export default function LeaderboardPage() {
         )}
 
         {/* Full Leaderboard Table */}
-        <section className="bg-[#181B20] border border-[#2A303C] rounded-lg overflow-hidden">
+        <section className="bg-[#181B20] border border-[#2A303C] rounded-xl overflow-hidden shadow-lg">
           <div className="px-6 py-4 border-b border-[#2A303C] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-white">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h3 className="text-base sm:text-lg font-extrabold uppercase tracking-wider text-white">
                 {period === "weekly"
                   ? "Classificação da Semana Atual"
                   : period === "monthly"
@@ -659,8 +659,8 @@ export default function LeaderboardPage() {
                 ({sortedPlayers.length})
               </h3>
               {meta.periodResetAt > 0 && period !== "all" && (
-                <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-[#0C0E12] border border-[#2A303C] text-amber-400 flex items-center gap-1">
-                  <Clock className="w-3 h-3" /> Ciclo iniciado em{" "}
+                <span className="font-mono text-xs px-2.5 py-1 rounded bg-[#0C0E12] border border-[#2A303C] text-amber-400 flex items-center gap-1.5 font-bold">
+                  <Clock className="w-3.5 h-3.5" /> Ciclo iniciado em{" "}
                   {new Date(meta.periodResetAt).toLocaleDateString("pt-BR", {
                     day: "2-digit",
                     month: "2-digit",
@@ -673,9 +673,9 @@ export default function LeaderboardPage() {
             {!activeProfile && (
               <Link
                 href="/profile"
-                className="inline-flex items-center gap-1.5 text-xs font-bold text-[#F59E0B] hover:underline"
+                className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-[#F59E0B] hover:underline"
               >
-                <UserCheck className="w-3.5 h-3.5" />
+                <UserCheck className="w-4 h-4" />
                 <span>Entre com sua conta Google para aparecer no ranking →</span>
               </Link>
             )}
@@ -684,7 +684,7 @@ export default function LeaderboardPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="border-b border-[#2A303C] bg-[#0C0E12] font-mono text-[10px] uppercase tracking-wider text-[#94A3B8]">
+                <tr className="border-b border-[#2A303C] bg-[#0C0E12] font-mono text-xs uppercase tracking-wider text-zinc-300 font-bold">
                   <th className="py-3.5 px-4">Pos</th>
                   <th className="py-3.5 px-4">Aluno / Patente Técnica</th>
                   <th className="py-3.5 px-4 text-center">Nível</th>
@@ -703,12 +703,12 @@ export default function LeaderboardPage() {
                   )}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#2A303C] text-xs">
+              <tbody className="divide-y divide-[#2A303C] text-sm">
                 {sortedPlayers.length === 0 ? (
                   <tr>
                     <td
                       colSpan={isAdmin ? 10 : 9}
-                      className="py-10 px-4 text-center font-mono text-xs text-[#94A3B8]"
+                      className="py-10 px-4 text-center font-mono text-sm text-zinc-400"
                     >
                       Nenhum aluno registrado no ranking ainda. Entre com sua
                       conta Google e jogue uma partida para inaugurar o placar!
@@ -729,67 +729,67 @@ export default function LeaderboardPage() {
                             : "hover:bg-[#111317]/60"
                         }`}
                       >
-                        <td className="py-3.5 px-4 font-mono font-bold">
+                        <td className="py-4 px-4 font-mono font-bold">
                           <span
-                            className={`inline-flex items-center justify-center w-7 h-7 rounded text-xs ${
+                            className={`inline-flex items-center justify-center w-8 h-8 rounded-md text-sm ${
                               index === 0
                                 ? "bg-[#F59E0B] text-slate-950 font-black"
                                 : index === 1
                                 ? "bg-slate-300 text-slate-950 font-black"
                                 : index === 2
                                 ? "bg-amber-700 text-white font-black"
-                                : "bg-[#0C0E12] text-[#94A3B8] border border-[#2A303C]"
+                                : "bg-[#0C0E12] text-zinc-200 border border-[#2A303C]"
                             }`}
                           >
                             {index + 1}
                           </span>
                         </td>
-                        <td className="py-3.5 px-4">
+                        <td className="py-4 px-4">
                           <div className="flex items-center gap-3">
                             <UserAvatar
                               profile={player}
-                              size="sm"
+                              size="md"
                               className="border border-[#2A303C]"
                             />
                             <div>
                               <div className="flex items-center gap-2 flex-wrap">
-                                <span className="font-bold text-white">
+                                <span className="font-extrabold text-white text-sm sm:text-base">
                                   {player.displayName}
                                 </span>
                                 {isMe && (
-                                  <span className="font-mono text-[9px] px-1.5 py-0.5 rounded bg-[#0047B6] text-white font-bold">
+                                  <span className="font-mono text-xs px-2 py-0.5 rounded bg-[#0047B6] text-white font-bold">
                                     VOCÊ
                                   </span>
                                 )}
                                 {player.classGroup && (
-                                  <span className="font-mono text-[9px] px-1.5 py-0.5 rounded bg-[#0C0E12] text-[#94A3B8] border border-[#2A303C]">
+                                  <span className="font-mono text-xs px-2 py-0.5 rounded bg-[#0C0E12] text-zinc-300 border border-[#2A303C]">
                                     {player.classGroup}
                                   </span>
                                 )}
                               </div>
-                              <div className="flex items-center gap-1.5 mt-0.5">
-                                <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#0C0E12] text-emerald-400 border border-[#2A303C]">
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="font-mono text-xs font-extrabold px-2 py-0.5 rounded bg-[#0C0E12] text-emerald-400 border border-[#2A303C]">
                                   {rankInfo.currentPatent.icon}{" "}
                                   {rankInfo.currentPatent.badgeCode}
                                 </span>
-                                <span className="text-[11px] text-[#94A3B8]">
+                                <span className="text-xs sm:text-sm font-semibold text-zinc-300">
                                   {rankInfo.currentPatent.title}
                                 </span>
                               </div>
                             </div>
                           </div>
                         </td>
-                        <td className="py-3.5 px-4 text-center font-mono">
-                          <span className="px-2 py-0.5 rounded bg-[#0C0E12] text-[#F59E0B] border border-[#2A303C] font-bold">
+                        <td className="py-4 px-4 text-center font-mono">
+                          <span className="px-2.5 py-1 rounded bg-[#0C0E12] text-[#F59E0B] border border-[#2A303C] font-black text-xs sm:text-sm">
                             NV {rankInfo.currentTier.level}
                           </span>
                         </td>
-                        <td className="py-3.5 px-4 text-center font-mono text-white">
+                        <td className="py-4 px-4 text-center font-mono font-bold text-white">
                           {pStats.matches}
                         </td>
-                        <td className="py-3.5 px-4 text-center font-mono">
+                        <td className="py-4 px-4 text-center font-mono">
                           <span
-                            className={`px-2 py-0.5 rounded font-bold ${
+                            className={`px-2.5 py-1 rounded font-black text-xs sm:text-sm ${
                               pStats.accuracyPct >= 80
                                 ? "bg-emerald-950/60 text-emerald-400"
                                 : pStats.accuracyPct >= 50
@@ -800,12 +800,12 @@ export default function LeaderboardPage() {
                             {pStats.accuracyPct}%
                           </span>
                         </td>
-                        <td className="py-3.5 px-4 text-center font-mono text-amber-400 font-bold">
+                        <td className="py-4 px-4 text-center font-mono text-amber-400 font-black">
                           {pStats.bestStreak}x
                         </td>
-                        <td className="py-3.5 px-4 text-center font-mono">
-                          <span className="inline-flex items-center gap-1 text-[#94A3B8]">
-                            <Award className="w-3.5 h-3.5 text-[#F59E0B]" />
+                        <td className="py-4 px-4 text-center font-mono">
+                          <span className="inline-flex items-center gap-1.5 text-zinc-200 font-bold">
+                            <Award className="w-4 h-4 text-[#F59E0B]" />
                             <span>
                               {player.unlockedAchievements.length}/
                               {ACHIEVEMENTS_CATALOG.length}
@@ -813,11 +813,11 @@ export default function LeaderboardPage() {
                           </span>
                         </td>
                         {period !== "all" && (
-                          <td className="py-3.5 px-4 text-right font-mono text-xs text-[#94A3B8]">
+                          <td className="py-4 px-4 text-right font-mono text-xs sm:text-sm font-bold text-zinc-300">
                             {player.totalXp.toLocaleString("pt-BR")} XP
                           </td>
                         )}
-                        <td className="py-3.5 px-4 text-right font-mono font-bold text-sm text-[#F59E0B]">
+                        <td className="py-4 px-4 text-right font-mono font-black text-sm sm:text-base text-[#F59E0B]">
                           {pStats.xp.toLocaleString("pt-BR")} XP
                         </td>
                         {isAdmin && (

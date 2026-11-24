@@ -263,38 +263,38 @@ function PracticeContent() {
 
       <main className="max-w-7xl mx-auto w-full px-4 sm:px-6 py-6 flex-1 space-y-5">
         {/* Sub-barra de Alternância Catálogo vs Bancada Solo */}
-        <div className="bg-[#181B20] border border-[#2A303C] rounded-lg px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="bg-[#181B20] border border-[#2A303C] rounded-xl px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg">
           <div>
-            <span className="font-mono text-[10px] uppercase tracking-widest text-[#94A3B8] block">
+            <span className="font-mono text-xs uppercase tracking-widest text-amber-400 font-bold block">
               MÓDULO DE ESTUDO E TREINAMENTO INDIVIDUAL
             </span>
-            <h2 className="text-base font-bold text-white">
-              Catálogo Normalizado (35 Peças + Portas Lógicas) & Bancada Solo
+            <h2 className="text-lg sm:text-xl font-extrabold text-white mt-0.5">
+              Catálogo Interativo (35 Peças) &amp; Bancada Solo
             </h2>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5 flex-wrap">
             <button
               type="button"
               onClick={() => handleSwitchTab("catalog")}
-              className={`px-3.5 py-2 rounded-md text-xs font-semibold flex items-center gap-1.5 border transition-colors ${
+              className={`px-4 py-2.5 rounded-lg text-sm font-extrabold flex items-center gap-2 border transition-colors ${
                 activeTab === "catalog"
-                  ? "bg-amber-500 text-zinc-950 border-amber-400 font-bold"
-                  : "bg-[#0C0E12] text-zinc-300 border-[#2A303C] hover:text-white"
+                  ? "bg-amber-500 text-zinc-950 border-amber-400 shadow"
+                  : "bg-[#0C0E12] text-zinc-200 border-[#2A303C] hover:text-white hover:border-zinc-500"
               }`}
             >
-              <BookOpen className="w-3.5 h-3.5" /> Catálogo (35)
+              <BookOpen className="w-4 h-4" /> Catálogo (35)
             </button>
             <button
               type="button"
               onClick={() => handleSwitchTab("solo")}
-              className={`px-3.5 py-2 rounded-md text-xs font-semibold flex items-center gap-1.5 border transition-colors ${
+              className={`px-4 py-2.5 rounded-lg text-sm font-extrabold flex items-center gap-2 border transition-colors ${
                 activeTab === "solo"
-                  ? "bg-[#0047B6] text-white border-[#0057E0] font-bold"
-                  : "bg-[#0C0E12] text-zinc-300 border-[#2A303C] hover:text-white"
+                  ? "bg-[#0047B6] text-white border-[#0057E0] shadow"
+                  : "bg-[#0C0E12] text-zinc-200 border-[#2A303C] hover:text-white hover:border-zinc-500"
               }`}
             >
-              <Gamepad2 className="w-3.5 h-3.5" /> Treino Solo (+XP Automático)
+              <Gamepad2 className="w-4 h-4" /> Treino Solo (+XP Automático)
             </button>
           </div>
         </div>
@@ -304,8 +304,8 @@ function PracticeContent() {
           <div className="flex flex-col gap-4">
             <WorkbenchCalculatorPanel />
 
-            <div className="flex items-center justify-between flex-wrap gap-3 bg-[#181B20] border border-[#2A303C] rounded-lg px-4 py-3">
-              <div className="flex items-center gap-1.5 flex-wrap">
+            <div className="flex items-center justify-between flex-wrap gap-3 bg-[#181B20] border border-[#2A303C] rounded-xl px-4 py-3.5">
+              <div className="flex items-center gap-2 flex-wrap">
                 {[
                   { id: "all" as const, label: "Todos (35)" },
                   { id: "passivo" as const, label: "Passivos" },
@@ -323,10 +323,10 @@ function PracticeContent() {
                     key={f.id}
                     type="button"
                     onClick={() => setCategoryFilter(f.id)}
-                    className={`px-2.5 py-1 rounded text-xs font-mono font-semibold border transition-colors ${
+                    className={`px-3.5 py-2 rounded-lg text-xs sm:text-sm font-mono font-bold border transition-colors ${
                       categoryFilter === f.id
-                        ? "bg-amber-500/15 border-amber-400 text-amber-300"
-                        : "bg-[#0C0E12] border-[#262B35] text-zinc-400 hover:text-white"
+                        ? "bg-amber-500/20 border-2 border-amber-400 text-amber-300 shadow-sm"
+                        : "bg-[#0C0E12] border-[#262B35] text-zinc-300 hover:text-white hover:border-zinc-500"
                     }`}
                   >
                     {f.label}
@@ -334,69 +334,72 @@ function PracticeContent() {
                 ))}
               </div>
 
-              <div className="relative w-full sm:w-64">
-                <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <div className="relative w-full sm:w-72">
+                <Search className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="text"
                   value={catalogSearch}
                   onChange={(e) => setCatalogSearch(e.target.value)}
-                  placeholder="Buscar componente, letra (R, Q, U)..."
-                  className="w-full pl-8 pr-7 py-1.5 rounded-md bg-[#0C0E12] border border-[#2A303C] focus:border-amber-400 focus:outline-none text-xs text-white"
+                  placeholder="Buscar peça ou letra (R, Q, U)..."
+                  className="w-full pl-10 pr-8 py-2 rounded-lg bg-[#0C0E12] border border-[#2A303C] focus:border-amber-400 focus:outline-none text-sm font-semibold text-white"
                 />
                 {catalogSearch && (
                   <button
                     type="button"
                     onClick={() => setCatalogSearch("")}
                     aria-label="Limpar busca"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white"
                   >
-                    <X className="w-3.5 h-3.5" />
+                    <X className="w-4 h-4" />
                   </button>
                 )}
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredComponents.map((comp) => (
                 <button
                   key={comp.id}
                   type="button"
                   onClick={() => setSelectedCatalogComponent(comp)}
-                  className="bg-[#181B20] hover:bg-[#1D2128] border border-[#2A303C] hover:border-amber-400/70 rounded-lg p-3.5 flex flex-col justify-between text-left transition-all group"
+                  className="bg-[#181B20] hover:bg-[#1E232B] border-2 border-[#2A303C] hover:border-amber-400 rounded-xl p-4 flex flex-col justify-between text-left transition-all group shadow-md"
                 >
                   <div className="w-full">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-[#0C0E12] text-amber-400 border border-[#2A303C]">
+                    <div className="flex items-center justify-between gap-2 mb-2.5">
+                      <span className="text-base font-mono font-black px-3 py-1 rounded-md bg-[#0C0E12] text-amber-400 border border-amber-500/40 shadow-sm">
                         [{comp.boardLetter}]
                       </span>
-                      <span className="text-[11px] font-mono text-zinc-500">
+                      <span className="text-xs sm:text-sm font-mono font-bold px-2.5 py-1 rounded-md bg-[#0C0E12] border border-[#242933] text-emerald-400">
                         {comp.unit}
                       </span>
                     </div>
 
-                    <div className="bg-[#0C0E12] border border-[#222730] rounded-md py-3 flex items-center justify-center my-1.5">
+                    <div className="lcd-readout rounded-lg py-4 flex items-center justify-center my-2 group-hover:border-amber-400/50 transition-colors">
                       <ElectronicSymbolSVG
                         symbolId={comp.id}
-                        className="w-28 h-20"
+                        className="w-36 h-24"
                       />
                     </div>
 
-                    <h3 className="text-sm font-bold text-white mt-2 group-hover:text-amber-300 transition-colors">
+                    <div className="mt-3 flex items-center justify-between gap-2">
+                      <span className="text-xs font-mono font-bold uppercase px-2 py-0.5 rounded bg-[#0047B6]/25 border border-[#0057E0]/40 text-sky-300">
+                        {comp.categoryLabel}
+                      </span>
+                    </div>
+
+                    <h3 className="text-base sm:text-lg font-extrabold text-white mt-1.5 group-hover:text-amber-300 transition-colors leading-snug">
                       {comp.name}
                     </h3>
-                    <span className="text-[10px] font-mono uppercase text-[#38BDF8] block mt-0.5">
-                      {comp.categoryLabel}
-                    </span>
-                    <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+                    <p className="text-sm text-zinc-300 mt-1.5 leading-snug line-clamp-2">
                       {comp.basicFunction}
                     </p>
                   </div>
 
-                  <div className="w-full mt-3 pt-2 border-t border-[#242933] flex items-center justify-between text-[11px] font-mono text-zinc-400 group-hover:text-amber-400">
-                    <span className="flex items-center gap-1">
-                      <Eye className="w-3 h-3" /> Ficha &amp; Teste no Multímetro
+                  <div className="w-full mt-4 pt-3 border-t border-[#262C36] flex items-center justify-between text-xs sm:text-sm font-mono font-bold text-amber-400 group-hover:text-amber-300">
+                    <span className="flex items-center gap-1.5">
+                      <Eye className="w-4 h-4" /> Abrir Visor &amp; Multímetro
                     </span>
-                    <span>→</span>
+                    <span className="text-base">→</span>
                   </div>
                 </button>
               ))}
@@ -416,8 +419,8 @@ function PracticeContent() {
         {/* ABA 2: TREINO INDIVIDUAL COM ATUALIZAÇÃO AUTOMÁTICA DE XP A CADA JOGATINA */}
         {activeTab === "solo" && (
           <div className="flex flex-col gap-4">
-            <div className="bg-[#181B20] border border-[#2A303C] rounded-lg p-3 flex items-center justify-between flex-wrap gap-3">
-              <div className="flex items-center gap-1.5 flex-wrap">
+            <div className="bg-[#181B20] border border-[#2A303C] rounded-xl p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-3.5 shadow-md">
+              <div className="flex items-center gap-2 flex-wrap">
                 {MINIGAMES_CATALOG.map((mg) => {
                   const isIndustrial = mg.track === "industrial";
                   return (
@@ -425,19 +428,19 @@ function PracticeContent() {
                       key={mg.id}
                       type="button"
                       onClick={() => handleSwitchGame(mg.id)}
-                      className={`px-3 py-1.5 rounded-md text-xs font-semibold border transition-colors flex items-center gap-1.5 ${
+                      className={`px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold border transition-colors flex items-center gap-2 ${
                         selectedGame === mg.id
                           ? isIndustrial
-                            ? "bg-amber-500 text-zinc-950 border-amber-400 font-bold"
-                            : "bg-[#0047B6] text-white border-[#0056DB]"
+                            ? "bg-amber-500 text-zinc-950 border-amber-400 font-black shadow"
+                            : "bg-[#0047B6] text-white border-[#0056DB] font-extrabold shadow"
                           : isIndustrial
-                          ? "bg-[#0C0E12] text-amber-300/90 border-amber-500/35 hover:border-amber-400"
-                          : "bg-[#0C0E12] text-zinc-400 border-[#262B35] hover:text-zinc-200"
+                          ? "bg-[#0C0E12] text-amber-300 border-amber-500/40 hover:border-amber-400"
+                          : "bg-[#0C0E12] text-zinc-300 border-[#262B35] hover:text-white"
                       }`}
                     >
                       {isIndustrial && (
                         <span
-                          className={`font-mono text-[9px] uppercase px-1 rounded ${
+                          className={`font-mono text-[11px] font-black uppercase px-1.5 py-0.5 rounded ${
                             selectedGame === mg.id
                               ? "bg-zinc-950/20 text-zinc-950"
                               : "bg-amber-500/15 text-amber-400"
@@ -453,8 +456,8 @@ function PracticeContent() {
               </div>
 
               <div className="flex items-center gap-2 flex-wrap">
-                <div className="flex items-center gap-1 bg-[#0C0E12] border border-[#2A303C] rounded-md p-1">
-                  <span className="font-mono text-[10px] uppercase tracking-wider text-zinc-400 px-1.5">
+                <div className="flex items-center gap-1 bg-[#0C0E12] border border-[#2A303C] rounded-lg p-1">
+                  <span className="font-mono text-xs uppercase tracking-wider text-zinc-400 font-bold px-2">
                     Turno:
                   </span>
                   {(
@@ -469,10 +472,10 @@ function PracticeContent() {
                       key={rg.id}
                       type="button"
                       onClick={() => setSoloRegime(rg.id)}
-                      className={`px-2 py-0.5 rounded text-[11px] font-mono font-bold transition-colors ${
+                      className={`px-2.5 py-1 rounded text-xs font-mono font-bold transition-colors ${
                         soloRegime === rg.id
                           ? "bg-[#0047B6] text-white"
-                          : "text-zinc-400 hover:text-white"
+                          : "text-zinc-300 hover:text-white"
                       }`}
                     >
                       {rg.label}
@@ -480,30 +483,29 @@ function PracticeContent() {
                   ))}
                 </div>
 
-                <span className="px-2.5 py-1 rounded bg-[#0C0E12] border border-[#0057E0]/60 text-blue-300 text-xs font-mono font-bold">
+                <span className="px-3 py-1.5 rounded-lg bg-[#0C0E12] border border-[#0057E0]/60 text-blue-300 text-xs sm:text-sm font-mono font-extrabold">
                   Jogatina:{" "}
                   {Number.isFinite(targetActions)
                     ? `${currentActions}/${targetActions}`
                     : `${currentActions} (Livre)`}
                 </span>
-                <span className="px-2.5 py-1 rounded bg-[#0C0E12] border border-[#2A303C] text-emerald-400 text-xs font-mono font-bold">
-                  Acertos: {soloHits}
+                <span className="px-3 py-1.5 rounded-lg bg-[#0C0E12] border border-[#2A303C] text-emerald-400 text-xs sm:text-sm font-mono font-extrabold">
+                  OK: {soloHits}
                 </span>
-                <span className="px-2.5 py-1 rounded bg-[#0C0E12] border border-[#2A303C] text-red-400 text-xs font-mono font-bold">
+                <span className="px-3 py-1.5 rounded-lg bg-[#0C0E12] border border-[#2A303C] text-red-400 text-xs sm:text-sm font-mono font-extrabold">
                   Erros: {soloMisses}
                 </span>
-                <span className="px-2.5 py-1 rounded bg-[#0C0E12] border border-[#2A303C] text-amber-400 text-xs font-mono font-bold">
+                <span className="px-3 py-1.5 rounded-lg bg-[#0C0E12] border border-[#2A303C] text-amber-400 text-xs sm:text-sm font-mono font-extrabold">
                   Combo {soloStreak}x
                 </span>
                 <span
-                  className={`px-3 py-1 rounded border font-mono font-bold text-xs flex items-center gap-1.5 ${
+                  className={`px-3.5 py-1.5 rounded-lg border font-mono font-black text-sm sm:text-base flex items-center gap-1.5 ${
                     lastSoloDelta !== null && lastSoloDelta < 0
                       ? "bg-red-950/80 border-red-500 text-red-200"
-                      : "bg-[#0C0E12] border-[#2A303C] text-amber-400"
+                      : "bg-[#0C0E12] border-amber-500/40 text-amber-400"
                   }`}
                 >
-                  <Trophy className="w-3.5 h-3.5 text-amber-400" /> {soloScore}{" "}
-                  pts
+                  <Trophy className="w-4 h-4 text-amber-400" /> {soloScore} pts
                   {lastSoloDelta !== null && (
                     <span
                       className={
@@ -521,12 +523,12 @@ function PracticeContent() {
                     type="button"
                     disabled={savingXp}
                     onClick={handleSaveSessionToProfile}
-                    className="px-3 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-1.5 transition-colors"
+                    className="px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs sm:text-sm font-extrabold flex items-center gap-1.5 transition-colors shadow"
                     title="Encerrar jogatina atual e salvar XP imediatamente"
                   >
-                    <Save className="w-3.5 h-3.5" />
+                    <Save className="w-4 h-4" />
                     <span>
-                      {savingXp ? "Salvando..." : "Finalizar & Salvar XP"}
+                      {savingXp ? "Salvando..." : "Salvar XP"}
                     </span>
                   </button>
                 )}
@@ -548,31 +550,30 @@ function PracticeContent() {
                     setSoloMisses(0);
                     setLastSoloDelta(null);
                   }}
-                  className="p-1.5 rounded bg-[#1E2229] hover:bg-[#262B34] border border-[#2E3540] text-zinc-300"
+                  className="p-2 rounded-lg bg-[#1E2229] hover:bg-[#262B34] border border-[#2E3540] text-zinc-200"
                   title="Zerar sessão atual"
                 >
-                  <RotateCcw className="w-3.5 h-3.5" />
+                  <RotateCcw className="w-4 h-4" />
                 </button>
               </div>
             </div>
 
             {savedReport && (
-              <div className="bg-[#12241D] border border-emerald-500/50 border-l-4 border-l-emerald-400 rounded-md px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="bg-[#12241D] border border-emerald-500/50 border-l-4 border-l-emerald-400 rounded-lg px-5 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <div className="flex items-center gap-2 text-emerald-300 font-mono text-xs font-bold">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  <div className="flex items-center gap-2 text-emerald-300 font-mono text-sm font-extrabold">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
                     <span>
-                      FIM DA JOGATINA: +{savedReport.xpEarned} XP SALVOS NO
-                      BANCO DE DADOS E NO PERFIL
+                      FIM DA JOGATINA: +{savedReport.xpEarned} XP SALVOS NO PERFIL
                       {savedReport.newTotalXp
                         ? ` (TOTAL: ${savedReport.newTotalXp.toLocaleString("pt-BR")} XP)`
                         : "!"}
                     </span>
                   </div>
                   {savedReport.unlockedIds.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                      <span className="text-xs font-bold text-[#F59E0B] flex items-center gap-1">
-                        <Award className="w-3.5 h-3.5" /> Nova(s) Conquista(s):
+                    <div className="flex flex-wrap items-center gap-2 mt-2">
+                      <span className="text-xs sm:text-sm font-extrabold text-[#F59E0B] flex items-center gap-1">
+                        <Award className="w-4 h-4" /> Nova(s) Conquista(s):
                       </span>
                       {savedReport.unlockedIds.map((id) => {
                         const ach = ACHIEVEMENTS_CATALOG.find(
@@ -581,7 +582,7 @@ function PracticeContent() {
                         return (
                           <span
                             key={id}
-                            className="font-mono text-[11px] px-2 py-0.5 rounded bg-[#0C0E12] border border-[#F59E0B] text-white"
+                            className="font-mono text-xs font-bold px-2.5 py-1 rounded bg-[#0C0E12] border border-[#F59E0B] text-white"
                           >
                             {ach ? `${ach.title} (+${ach.xpReward} XP)` : id}
                           </span>
@@ -593,13 +594,13 @@ function PracticeContent() {
                 <div className="flex items-center gap-2 shrink-0">
                   <Link
                     href="/profile"
-                    className="px-3 py-1.5 rounded bg-[#0C0E12] hover:bg-[#181B20] border border-[#2A303C] text-xs font-mono font-bold text-white"
+                    className="px-3.5 py-2 rounded-lg bg-[#0C0E12] hover:bg-[#181B20] border border-[#2A303C] text-xs sm:text-sm font-mono font-bold text-white"
                   >
                     Ver Perfil
                   </Link>
                   <Link
                     href="/leaderboard"
-                    className="px-3 py-1.5 rounded bg-[#0047B6] hover:bg-[#0057E0] text-xs font-mono font-bold text-white"
+                    className="px-3.5 py-2 rounded-lg bg-[#0047B6] hover:bg-[#0057E0] text-xs sm:text-sm font-mono font-bold text-white"
                   >
                     Ver Ranking
                   </Link>

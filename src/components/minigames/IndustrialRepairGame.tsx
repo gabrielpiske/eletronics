@@ -293,8 +293,8 @@ export const IndustrialRepairGame: React.FC<IndustrialRepairGameProps> = ({
       />
 
       {stepBanner && !isLocked && step !== "closed" && (
-        <div className="rounded-md px-3.5 py-2.5 border-l-4 border-l-emerald-400 bg-[#121F1A] border border-emerald-500/30 text-emerald-200 text-xs font-mono font-semibold flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+        <div className="rounded-lg px-4 py-3 border-l-4 border-l-emerald-400 bg-[#121F1A] border border-emerald-500/40 text-emerald-200 text-sm font-mono font-bold flex items-center gap-2.5">
+          <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
           <span>{stepBanner}</span>
         </div>
       )}
@@ -316,28 +316,28 @@ export const IndustrialRepairGame: React.FC<IndustrialRepairGameProps> = ({
 
       {/* ETAPA 1: TRIAGEM PTH vs SMD */}
       {step === "triage" && (
-        <div className="bg-[#181B20] border border-[#2A303C] rounded-lg p-4 space-y-3">
+        <div className="bg-[#181B20] border border-[#2A303C] rounded-xl p-5 space-y-4">
           <div>
-            <span className="text-[10px] font-mono uppercase tracking-wider text-amber-400 font-bold block">
+            <span className="text-xs font-mono uppercase tracking-wider text-amber-400 font-extrabold block">
               ETAPA 1 • AVALIAÇÃO INICIAL DA PLACA
             </span>
-            <h4 className="text-sm font-bold text-white mt-0.5">
-              Observe a placa na bancada acima: qual tecnologia de montagem predomina nesta OS?
+            <h4 className="text-base sm:text-lg font-extrabold text-white mt-1">
+              Observe a placa acima: qual tecnologia de montagem predomina nesta OS?
             </h4>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             {(
               [
                 {
                   id: "PTH" as const,
                   title: "Montagem PTH (Pin Through-Hole)",
-                  desc: "Componentes com terminais passantes em furos metalizados (conectores, axiais, radiais).",
+                  desc: "Terminais atravessam furos metalizados na placa.",
                 },
                 {
                   id: "SMD" as const,
-                  title: "Montagem SMD (Surface Mount Device)",
-                  desc: "Componentes de montagem superficial soldados sobre pads de passo fino (SOIC, 0805, SMA).",
+                  title: "Montagem SMD (Surface Mount)",
+                  desc: "Peças soldadas direto nos pads na superfície da placa.",
                 },
               ] as const
             ).map((opt) => (
@@ -346,19 +346,19 @@ export const IndustrialRepairGame: React.FC<IndustrialRepairGameProps> = ({
                 type="button"
                 aria-disabled={isLocked}
                 onClick={() => handleConfirmMounting(opt.id)}
-                className={`p-3.5 rounded-md border text-left transition-colors ${
+                className={`p-4 rounded-xl border-2 text-left transition-colors ${
                   isLocked
                     ? "bg-[#121519] border-[#222730] opacity-45 cursor-not-allowed"
                     : "bg-[#0C0E12] border-[#2A303C] hover:border-amber-400 hover:bg-[#14181F]"
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-bold text-white">
+                  <span className="text-base sm:text-lg font-extrabold text-white">
                     {opt.title}
                   </span>
-                  {isLocked && <Lock className="w-3.5 h-3.5 text-red-400" />}
+                  {isLocked && <Lock className="w-4 h-4 text-red-400" />}
                 </div>
-                <p className="text-xs text-zinc-400 mt-1">{opt.desc}</p>
+                <p className="text-sm text-zinc-300 mt-1">{opt.desc}</p>
               </button>
             ))}
           </div>
@@ -367,21 +367,23 @@ export const IndustrialRepairGame: React.FC<IndustrialRepairGameProps> = ({
 
       {/* ETAPA 2: LOCALIZAR HOTSPOT DEFEITUOSO */}
       {step === "inspect" && (
-        <div className="bg-[#181B20] border border-[#2A303C] rounded-lg p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="bg-[#181B20] border border-[#2A303C] rounded-xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <span className="text-[10px] font-mono uppercase tracking-wider text-amber-400 font-bold flex items-center gap-1">
-              <SearchCheck className="w-3.5 h-3.5" /> ETAPA 2 • LOCALIZAÇÃO POR INSPEÇÃO VISUAL
+            <span className="text-xs font-mono uppercase tracking-wider text-amber-400 font-extrabold flex items-center gap-1.5">
+              <SearchCheck className="w-4 h-4" /> ETAPA 2 • LOCALIZAÇÃO POR INSPEÇÃO VISUAL
             </span>
-            <p className="text-xs sm:text-sm text-zinc-200 mt-1">
-              Use o zoom/lupa e selecione na placa o componente que apresenta anomalia física coerente com o sintoma da OS.
+            <p className="text-sm sm:text-base font-bold text-zinc-100 mt-1">
+              Selecione na placa o componente que apresenta defeito físico visível na lupa.
             </p>
-            <p className="text-[11px] font-mono text-zinc-400 mt-1">
+            <p className="text-xs sm:text-sm font-mono text-zinc-300 mt-1">
               Inspecionados: {inspectedIds.length}/{currentCase.hotspots.length} •{" "}
-              Selecionado:{" "}
-              <strong className="text-amber-400">
+              Alvo selecionado:{" "}
+              <strong className="text-amber-400 text-base">
                 {selectedHotspotId
-                  ? currentCase.hotspots.find((h) => h.id === selectedHotspotId)
-                      ?.designator
+                  ? `[${
+                      currentCase.hotspots.find((h) => h.id === selectedHotspotId)
+                        ?.designator
+                    }]`
                   : "nenhum"}
               </strong>
             </p>
@@ -391,7 +393,7 @@ export const IndustrialRepairGame: React.FC<IndustrialRepairGameProps> = ({
             type="button"
             disabled={!selectedHotspotId || isLocked}
             onClick={handleConfirmDefectiveHotspot}
-            className="px-5 py-3 rounded-md bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-zinc-950 font-bold text-xs uppercase tracking-wider shrink-0 transition-colors"
+            className="px-6 py-3.5 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-zinc-950 font-black text-sm uppercase tracking-wider shrink-0 transition-colors shadow-lg"
           >
             Confirmar Ponto com Defeito
           </button>
@@ -400,21 +402,21 @@ export const IndustrialRepairGame: React.FC<IndustrialRepairGameProps> = ({
 
       {/* ETAPA 3: CLASSIFICAR DEFEITO E PROCEDIMENTO */}
       {step === "repair" && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* 3A: Defeito */}
-          <div className="bg-[#181B20] border border-[#2A303C] rounded-lg p-4 space-y-2.5">
+          <div className="bg-[#181B20] border border-[#2A303C] rounded-xl p-5 space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-amber-400 font-bold">
-                3A • CLASSIFICAR DEFEITO EM [{defectiveHotspot.designator}]
+              <span className="text-xs sm:text-sm font-mono uppercase tracking-wider text-amber-400 font-extrabold">
+                3A • QUAL É O DEFEITO EM [{defectiveHotspot.designator}]?
               </span>
               {defectConfirmed && (
-                <span className="text-[10px] font-mono font-bold text-emerald-400 flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Confirmado
+                <span className="text-xs font-mono font-extrabold text-emerald-400 flex items-center gap-1">
+                  <CheckCircle2 className="w-4 h-4" /> Confirmado
                 </span>
               )}
             </div>
 
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2.5">
               {shuffledDefects.map((opt) => {
                 const chosenRight = defectConfirmed && opt.isCorrect;
                 return (
@@ -423,12 +425,12 @@ export const IndustrialRepairGame: React.FC<IndustrialRepairGameProps> = ({
                     type="button"
                     aria-disabled={isLocked || defectConfirmed}
                     onClick={() => handleChooseDefect(opt)}
-                    className={`p-3 rounded-md border text-left text-xs transition-colors ${
+                    className={`p-3.5 sm:p-4 rounded-lg border-2 text-left text-sm sm:text-base font-semibold transition-colors leading-snug ${
                       chosenRight
-                        ? "bg-emerald-950/50 border-emerald-400 text-emerald-100 font-semibold"
+                        ? "bg-emerald-950/60 border-emerald-400 text-emerald-100 font-bold"
                         : defectConfirmed || isLocked
                         ? "bg-[#121519] border-[#222730] text-zinc-500 opacity-55 cursor-not-allowed"
-                        : "bg-[#0C0E12] border-[#2A303C] text-zinc-200 hover:border-amber-400 hover:bg-[#14181F]"
+                        : "bg-[#0C0E12] border-[#2A303C] text-zinc-100 hover:border-amber-400 hover:bg-[#14181F]"
                     }`}
                   >
                     {opt.label}
@@ -439,30 +441,30 @@ export const IndustrialRepairGame: React.FC<IndustrialRepairGameProps> = ({
           </div>
 
           {/* 3B: Procedimento de bancada */}
-          <div className="bg-[#181B20] border border-[#2A303C] rounded-lg p-4 space-y-2.5">
-            <span className="text-[10px] font-mono uppercase tracking-wider text-sky-400 font-bold flex items-center gap-1.5">
-              <Wrench className="w-3.5 h-3.5" />
-              3B • SELECIONAR PROCEDIMENTO DE REPARO SEGURO
+          <div className="bg-[#181B20] border border-[#2A303C] rounded-xl p-5 space-y-3">
+            <span className="text-xs sm:text-sm font-mono uppercase tracking-wider text-sky-400 font-extrabold flex items-center gap-1.5">
+              <Wrench className="w-4 h-4" />
+              3B • QUAL É O PROCEDIMENTO DE REPARO SEGURO?
             </span>
 
             {!defectConfirmed && (
-              <p className="text-xs font-mono text-zinc-500 py-4 text-center border border-dashed border-[#2A303C] rounded-md bg-[#0C0E12]">
-                Confirme primeiro o defeito observado no bloco 3A.
+              <p className="text-sm font-mono text-zinc-400 py-8 text-center border border-dashed border-[#2A303C] rounded-lg bg-[#0C0E12]">
+                Confirme primeiro o defeito no bloco 3A ao lado.
               </p>
             )}
 
             {defectConfirmed && (
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-2.5">
                 {shuffledProcedures.map((opt) => (
                   <button
                     key={opt.id}
                     type="button"
                     aria-disabled={isLocked}
                     onClick={() => handleChooseProcedure(opt)}
-                    className={`p-3 rounded-md border text-left text-xs transition-colors ${
+                    className={`p-3.5 sm:p-4 rounded-lg border-2 text-left text-sm sm:text-base font-semibold transition-colors leading-snug ${
                       isLocked
                         ? "bg-[#121519] border-[#222730] text-zinc-500 opacity-45 cursor-not-allowed"
-                        : "bg-[#0C0E12] border-[#2A303C] text-zinc-200 hover:border-sky-400 hover:bg-[#14181F]"
+                        : "bg-[#0C0E12] border-[#2A303C] text-zinc-100 hover:border-sky-400 hover:bg-[#14181F]"
                     }`}
                   >
                     {opt.label}
@@ -476,27 +478,27 @@ export const IndustrialRepairGame: React.FC<IndustrialRepairGameProps> = ({
 
       {/* ETAPA 4: VALIDAÇÃO DE QUALIDADE PÓS-REPARO */}
       {step === "quality" && (
-        <div className="bg-[#181B20] border border-[#2A303C] rounded-lg p-4 space-y-3">
+        <div className="bg-[#181B20] border border-[#2A303C] rounded-xl p-5 space-y-3.5">
           <div>
-            <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-400 font-bold flex items-center gap-1.5">
-              <ShieldCheck className="w-3.5 h-3.5" /> ETAPA 4 • INSPEÇÃO FINAL E CRITÉRIO DE QUALIDADE
+            <span className="text-xs sm:text-sm font-mono uppercase tracking-wider text-emerald-400 font-extrabold flex items-center gap-1.5">
+              <ShieldCheck className="w-4 h-4" /> ETAPA 4 • TESTE FINAL DE QUALIDADE
             </span>
-            <h4 className="text-sm font-bold text-white mt-0.5">
-              O reparo foi simulado na PCI acima. Qual verificação final garante a liberação segura da OS?
+            <h4 className="text-base sm:text-lg font-extrabold text-white mt-1">
+              O reparo foi concluído na placa acima. Qual verificação final libera a OS com segurança?
             </h4>
           </div>
 
-          <div className="grid grid-cols-1 gap-2">
+          <div className="grid grid-cols-1 gap-2.5">
             {shuffledQualityChecks.map((opt) => (
               <button
                 key={opt.id}
                 type="button"
                 aria-disabled={isLocked}
                 onClick={() => handleChooseQualityCheck(opt)}
-                className={`p-3 rounded-md border text-left text-xs transition-colors ${
+                className={`p-3.5 sm:p-4 rounded-lg border-2 text-left text-sm sm:text-base font-semibold transition-colors leading-snug ${
                   isLocked
                     ? "bg-[#121519] border-[#222730] text-zinc-500 opacity-45 cursor-not-allowed"
-                    : "bg-[#0C0E12] border-[#2A303C] text-zinc-200 hover:border-emerald-400 hover:bg-[#14181F]"
+                    : "bg-[#0C0E12] border-[#2A303C] text-zinc-100 hover:border-emerald-400 hover:bg-[#14181F]"
                 }`}
               >
                 {opt.label}
@@ -521,11 +523,11 @@ export const IndustrialRepairGame: React.FC<IndustrialRepairGameProps> = ({
           closing={currentCase.closing}
           onNextCase={loadNextCase}
           extraContent={
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               {/* Estado Inicial (Com Defeito) */}
-              <div className="rounded-md bg-[#0C0E12] border border-red-500/40 overflow-hidden">
-                <div className="px-3 py-1.5 bg-red-950/40 border-b border-red-500/30 flex items-center justify-between text-[10px] font-mono font-bold text-red-300 uppercase">
-                  <span>Estado Inicial (Defeito)</span>
+              <div className="rounded-lg bg-[#0C0E12] border-2 border-red-500/40 overflow-hidden">
+                <div className="px-3.5 py-2 bg-red-950/50 border-b border-red-500/30 flex items-center justify-between text-xs font-mono font-extrabold text-red-300 uppercase">
+                  <span>❌ Antes (Com Defeito)</span>
                   <span>[{defectiveHotspot.designator}]</span>
                 </div>
                 <div
@@ -533,9 +535,9 @@ export const IndustrialRepairGame: React.FC<IndustrialRepairGameProps> = ({
                     backgroundImage: `url('${currentCase.boardAssetPath}')`,
                     backgroundSize: "cover",
                   }}
-                  className="h-32 flex items-center justify-center relative"
+                  className="h-36 flex items-center justify-center relative"
                 >
-                  <svg viewBox="-75 -60 150 115" className="w-44 h-28">
+                  <svg viewBox="-75 -60 150 115" className="w-48 h-32">
                     <BoardComponentGraphic
                       visualType={defectiveHotspot.visualType}
                       defectVisual={defectiveHotspot.defectVisual}
@@ -544,16 +546,16 @@ export const IndustrialRepairGame: React.FC<IndustrialRepairGameProps> = ({
                     />
                   </svg>
                 </div>
-                <p className="px-3 py-2 text-[11px] text-zinc-300 font-mono">
+                <p className="px-3.5 py-2.5 text-xs sm:text-sm text-zinc-200 font-mono font-semibold">
                   {currentCase.beforeLabel}
                 </p>
               </div>
 
               {/* Estado Corrigido */}
-              <div className="rounded-md bg-[#0C0E12] border border-emerald-500/40 overflow-hidden">
-                <div className="px-3 py-1.5 bg-emerald-950/40 border-b border-emerald-500/30 flex items-center justify-between text-[10px] font-mono font-bold text-emerald-300 uppercase">
-                  <span className="flex items-center gap-1">
-                    <Sparkles className="w-3 h-3" /> Estado Corrigido (Aprovado)
+              <div className="rounded-lg bg-[#0C0E12] border-2 border-emerald-500/50 overflow-hidden">
+                <div className="px-3.5 py-2 bg-emerald-950/50 border-b border-emerald-500/30 flex items-center justify-between text-xs font-mono font-extrabold text-emerald-300 uppercase">
+                  <span className="flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5" /> ✅ Depois (Reparado)
                   </span>
                   <span>[{defectiveHotspot.designator}]</span>
                 </div>
@@ -562,9 +564,9 @@ export const IndustrialRepairGame: React.FC<IndustrialRepairGameProps> = ({
                     backgroundImage: `url('${currentCase.boardAssetPath}')`,
                     backgroundSize: "cover",
                   }}
-                  className="h-32 flex items-center justify-center relative"
+                  className="h-36 flex items-center justify-center relative"
                 >
-                  <svg viewBox="-75 -60 150 115" className="w-44 h-28">
+                  <svg viewBox="-75 -60 150 115" className="w-48 h-32">
                     <BoardComponentGraphic
                       visualType={defectiveHotspot.visualType}
                       defectVisual={defectiveHotspot.defectVisual}
@@ -573,7 +575,7 @@ export const IndustrialRepairGame: React.FC<IndustrialRepairGameProps> = ({
                     />
                   </svg>
                 </div>
-                <p className="px-3 py-2 text-[11px] text-emerald-200 font-mono">
+                <p className="px-3.5 py-2.5 text-xs sm:text-sm text-emerald-200 font-mono font-semibold">
                   {currentCase.afterLabel}
                 </p>
               </div>
