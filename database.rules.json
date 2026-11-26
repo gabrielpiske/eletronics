@@ -11,7 +11,7 @@
           ".read": true,
           "$uid": {
             ".write": true,
-            ".validate": "!newData.exists() || (newData.hasChildren(['uid', 'displayName', 'totalXp', 'updatedAt']) && newData.child('totalXp').isNumber() && newData.child('totalXp').val() >= 0)"
+            ".validate": "!newData.exists() || (newData.hasChildren(['uid', 'displayName', 'totalXp', 'updatedAt']) && newData.child('totalXp').isNumber() && newData.child('totalXp').val() >= 0 && newData.child('totalXp').val() <= 2000000 && (!newData.child('matchesPlayed').exists() || (newData.child('matchesPlayed').isNumber() && newData.child('matchesPlayed').val() >= 0 && newData.child('matchesPlayed').val() <= 4000)))"
           }
         }
       },
@@ -24,7 +24,7 @@
       ".read": true,
       "$uid": {
         ".write": true,
-        ".validate": "!newData.exists() || (newData.hasChildren(['uid', 'displayName', 'totalXp', 'updatedAt']) && newData.child('totalXp').isNumber() && newData.child('totalXp').val() >= 0)"
+        ".validate": "!newData.exists() || (newData.hasChildren(['uid', 'displayName', 'totalXp', 'updatedAt']) && newData.child('totalXp').isNumber() && newData.child('totalXp').val() >= 0 && newData.child('totalXp').val() <= 2000000 && (!newData.child('matchesPlayed').exists() || (newData.child('matchesPlayed').isNumber() && newData.child('matchesPlayed').val() >= 0 && newData.child('matchesPlayed').val() <= 4000)))"
       }
     }
   }

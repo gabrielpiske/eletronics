@@ -16,6 +16,7 @@ import { ref, get, set, remove, onValue, off } from "firebase/database";
 import {
   ACHIEVEMENTS_CATALOG,
   AchievementDef,
+  MAX_PLATFORM_XP,
   MatchRecord,
   getRankInfoByXp,
 } from "@/data/achievementsData";
@@ -27,7 +28,24 @@ export interface LeaderboardMeta {
   periodResetAt: number;
   seasonNumber: number;
   updatedAt: number;
+  /**
+   * Mapa de revogação/tombstone (uid ou email normalizado -> timestamp da exclusão ou reset admin).
+   * Impede que um perfil deletado ou zerado no Firebase "ressuscite" a partir do localStorage do navegador do aluno.
+   */
+  purgedUsers?: Record<string, number>;
 }
+
+/**
+ * Limites físicos e de sanidade da plataforma (Nível 100 = 1.000.000 XP).
+ * Qualquer perfil legado que exceda estes tetos (ex.: bug antigo de autoclick com >100M XP ou >26.000 partidas)
+ * é automaticamente detectado como corrompido e sanitizado.
+ */
+export const MAX_SANE_TOTAL_XP = MAX_PLATFORM_XP * 2; // 2.000.000 XP (dobro do Nível 100)
+export const MAX_SANE_MATCHES_PLAYED = 4000;
+export const MAX_SANE_TOTAL_HITS = 80000;
+export const MAX_SANE_SINGLE_MATCH_SCORE = 25000;
+export const MAX_SANE_SINGLE_MATCH_HITS = 250;
+export const MAX_SANE_SINGLE_MATCH_XP = 18000;
 
 export interface PeriodStats {
   xp: number;
@@ -182,20 +200,85 @@ export function getCurrentMonthKey(now = Date.now()): string {
 
 export function getLocalLeaderboardMeta(): LeaderboardMeta {
   if (typeof window === "undefined") {
-    return { periodResetAt: 0, seasonNumber: 1, updatedAt: 0 };
+    return { periodResetAt: 0, seasonNumber: 1, updatedAt: 0, purgedUsers: {} };
   }
   try {
     const raw = localStorage.getItem(LOCAL_LEADERBOARD_META_KEY);
-    if (!raw) return { periodResetAt: 0, seasonNumber: 1, updatedAt: 0 };
+    if (!raw) {
+      return { periodResetAt: 0, seasonNumber: 1, updatedAt: 0, purgedUsers: {} };
+    }
     const parsed = JSON.parse(raw) as Partial<LeaderboardMeta>;
+    const rawPurged =
+      parsed.purgedUsers && typeof parsed.purgedUsers === "object"
+        ? parsed.purgedUsers
+        : {};
+    const cleanPurged: Record<string, number> = {};
+    for (const [k, v] of Object.entries(rawPurged)) {
+      const ts = Number(v || 0);
+      if (k && ts > 0) {
+        cleanPurged[k] = ts;
+      }
+    }
     return {
       periodResetAt: Number(parsed.periodResetAt || 0),
       seasonNumber: Math.max(1, Number(parsed.seasonNumber || 1)),
       updatedAt: Number(parsed.updatedAt || 0),
+      purgedUsers: cleanPurged,
     };
   } catch {
-    return { periodResetAt: 0, seasonNumber: 1, updatedAt: 0 };
+    return { periodResetAt: 0, seasonNumber: 1, updatedAt: 0, purgedUsers: {} };
   }
+}
+
+export function normalizePurgeKey(rawKey: string): string {
+  return String(rawKey || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[.#$/[\]\s]/g, "_");
+}
+
+export function getPurgeTimestampForProfile(
+  uid: string,
+  email?: string,
+  meta?: LeaderboardMeta | null
+): number {
+  const activeMeta = meta || getLocalLeaderboardMeta();
+  const map = activeMeta.purgedUsers || {};
+  let maxTs = 0;
+  if (uid) {
+    maxTs = Math.max(maxTs, Number(map[uid] || 0), Number(map[normalizePurgeKey(uid)] || 0));
+  }
+  if (email && email.trim()) {
+    const emailKey = `email_${normalizePurgeKey(email)}`;
+    maxTs = Math.max(maxTs, Number(map[emailKey] || 0));
+  }
+  return maxTs;
+}
+
+/**
+ * Detecta se um perfil possui valores impossíveis gerados pelo antigo bug de XP / autoclick
+ * (ex.: >100 milhões de XP ou >26.000 partidas).
+ */
+export function isCorruptedLegacyProfile(
+  raw: Partial<UserProfile> | null | undefined
+): boolean {
+  if (!raw) return false;
+  const xpVal = Number(raw.totalXp ?? raw.xp ?? 0) || 0;
+  const matchesVal = Number(raw.matchesPlayed ?? raw.totalMatches ?? 0) || 0;
+  const hitsVal = Number(raw.totalHits || 0) || 0;
+  const bestStreakVal = Number(raw.bestStreak || 0) || 0;
+  const highScoreVal = Number(raw.highScoreMatch || 0) || 0;
+
+  if (
+    xpVal > MAX_SANE_TOTAL_XP ||
+    matchesVal > MAX_SANE_MATCHES_PLAYED ||
+    hitsVal > MAX_SANE_TOTAL_HITS ||
+    bestStreakVal > MAX_SANE_TOTAL_HITS ||
+    highScoreVal > MAX_SANE_SINGLE_MATCH_SCORE * 4
+  ) {
+    return true;
+  }
+  return false;
 }
 
 function saveLocalLeaderboardMeta(meta: LeaderboardMeta, emitEvent = false) {
@@ -440,16 +523,85 @@ export function formatGoogleAuthError(err: unknown): string {
 }
 
 function normalizeProfile(
-  raw: Partial<UserProfile> & { uid: string }
+  rawInput: Partial<UserProfile> & { uid: string }
 ): UserProfile {
-  const xpVal = Math.max(0, Number(raw.totalXp ?? raw.xp ?? 0) || 0);
-  const rank = getRankInfoByXp(xpVal);
-  const matchesVal = Math.max(
-    0,
-    Number(raw.matchesPlayed ?? raw.totalMatches ?? 0) || 0
+  let raw = rawInput;
+
+  // Se o perfil veio corrompido pelo antigo bug de XP / autoclick (>2M XP ou >4.000 partidas),
+  // zera todas as métricas corrompidas preservando apenas a identidade (nome, email, foto, turma)
+  if (isCorruptedLegacyProfile(rawInput)) {
+    const nowTs = Date.now();
+    raw = {
+      uid: rawInput.uid,
+      displayName: rawInput.displayName,
+      email: rawInput.email,
+      photoURL: rawInput.photoURL,
+      googlePhotoURL: rawInput.googlePhotoURL,
+      avatar: rawInput.avatar,
+      avatarMode: rawInput.avatarMode,
+      classGroup: rawInput.classGroup,
+      profileUpdatedAt: rawInput.profileUpdatedAt,
+      authProvider: rawInput.authProvider,
+      xp: 0,
+      totalXp: 0,
+      totalMatches: 0,
+      matchesPlayed: 0,
+      totalHits: 0,
+      totalMisses: 0,
+      bestStreak: 0,
+      currentGlobalStreak: 0,
+      perfectMatches: 0,
+      consecutivePerfectMatches: 0,
+      bestConsecutivePerfectMatches: 0,
+      bestFlawlessHits: 0,
+      bestFlawlessScore: 0,
+      bestSingleMatchHits: 0,
+      comebackMatches: 0,
+      roomMatchesPlayed: 0,
+      soloMatchesPlayed: 0,
+      highScoreMatch: 0,
+      minigameBestScores: {},
+      minigameMatches: {},
+      minigamePerfectMatches: {},
+      playedMinigames: [],
+      achievements: {},
+      unlockedAchievements: [],
+      recentMatches: [],
+      weekKey: getCurrentWeekKey(nowTs),
+      weeklyXp: 0,
+      weeklyMatches: 0,
+      weeklyHits: 0,
+      weeklyMisses: 0,
+      weeklyBestStreak: 0,
+      monthKey: getCurrentMonthKey(nowTs),
+      monthlyXp: 0,
+      monthlyMatches: 0,
+      monthlyHits: 0,
+      monthlyMisses: 0,
+      monthlyBestStreak: 0,
+      periodUpdatedAt: nowTs,
+      adminOverrideAt: Math.max(Number(rawInput.adminOverrideAt || 0), nowTs),
+      updatedAt: nowTs,
+    };
+  }
+
+  const xpVal = Math.min(
+    MAX_SANE_TOTAL_XP,
+    Math.max(0, Number(raw.totalXp ?? raw.xp ?? 0) || 0)
   );
-  const totalHitsVal = Math.max(0, Number(raw.totalHits || 0) || 0);
-  const totalMissesVal = Math.max(0, Number(raw.totalMisses || 0) || 0);
+  const rank = getRankInfoByXp(xpVal);
+  const matchesVal = Math.min(
+    MAX_SANE_MATCHES_PLAYED,
+    Math.max(0, Number(raw.matchesPlayed ?? raw.totalMatches ?? 0) || 0)
+  );
+  const totalHitsVal = Math.min(
+    MAX_SANE_TOTAL_HITS,
+    Math.max(0, Number(raw.totalHits || 0) || 0)
+  );
+  const totalMissesVal = Math.min(
+    MAX_SANE_TOTAL_HITS,
+    Math.max(0, Number(raw.totalMisses || 0) || 0)
+  );
 
   const rawAchMap =
     raw.achievements && typeof raw.achievements === "object"
@@ -1101,6 +1253,7 @@ function getLocalUsersMap(): Record<string, UserProfile> {
   const raw = localStorage.getItem(LOCAL_USERS_DB_KEY);
   const parsed: Record<string, UserProfile> = {};
   let shouldPersist = false;
+  const meta = getLocalLeaderboardMeta();
 
   if (raw) {
     try {
@@ -1110,12 +1263,27 @@ function getLocalUsersMap(): Record<string, UserProfile> {
           shouldPersist = true;
           continue;
         }
+        // Verifica se houve exclusão ou reset remoto mais recente que este perfil salvo localmente
+        const purgeTs = getPurgeTimestampForProfile(k, v?.email, meta);
+        const localUpdatedTs = Number(v?.updatedAt || 0);
+        const localAdminTs = Number(v?.adminOverrideAt || 0);
+        if (
+          purgeTs > 0 &&
+          localUpdatedTs < purgeTs &&
+          localAdminTs < purgeTs
+        ) {
+          shouldPersist = true;
+          continue;
+        }
+
+        const wasCorrupted = isCorruptedLegacyProfile(v);
         const norm = normalizeProfile({ ...v, uid: k });
         const audit = evaluateAndSyncProfileAchievements(norm, {
-          awardXp: true,
+          awardXp: !wasCorrupted,
         });
         parsed[k] = audit.profile;
         if (
+          wasCorrupted ||
           audit.newlyUnlockedIds.length > 0 ||
           audit.revokedIds.length > 0
         ) {
@@ -1175,32 +1343,150 @@ function createInitialProfile(
   });
 }
 
-async function fetchRemoteProfileFromFirebase(
+interface RemoteFetchResult {
+  profile: UserProfile | null;
+  checkedServer: boolean;
+  wasCorruptedInRemote: boolean;
+  meta: LeaderboardMeta;
+}
+
+async function fetchRemoteLeaderboardMetaFromFirebase(): Promise<LeaderboardMeta> {
+  const localMeta = getLocalLeaderboardMeta();
+  if (!isFirebaseConfigured || !db) return localMeta;
+  try {
+    const snap = await safeFirebaseCall(
+      () => get(ref(db!, LEADERBOARD_META_DB_PATH)),
+      2200
+    );
+    if (!snap.exists()) return localMeta;
+    const val = snap.val() as Partial<LeaderboardMeta>;
+    const rawPurged =
+      val.purgedUsers && typeof val.purgedUsers === "object"
+        ? val.purgedUsers
+        : {};
+    const mergedPurged: Record<string, number> = {
+      ...(localMeta.purgedUsers || {}),
+    };
+    for (const [k, v] of Object.entries(rawPurged)) {
+      const ts = Number(v || 0);
+      if (k && ts > (mergedPurged[k] || 0)) {
+        mergedPurged[k] = ts;
+      }
+    }
+    const remoteMeta: LeaderboardMeta = {
+      periodResetAt: Math.max(
+        Number(val.periodResetAt || 0),
+        localMeta.periodResetAt || 0
+      ),
+      seasonNumber: Math.max(
+        1,
+        Number(val.seasonNumber || 1),
+        localMeta.seasonNumber || 1
+      ),
+      updatedAt: Math.max(
+        Number(val.updatedAt || 0),
+        localMeta.updatedAt || 0
+      ),
+      purgedUsers: mergedPurged,
+    };
+    saveLocalLeaderboardMeta(remoteMeta, false);
+    return remoteMeta;
+  } catch {
+    return localMeta;
+  }
+}
+
+async function registerRemoteUserPurge(
+  uid: string,
+  email?: string,
+  purgeTs = Date.now()
+): Promise<LeaderboardMeta> {
+  const currentMeta = await fetchRemoteLeaderboardMetaFromFirebase();
+  const nextPurged: Record<string, number> = {
+    ...(currentMeta.purgedUsers || {}),
+  };
+  if (uid) {
+    nextPurged[uid] = purgeTs;
+    nextPurged[normalizePurgeKey(uid)] = purgeTs;
+  }
+  if (email && email.trim()) {
+    nextPurged[`email_${normalizePurgeKey(email)}`] = purgeTs;
+  }
+
+  const nextMeta: LeaderboardMeta = {
+    ...currentMeta,
+    updatedAt: Math.max(currentMeta.updatedAt || 0, purgeTs),
+    purgedUsers: nextPurged,
+  };
+
+  saveLocalLeaderboardMeta(nextMeta, true);
+
+  if (isFirebaseConfigured && db) {
+    try {
+      await safeFirebaseCall(
+        () =>
+          set(ref(db!, LEADERBOARD_META_DB_PATH), sanitizeForFirebase(nextMeta)),
+        3000
+      );
+    } catch {
+      // Fallback local já salvo
+    }
+  }
+
+  return nextMeta;
+}
+
+async function fetchRemoteProfileWithStatus(
   uid: string
-): Promise<UserProfile | null> {
-  if (!isFirebaseConfigured || !db) return null;
+): Promise<RemoteFetchResult> {
+  const meta = await fetchRemoteLeaderboardMetaFromFirebase();
+  if (!isFirebaseConfigured || !db) {
+    return {
+      profile: null,
+      checkedServer: false,
+      wasCorruptedInRemote: false,
+      meta,
+    };
+  }
 
   // Tenta ler de rooms/global_profiles_v2/users/{uid} e de users/{uid}, respeitando adminOverrideAt
   const results = await Promise.allSettled([
-    safeFirebaseCall(() => get(ref(db!, `${GLOBAL_PROFILES_DB_PATH}/${uid}`)), 2500),
+    safeFirebaseCall(
+      () => get(ref(db!, `${GLOBAL_PROFILES_DB_PATH}/${uid}`)),
+      2500
+    ),
     safeFirebaseCall(() => get(ref(db!, `users/${uid}`)), 2500),
   ]);
 
   let bestProfile: UserProfile | null = null;
+  let checkedServer = false;
+  let wasCorruptedInRemote = false;
 
   for (const res of results) {
-    if (res.status === "fulfilled" && res.value.exists()) {
-      const candidate = normalizeProfile({
-        ...(res.value.val() as UserProfile),
-        uid,
-      });
-      bestProfile = bestProfile
-        ? pickPreferredProfile(bestProfile, candidate)
-        : candidate;
+    if (res.status === "fulfilled") {
+      checkedServer = true;
+      if (res.value.exists()) {
+        const rawVal = res.value.val() as UserProfile;
+        if (isCorruptedLegacyProfile(rawVal)) {
+          wasCorruptedInRemote = true;
+        }
+        const candidate = normalizeProfile({
+          ...rawVal,
+          uid,
+        });
+        bestProfile = bestProfile
+          ? pickPreferredProfile(bestProfile, candidate)
+          : candidate;
+      }
     }
   }
 
-  return bestProfile;
+  return {
+    profile: bestProfile,
+    checkedServer,
+    wasCorruptedInRemote,
+    meta,
+  };
 }
 
 async function writeRemoteProfileToFirebase(profile: UserProfile): Promise<void> {
@@ -1225,27 +1511,106 @@ export async function getOrLoadUserProfile(
   uid: string,
   defaults?: Partial<UserProfile>
 ): Promise<UserProfile> {
-  const localMap = getLocalUsersMap();
-  const localExisting = localMap[uid] ? normalizeProfile(localMap[uid]) : null;
+  const {
+    profile: remoteProfile,
+    checkedServer,
+    wasCorruptedInRemote,
+    meta,
+  } = await fetchRemoteProfileWithStatus(uid);
 
-  const remoteProfile = await fetchRemoteProfileFromFirebase(uid);
+  const localMap = getLocalUsersMap();
+  let localExisting = localMap[uid] ? normalizeProfile(localMap[uid]) : null;
+
+  const purgeTs = getPurgeTimestampForProfile(
+    uid,
+    localExisting?.email || remoteProfile?.email || defaults?.email,
+    meta
+  );
+
+  // Se o cache local for anterior a uma exclusão ou reset do Admin, descarta o cache local imediatamente!
+  if (localExisting && purgeTs > 0) {
+    const localTs = Math.max(
+      localExisting.updatedAt || 0,
+      localExisting.adminOverrideAt || 0
+    );
+    if (localTs < purgeTs) {
+      delete localMap[uid];
+      saveLocalUsersMap(localMap, false);
+      localExisting = null;
+    }
+  }
+
   if (remoteProfile) {
-    const mergedRaw = localExisting
-      ? pickPreferredProfile(localExisting, remoteProfile)
-      : remoteProfile;
-    const audit = evaluateAndSyncProfileAchievements(mergedRaw, {
-      awardXp: true,
+    let chosenBase = remoteProfile;
+
+    // Se o servidor sofreu reset/override ou se o servidor tem XP menor porque foi zerado no Firebase Console,
+    // o servidor SEMPRE prevalece sobre um localStorage antigo com XP acumulado.
+    if (localExisting) {
+      const remoteAdminTs = remoteProfile.adminOverrideAt || 0;
+      const localAdminTs = localExisting.adminOverrideAt || 0;
+      if (remoteAdminTs >= localAdminTs && remoteProfile.totalXp < localExisting.totalXp) {
+        // O perfil no Firebase foi zerado/reduzido (pelo Console ou pelo Admin): respeita o Firebase!
+        chosenBase = pickPreferredProfile(remoteProfile, {
+          ...localExisting,
+          xp: remoteProfile.totalXp,
+          totalXp: remoteProfile.totalXp,
+          totalMatches: remoteProfile.totalMatches,
+          matchesPlayed: remoteProfile.matchesPlayed,
+          totalHits: remoteProfile.totalHits,
+          totalMisses: remoteProfile.totalMisses,
+          bestStreak: remoteProfile.bestStreak,
+          currentGlobalStreak: remoteProfile.currentGlobalStreak,
+          perfectMatches: remoteProfile.perfectMatches,
+          consecutivePerfectMatches: remoteProfile.consecutivePerfectMatches,
+          bestConsecutivePerfectMatches:
+            remoteProfile.bestConsecutivePerfectMatches,
+          bestFlawlessHits: remoteProfile.bestFlawlessHits,
+          bestFlawlessScore: remoteProfile.bestFlawlessScore,
+          bestSingleMatchHits: remoteProfile.bestSingleMatchHits,
+          comebackMatches: remoteProfile.comebackMatches,
+          roomMatchesPlayed: remoteProfile.roomMatchesPlayed,
+          soloMatchesPlayed: remoteProfile.soloMatchesPlayed,
+          highScoreMatch: remoteProfile.highScoreMatch,
+          minigameBestScores: remoteProfile.minigameBestScores,
+          minigameMatches: remoteProfile.minigameMatches,
+          minigamePerfectMatches: remoteProfile.minigamePerfectMatches,
+          playedMinigames: remoteProfile.playedMinigames,
+          achievements: remoteProfile.achievements,
+          unlockedAchievements: remoteProfile.unlockedAchievements,
+          recentMatches: remoteProfile.recentMatches,
+          weeklyXp: remoteProfile.weeklyXp,
+          weeklyMatches: remoteProfile.weeklyMatches,
+          monthlyXp: remoteProfile.monthlyXp,
+          monthlyMatches: remoteProfile.monthlyMatches,
+          adminOverrideAt: Math.max(remoteAdminTs, localAdminTs, Date.now()),
+        });
+      } else {
+        chosenBase = pickPreferredProfile(localExisting, remoteProfile);
+      }
+    }
+
+    const audit = evaluateAndSyncProfileAchievements(chosenBase, {
+      awardXp: !wasCorruptedInRemote,
     });
     const merged = audit.profile;
     localMap[uid] = merged;
     saveLocalUsersMap(localMap, false);
     if (
+      wasCorruptedInRemote ||
       audit.newlyUnlockedIds.length > 0 ||
       audit.revokedIds.length > 0
     ) {
       writeRemoteProfileToFirebase(merged).catch(() => {});
     }
     return merged;
+  }
+
+  // O servidor respondeu e o perfil NÃO existe no Firebase (foi deletado no Console ou pelo Admin):
+  // Se o localExisting tinha XP/partidas antigas, NÃO permitimos ressuscitar esse progresso deletado!
+  if (checkedServer && localExisting && (localExisting.totalXp > 0 || localExisting.matchesPlayed > 0 || purgeTs > 0)) {
+    delete localMap[uid];
+    saveLocalUsersMap(localMap, false);
+    localExisting = null;
   }
 
   if (localExisting) {
@@ -1771,11 +2136,39 @@ export async function recordCompletedMatch(params: {
       return { profile: null, xpEarned: 0, newlyUnlockedAchievements: [] };
     }
 
+    // Proteção anti-autoclick / anti-manipulação por partida
+    const safeHits = Math.min(
+      MAX_SANE_SINGLE_MATCH_HITS,
+      Math.max(1, Math.round(params.hits))
+    );
+    const safeMisses = Math.min(
+      MAX_SANE_SINGLE_MATCH_HITS,
+      Math.max(0, Math.round(params.misses))
+    );
+    const safeScore = Math.min(
+      MAX_SANE_SINGLE_MATCH_SCORE,
+      Math.max(0, Math.round(params.score))
+    );
+    const safeMaxStreak = Math.min(
+      safeHits,
+      Math.max(0, Math.round(params.maxStreak))
+    );
+
     const resolvedGameId = (params.minigameId ||
       params.gameId ||
       "conveyor") as MinigameId;
 
     const profile = await getOrLoadUserProfile(uid);
+
+    // Rate-limit contra disparo automatizado em loop (< 2.5 segundos desde a última partida salva)
+    const lastMatchTs = Number(
+      profile.recentMatches?.[0]?.timestamp ||
+        profile.recentMatches?.[0]?.playedAt ||
+        0
+    );
+    if (lastMatchTs > 0 && Date.now() - lastMatchTs < 2500) {
+      return { profile, xpEarned: 0, newlyUnlockedAchievements: [] };
+    }
 
     // Impede duplicação caso a rodada já conste no histórico do perfil (ex.: F5 ou outra aba)
     if (
@@ -1791,15 +2184,18 @@ export async function recordCompletedMatch(params: {
       markProcessedRoundKey(uid, cleanRoundKey);
     }
 
+    const safeTotalAttempts = safeHits + safeMisses;
     const accuracyPct =
-      totalAttempts > 0 ? Math.round((params.hits / totalAttempts) * 100) : 0;
+      safeTotalAttempts > 0
+        ? Math.round((safeHits / safeTotalAttempts) * 100)
+        : 0;
 
     // Calcula XP da partida rebalanceado (progressão equilibrada rumo a 1.000.000 XP)
-    const baseXp = Math.max(
-      15,
-      Math.round(Math.max(0, params.score) * 0.5) + params.hits * 8
+    const baseXp = Math.min(
+      MAX_SANE_SINGLE_MATCH_XP,
+      Math.max(15, Math.round(safeScore * 0.5) + safeHits * 8)
     );
-    const accuracyBonus = accuracyPct >= 90 && params.hits >= 5 ? 45 : 0;
+    const accuracyBonus = accuracyPct >= 90 && safeHits >= 5 ? 45 : 0;
     let totalXpEarned = baseXp + accuracyBonus;
 
     const gameMeta =
@@ -1818,24 +2214,24 @@ export async function recordCompletedMatch(params: {
       minigameId: resolvedGameId,
       minigameTitle: resolvedTitle,
       gameTitle: resolvedTitle,
-      score: Math.max(0, params.score),
+      score: safeScore,
       xpEarned: totalXpEarned,
-      hits: params.hits,
-      misses: params.misses,
+      hits: safeHits,
+      misses: safeMisses,
       accuracyPct,
       accuracy: accuracyPct,
-      maxStreak: params.maxStreak,
+      maxStreak: safeMaxStreak,
     };
 
     const nextMatches = (profile.totalMatches || 0) + 1;
-    const nextHits = (profile.totalHits || 0) + params.hits;
-    const nextMisses = (profile.totalMisses || 0) + params.misses;
-    const isFlawlessRound = params.misses === 0;
+    const nextHits = (profile.totalHits || 0) + safeHits;
+    const nextMisses = (profile.totalMisses || 0) + safeMisses;
+    const isFlawlessRound = safeMisses === 0;
     const nextCurrentGlobalStreak = isFlawlessRound
-      ? (profile.currentGlobalStreak || 0) + params.hits
+      ? (profile.currentGlobalStreak || 0) + safeHits
       : 0;
     const effectiveRoundBestStreak = Math.max(
-      params.maxStreak,
+      safeMaxStreak,
       nextCurrentGlobalStreak
     );
     const nextBestStreak = Math.max(
@@ -1848,8 +2244,8 @@ export async function recordCompletedMatch(params: {
 
     const isPerfectRun = isPerfectMatchRun(
       resolvedGameId,
-      params.hits,
-      params.misses
+      safeHits,
+      safeMisses
     );
     const nextPerfectMatches =
       (profile.perfectMatches || 0) + (isPerfectRun ? 1 : 0);
@@ -1863,20 +2259,20 @@ export async function recordCompletedMatch(params: {
 
     const nextBestFlawlessHits = Math.max(
       profile.bestFlawlessHits || 0,
-      isFlawlessRound ? params.hits : 0
+      isFlawlessRound ? safeHits : 0
     );
     const nextBestFlawlessScore = Math.max(
       profile.bestFlawlessScore || 0,
-      isFlawlessRound ? Math.max(0, params.score) : 0
+      isFlawlessRound ? safeScore : 0
     );
     const nextBestSingleMatchHits = Math.max(
       profile.bestSingleMatchHits || 0,
-      params.hits
+      safeHits
     );
     const isComebackRun = isComebackMatchRun(
-      params.score,
-      params.hits,
-      params.misses
+      safeScore,
+      safeHits,
+      safeMisses
     );
     const nextComebackMatches =
       (profile.comebackMatches || 0) + (isComebackRun ? 1 : 0);
@@ -1887,13 +2283,13 @@ export async function recordCompletedMatch(params: {
 
     const nextHighScoreMatch = Math.max(
       profile.highScoreMatch || 0,
-      Math.max(0, params.score)
+      safeScore
     );
     const nextMinigameBestScores: Partial<Record<MinigameId, number>> = {
       ...(profile.minigameBestScores || {}),
       [resolvedGameId]: Math.max(
         profile.minigameBestScores?.[resolvedGameId] || 0,
-        Math.max(0, params.score)
+        safeScore
       ),
     };
     const nextMinigameMatches: Partial<Record<MinigameId, number>> = {
@@ -1952,7 +2348,7 @@ export async function recordCompletedMatch(params: {
 
     totalXpEarned += audit.xpAdded;
     matchRecord.xpEarned = totalXpEarned;
-    matchRecord.maxStreak = Math.max(params.maxStreak, effectiveRoundBestStreak);
+    matchRecord.maxStreak = Math.max(safeMaxStreak, effectiveRoundBestStreak);
 
     const updatedProfile: UserProfile = normalizeProfile({
       ...audit.profile,
@@ -1963,8 +2359,8 @@ export async function recordCompletedMatch(params: {
       weekKey: getCurrentWeekKey(nowTs),
       weeklyXp: prevWeekStats.xp + totalXpEarned,
       weeklyMatches: prevWeekStats.matches + 1,
-      weeklyHits: prevWeekStats.hits + params.hits,
-      weeklyMisses: prevWeekStats.misses + params.misses,
+      weeklyHits: prevWeekStats.hits + safeHits,
+      weeklyMisses: prevWeekStats.misses + safeMisses,
       weeklyBestStreak: Math.max(
         prevWeekStats.bestStreak,
         effectiveRoundBestStreak
@@ -1972,8 +2368,8 @@ export async function recordCompletedMatch(params: {
       monthKey: getCurrentMonthKey(nowTs),
       monthlyXp: prevMonthStats.xp + totalXpEarned,
       monthlyMatches: prevMonthStats.matches + 1,
-      monthlyHits: prevMonthStats.hits + params.hits,
-      monthlyMisses: prevMonthStats.misses + params.misses,
+      monthlyHits: prevMonthStats.hits + safeHits,
+      monthlyMisses: prevMonthStats.misses + safeMisses,
       monthlyBestStreak: Math.max(
         prevMonthStats.bestStreak,
         effectiveRoundBestStreak
@@ -2017,12 +2413,13 @@ export async function verifyAdminPin(inputPin: string): Promise<boolean> {
 }
 
 export async function adminTriggerPeriodReset(): Promise<LeaderboardMeta> {
-  const currentMeta = getLocalLeaderboardMeta();
+  const currentMeta = await fetchRemoteLeaderboardMetaFromFirebase();
   const now = Date.now();
   const nextMeta: LeaderboardMeta = {
     periodResetAt: now,
     seasonNumber: (currentMeta.seasonNumber || 1) + 1,
     updatedAt: now,
+    purgedUsers: currentMeta.purgedUsers || {},
   };
 
   saveLocalLeaderboardMeta(nextMeta, true);
@@ -2149,6 +2546,11 @@ export async function adminAdjustUserXp(
     updatedAt: now,
   });
 
+  // Registra o timestamp de purge/reset no metadado global para invalidar o cache localStorage do navegador do aluno
+  if (isFullZero) {
+    await registerRemoteUserPurge(uid, profile.email, now - 1);
+  }
+
   const cleanData = sanitizeForFirebase(updated);
   const localMap = getLocalUsersMap();
   localMap[uid] = cleanData;
@@ -2158,14 +2560,25 @@ export async function adminAdjustUserXp(
   return cleanData;
 }
 
-export async function adminDeleteUserProfile(uid: string): Promise<void> {
+export async function adminDeleteUserProfile(
+  uid: string,
+  email?: string
+): Promise<void> {
+  let targetEmail = email || "";
   if (typeof window !== "undefined") {
     const localMap = getLocalUsersMap();
+    if (!targetEmail && localMap[uid]?.email) {
+      targetEmail = localMap[uid].email;
+    }
     if (localMap[uid]) {
       delete localMap[uid];
       saveLocalUsersMap(localMap, true);
     }
   }
+
+  // Registra o tombstone (purgedUsers) no Firebase ANTES/JUNTO da remoção para que o localStorage do aluno
+  // seja automaticamente invalidado caso ele abra o site ou faça login novamente.
+  await registerRemoteUserPurge(uid, targetEmail, Date.now());
 
   if (isFirebaseConfigured && db) {
     await Promise.allSettled([
@@ -2176,6 +2589,112 @@ export async function adminDeleteUserProfile(uid: string): Promise<void> {
       safeFirebaseCall(() => remove(ref(db!, `users/${uid}`)), 3000),
     ]);
   }
+}
+
+/**
+ * Varre o banco de dados (local e Firebase) em busca de qualquer perfil com valores
+ * anômalos/corrompidos (ex.: >2M XP ou >4.000 partidas do antigo bug de autoclick)
+ * e reseta ou remove esses registros definitivamente.
+ */
+export async function adminPurgeCorruptedProfiles(): Promise<{
+  sanitizedCount: number;
+  affectedNames: string[];
+}> {
+  const affectedNames: string[] = [];
+  let sanitizedCount = 0;
+  const now = Date.now();
+
+  const localMap = getLocalUsersMap();
+  const candidates: Record<string, Partial<UserProfile> & { uid: string }> = {};
+
+  for (const [k, v] of Object.entries(localMap)) {
+    candidates[k] = { ...v, uid: k };
+  }
+
+  if (isFirebaseConfigured && db) {
+    const snaps = await Promise.allSettled([
+      safeFirebaseCall(() => get(ref(db!, GLOBAL_PROFILES_DB_PATH)), 3000),
+      safeFirebaseCall(() => get(ref(db!, "users")), 3000),
+    ]);
+    for (const res of snaps) {
+      if (res.status === "fulfilled" && res.value.exists()) {
+        const val = res.value.val() as Record<string, UserProfile>;
+        for (const [k, v] of Object.entries(val)) {
+          if (!v || k.startsWith("seed_")) continue;
+          const prev = candidates[k];
+          if (
+            !prev ||
+            isCorruptedLegacyProfile(v) ||
+            Number(v.totalXp || 0) > Number(prev.totalXp || 0)
+          ) {
+            candidates[k] = { ...v, uid: k };
+          }
+        }
+      }
+    }
+  }
+
+  for (const [uid, rawProf] of Object.entries(candidates)) {
+    const xpVal = Number(rawProf.totalXp ?? rawProf.xp ?? 0) || 0;
+    const matchesVal =
+      Number(rawProf.matchesPlayed ?? rawProf.totalMatches ?? 0) || 0;
+    if (
+      isCorruptedLegacyProfile(rawProf) ||
+      xpVal > MAX_PLATFORM_XP ||
+      matchesVal > MAX_SANE_MATCHES_PLAYED
+    ) {
+      sanitizedCount++;
+      affectedNames.push(rawProf.displayName || uid);
+      await registerRemoteUserPurge(uid, rawProf.email, now - 1);
+      const cleaned = normalizeProfile({
+        ...rawProf,
+        uid,
+        xp: 0,
+        totalXp: 0,
+        totalMatches: 0,
+        matchesPlayed: 0,
+        totalHits: 0,
+        totalMisses: 0,
+        bestStreak: 0,
+        currentGlobalStreak: 0,
+        perfectMatches: 0,
+        consecutivePerfectMatches: 0,
+        bestConsecutivePerfectMatches: 0,
+        bestFlawlessHits: 0,
+        bestFlawlessScore: 0,
+        bestSingleMatchHits: 0,
+        comebackMatches: 0,
+        roomMatchesPlayed: 0,
+        soloMatchesPlayed: 0,
+        highScoreMatch: 0,
+        minigameBestScores: {},
+        minigameMatches: {},
+        minigamePerfectMatches: {},
+        playedMinigames: [],
+        achievements: {},
+        unlockedAchievements: [],
+        recentMatches: [],
+        weeklyXp: 0,
+        weeklyMatches: 0,
+        weeklyHits: 0,
+        weeklyMisses: 0,
+        weeklyBestStreak: 0,
+        monthlyXp: 0,
+        monthlyMatches: 0,
+        monthlyHits: 0,
+        monthlyMisses: 0,
+        monthlyBestStreak: 0,
+        periodUpdatedAt: now,
+        adminOverrideAt: now,
+        updatedAt: now,
+      });
+      localMap[uid] = sanitizeForFirebase(cleaned);
+      await writeRemoteProfileToFirebase(cleaned);
+    }
+  }
+
+  saveLocalUsersMap(localMap, true);
+  return { sanitizedCount, affectedNames };
 }
 
 export function subscribeToLeaderboardMeta(
@@ -2197,13 +2716,31 @@ export function subscribeToLeaderboardMeta(
         (snap) => {
           if (snap.exists()) {
             const val = snap.val() as Partial<LeaderboardMeta>;
+            const localMeta = getLocalLeaderboardMeta();
+            const rawPurged =
+              val.purgedUsers && typeof val.purgedUsers === "object"
+                ? val.purgedUsers
+                : {};
+            const mergedPurged: Record<string, number> = {
+              ...(localMeta.purgedUsers || {}),
+            };
+            for (const [k, v] of Object.entries(rawPurged)) {
+              const ts = Number(v || 0);
+              if (k && ts > (mergedPurged[k] || 0)) {
+                mergedPurged[k] = ts;
+              }
+            }
             const remoteMeta: LeaderboardMeta = {
               periodResetAt: Number(val.periodResetAt || 0),
               seasonNumber: Math.max(1, Number(val.seasonNumber || 1)),
               updatedAt: Number(val.updatedAt || 0),
+              purgedUsers: mergedPurged,
             };
-            const localMeta = getLocalLeaderboardMeta();
-            if (remoteMeta.updatedAt >= localMeta.updatedAt) {
+            if (
+              remoteMeta.updatedAt >= localMeta.updatedAt ||
+              Object.keys(mergedPurged).length !==
+                Object.keys(localMeta.purgedUsers || {}).length
+            ) {
               saveLocalLeaderboardMeta(remoteMeta, false);
               callback(remoteMeta);
             } else {
@@ -2243,25 +2780,71 @@ export function subscribeToGlobalLeaderboard(
 
   let remoteMirrorMap: Record<string, UserProfile> = {};
   let remoteUsersMap: Record<string, UserProfile> = {};
+  let hasRemoteSnapshot = false;
+  const autoHealedUids = new Set<string>();
 
   const emitCombined = () => {
+    const meta = getLocalLeaderboardMeta();
     const localMap = getLocalUsersMap();
-    const combined: Record<string, UserProfile> = { ...localMap };
+    const combined: Record<string, UserProfile> = {};
 
-    const mergeSource = (source: Record<string, UserProfile>) => {
+    // Se o Firebase ainda não carregou, mostra os perfis locais não-purgados
+    if (!hasRemoteSnapshot) {
+      for (const [k, v] of Object.entries(localMap)) {
+        const purgeTs = getPurgeTimestampForProfile(k, v.email, meta);
+        const profTs = Math.max(v.updatedAt || 0, v.adminOverrideAt || 0);
+        if (purgeTs > 0 && profTs < purgeTs) continue;
+        combined[k] = v;
+      }
+    }
+
+    const mergeSource = (
+      source: Record<string, UserProfile>,
+      sourceLabel: "mirror" | "users"
+    ) => {
       for (const [k, v] of Object.entries(source)) {
         if (!v || k.startsWith("seed_") || v.uid?.startsWith("seed_")) {
           continue;
         }
+        const purgeTs = getPurgeTimestampForProfile(k, v.email, meta);
+        const profTs = Math.max(
+          Number(v.updatedAt || 0),
+          Number(v.adminOverrideAt || 0)
+        );
+        // Se este nó remoto for mais antigo que um comando de exclusão (tombstone), ignora e remove!
+        if (purgeTs > 0 && profTs < purgeTs) {
+          if (!autoHealedUids.has(`del_${sourceLabel}_${k}`)) {
+            autoHealedUids.add(`del_${sourceLabel}_${k}`);
+            if (isFirebaseConfigured && db) {
+              const path =
+                sourceLabel === "mirror"
+                  ? `${GLOBAL_PROFILES_DB_PATH}/${k}`
+                  : `users/${k}`;
+              safeFirebaseCall(() => remove(ref(db!, path)), 2500).catch(
+                () => {}
+              );
+            }
+          }
+          continue;
+        }
+
+        const wasCorrupted = isCorruptedLegacyProfile(v);
         const norm = normalizeProfile({ ...v, uid: k });
+
+        // Auto-cura no Firebase caso encontre um perfil com >100M XP ou >26.000 partidas
+        if (wasCorrupted && !autoHealedUids.has(`heal_${k}`)) {
+          autoHealedUids.add(`heal_${k}`);
+          writeRemoteProfileToFirebase(norm).catch(() => {});
+        }
+
         combined[k] = combined[k]
           ? pickPreferredProfile(combined[k], norm)
           : norm;
       }
     };
 
-    mergeSource(remoteMirrorMap);
-    mergeSource(remoteUsersMap);
+    mergeSource(remoteMirrorMap, "mirror");
+    mergeSource(remoteUsersMap, "users");
 
     callback(Object.values(combined));
   };
@@ -2276,6 +2859,7 @@ export function subscribeToGlobalLeaderboard(
       const mirrorListener = onValue(
         mirrorRef,
         (snap) => {
+          hasRemoteSnapshot = true;
           remoteMirrorMap = snap.exists()
             ? (snap.val() as Record<string, UserProfile>)
             : {};
@@ -2289,6 +2873,7 @@ export function subscribeToGlobalLeaderboard(
       const usersListener = onValue(
         usersRef,
         (snap) => {
+          hasRemoteSnapshot = true;
           remoteUsersMap = snap.exists()
             ? (snap.val() as Record<string, UserProfile>)
             : {};

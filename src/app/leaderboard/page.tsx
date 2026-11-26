@@ -17,6 +17,7 @@ import {
   adminTriggerPeriodReset,
   adminAdjustUserXp,
   adminDeleteUserProfile,
+  adminPurgeCorruptedProfiles,
 } from "@/lib/profileService";
 import { getRankInfoByXp, ACHIEVEMENTS_CATALOG } from "@/data/achievementsData";
 import {
@@ -206,14 +207,34 @@ export default function LeaderboardPage() {
   const handleDeleteUser = async (player: UserProfile) => {
     setAdminBusy(true);
     try {
-      await adminDeleteUserProfile(player.uid);
+      await adminDeleteUserProfile(player.uid, player.email);
       setConfirmDeleteUid(null);
       if (selectedPlayerForAdmin?.uid === player.uid) {
         setSelectedPlayerForAdmin(null);
       }
       showTempFeedback(
-        `Perfil de ${player.displayName} removido do ranking.`
+        `Perfil de ${player.displayName} removido do ranking e bloqueado contra restauração de cache.`
       );
+    } finally {
+      setAdminBusy(false);
+    }
+  };
+
+  const handlePurgeCorrupted = async () => {
+    setAdminBusy(true);
+    try {
+      const report = await adminPurgeCorruptedProfiles();
+      if (report.sanitizedCount > 0) {
+        showTempFeedback(
+          `${report.sanitizedCount} perfil(is) com XP/partidas corrompidas foram zerados e bloqueados contra cache antigo (${report.affectedNames.join(
+            ", "
+          )}).`
+        );
+      } else {
+        showTempFeedback(
+          "Varredura concluída: nenhum perfil acima do teto de sanidade (>1M XP / >4.000 partidas) foi encontrado."
+        );
+      }
     } finally {
       setAdminBusy(false);
     }
@@ -506,6 +527,16 @@ export default function LeaderboardPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <button
+                type="button"
+                disabled={adminBusy}
+                onClick={handlePurgeCorrupted}
+                className="px-3.5 py-2 rounded-md bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white font-mono font-bold text-xs flex items-center gap-1.5 transition-colors"
+                title="Varre o Firebase e zera qualquer conta com XP/partidas impossíveis (bug antigo de autoclick)"
+              >
+                <ShieldAlert className="w-3.5 h-3.5" />
+                <span>Limpar Perfis Corrompidos (&gt;1M XP)</span>
+              </button>
               <button
                 type="button"
                 disabled={adminBusy}
