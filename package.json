@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@vercel/analytics": "^2.0.1",
     "canvas-confetti": "^1.9.3",
     "firebase": "^11.1.0",
     "lucide-react": "^0.468.0",
